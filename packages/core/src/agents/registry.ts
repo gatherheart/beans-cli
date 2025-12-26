@@ -1,4 +1,3 @@
-import type { z } from 'zod';
 import type { AgentDefinition } from './types.js';
 
 /**
@@ -10,7 +9,7 @@ export class AgentRegistry {
   /**
    * Register an agent definition
    */
-  register<T extends z.ZodTypeAny>(definition: AgentDefinition<T>): void {
+  register(definition: AgentDefinition): void {
     if (this.agents.has(definition.name)) {
       throw new Error(`Agent already registered: ${definition.name}`);
     }

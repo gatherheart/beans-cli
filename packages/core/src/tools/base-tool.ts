@@ -16,7 +16,7 @@ export abstract class BaseTool<TParams extends Record<string, unknown>>
 {
   abstract readonly name: string;
   abstract readonly description: string;
-  abstract readonly schema: z.ZodSchema<TParams>;
+  abstract readonly schema: z.ZodType<TParams, z.ZodTypeDef, unknown>;
 
   /**
    * Display name for the tool (defaults to name)
@@ -67,13 +67,13 @@ export abstract class BaseTool<TParams extends Record<string, unknown>>
   /**
    * Convert Zod schema to JSON Schema for tool definition
    */
-  protected zodToJsonSchema(schema: z.ZodSchema<TParams>): {
+  protected zodToJsonSchema(schema: z.ZodType<TParams, z.ZodTypeDef, unknown>): {
     type: 'object';
     properties: Record<string, ParameterDefinition>;
     required?: string[];
   } {
     // Basic conversion - in production use zod-to-json-schema
-    const shape = (schema as z.ZodObject<z.ZodRawShape>)._def.shape?.();
+    const shape = (schema as unknown as z.ZodObject<z.ZodRawShape>)._def.shape?.();
     const properties: Record<string, ParameterDefinition> = {};
     const required: string[] = [];
 

@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import type { SessionContext, ConversationTurn, TurnToolCall } from './types.js';
+import type { SessionContext, ConversationTurn } from './types.js';
 
 /**
  * Session manager - tracks the current agent session

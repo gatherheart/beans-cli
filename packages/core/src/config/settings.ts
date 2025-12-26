@@ -86,10 +86,10 @@ function mergeSettings(base: Settings, override: Settings): Settings {
       !Array.isArray(overrideValue)
     ) {
       // Deep merge objects
-      result[key] = { ...baseValue, ...overrideValue } as Settings[typeof key];
+      (result as Record<string, unknown>)[key] = { ...baseValue, ...overrideValue };
     } else if (overrideValue !== undefined) {
       // Override with new value
-      result[key] = overrideValue;
+      (result as Record<string, unknown>)[key] = overrideValue;
     }
   }
 

@@ -3,8 +3,8 @@ import { loadSettings, saveSettings, type Settings } from './settings.js';
 import { ToolRegistry } from '../tools/registry.js';
 import { createBuiltinTools } from '../tools/builtin/index.js';
 import { AgentRegistry } from '../agents/registry.js';
-import { createLLMClient, type LLMClient } from '../llm/client.js';
-import type { LLMProvider } from '../llm/types.js';
+import { createLLMClient } from '../llm/client.js';
+import type { LLMClient, LLMProvider } from '../llm/types.js';
 
 /**
  * Default configuration values
@@ -44,7 +44,6 @@ const defaults: AppConfig = {
  */
 export class Config {
   private static instance: Config | null = null;
-  private settings: Settings;
   private config: AppConfig;
 
   // Lazy-loaded services
@@ -53,7 +52,6 @@ export class Config {
   private _llmClient: LLMClient | null = null;
 
   private constructor(settings: Settings) {
-    this.settings = settings;
     this.config = this.mergeWithDefaults(settings);
   }
 

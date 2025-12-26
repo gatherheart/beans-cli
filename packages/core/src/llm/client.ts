@@ -62,7 +62,7 @@ function createOpenAIClient(config: ProviderConfig): LLMClient {
         throw new Error(`OpenAI API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as Parameters<typeof parseOpenAIResponse>[0];
       return parseOpenAIResponse(data);
     },
   };
@@ -100,7 +100,7 @@ function createAnthropicClient(config: ProviderConfig): LLMClient {
         throw new Error(`Anthropic API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as Parameters<typeof parseAnthropicResponse>[0];
       return parseAnthropicResponse(data);
     },
   };
@@ -144,7 +144,7 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
         throw new Error(`Google API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as Parameters<typeof parseGoogleResponse>[0];
       return parseGoogleResponse(data, request.model);
     },
   };
@@ -182,7 +182,7 @@ function createOllamaClient(config: ProviderConfig): LLMClient {
         throw new Error(`Ollama API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as Parameters<typeof parseOllamaResponse>[0];
       return parseOllamaResponse(data, request.model);
     },
   };
