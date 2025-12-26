@@ -1,0 +1,31 @@
+{
+  "name": "@beans/cli",
+  "version": "0.1.0",
+  "description": "AI Agent CLI - Interactive terminal interface",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "beans": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@beans/core": "^0.1.0",
+    "chalk": "^5.3.0",
+    "ink": "^5.0.0",
+    "ink-spinner": "^5.0.0",
+    "react": "^18.2.0",
+    "yargs": "^17.7.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/yargs": "^17.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^3.0.0"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "name": "@beans/agent",
+  "version": "0.1.0",
+  "description": "AI Agent Framework - A modular, extensible AI coding agent",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "private": true,
+  "scripts": {
+    "start": "node scripts/start.js",
+    "dev": "tsx watch packages/cli/src/index.ts",
+    "build": "npm run build --workspaces",
+    "build:core": "npm run build --workspace @beans/core",
+    "build:cli": "npm run build --workspace @beans/cli",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf packages/*/dist node_modules/.cache"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "esbuild": "^0.20.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^10.0.0",
+    "prettier": "^3.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "vitest": "^3.0.0"
+  },
+  "dependencies": {
+    "zod": "^3.22.0"
+  }
+}

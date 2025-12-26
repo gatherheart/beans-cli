@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(mkdir:*)",
+      "Bash(bash -c 'cd /Users/bean/kakao && ls -la beans-code/')"
+    ]
+  }
+}
