@@ -3,24 +3,46 @@
   "version": "0.1.0",
   "description": "Core agent framework - tools, agents, and LLM integration",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
     },
     "./agents": {
-      "import": "./dist/agents/index.js",
-      "types": "./dist/agents/index.d.ts"
+      "import": "./src/agents/index.ts",
+      "types": "./src/agents/index.ts"
     },
     "./tools": {
-      "import": "./dist/tools/index.js",
-      "types": "./dist/tools/index.d.ts"
+      "import": "./src/tools/index.ts",
+      "types": "./src/tools/index.ts"
     },
     "./llm": {
-      "import": "./dist/llm/index.js",
-      "types": "./dist/llm/index.d.ts"
+      "import": "./src/llm/index.ts",
+      "types": "./src/llm/index.ts"
+    }
+  },
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "import": "./dist/index.js",
+        "types": "./dist/index.d.ts"
+      },
+      "./agents": {
+        "import": "./dist/agents/index.js",
+        "types": "./dist/agents/index.d.ts"
+      },
+      "./tools": {
+        "import": "./dist/tools/index.js",
+        "types": "./dist/tools/index.d.ts"
+      },
+      "./llm": {
+        "import": "./dist/llm/index.js",
+        "types": "./dist/llm/index.d.ts"
+      }
     }
   },
   "scripts": {

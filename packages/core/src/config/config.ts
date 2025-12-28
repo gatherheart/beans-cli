@@ -1,5 +1,6 @@
 import type { AppConfig, LLMConfig, AgentConfig, ToolsConfig, TelemetryConfig, UIConfig } from './types.js';
 import { loadSettings, saveSettings, type Settings } from './settings.js';
+import { loadEnv } from './env.js';
 import { ToolRegistry } from '../tools/registry.js';
 import { createBuiltinTools } from '../tools/builtin/index.js';
 import { AgentRegistry } from '../agents/registry.js';
@@ -60,6 +61,7 @@ export class Config {
    */
   static async getInstance(): Promise<Config> {
     if (!Config.instance) {
+      loadEnv();
       const settings = await loadSettings();
       Config.instance = new Config(settings);
     }

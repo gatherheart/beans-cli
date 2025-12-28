@@ -81,6 +81,22 @@ export interface ChatStreamChunk {
 }
 
 /**
+ * Model information
+ */
+export interface ModelInfo {
+  /** Model identifier (e.g., "gpt-4o", "gemini-2.0-flash-exp") */
+  id: string;
+  /** Display name */
+  name?: string;
+  /** Model description */
+  description?: string;
+  /** Max context length in tokens */
+  contextWindow?: number;
+  /** Supported methods (e.g., ["generateContent", "chat"]) */
+  supportedMethods?: string[];
+}
+
+/**
  * LLM client interface
  */
 export interface LLMClient {
@@ -95,6 +111,11 @@ export interface LLMClient {
   chatStream?(
     request: ChatRequest
   ): AsyncGenerator<ChatStreamChunk, void, unknown>;
+
+  /**
+   * List available models from the provider
+   */
+  listModels?(): Promise<ModelInfo[]>;
 }
 
 /**

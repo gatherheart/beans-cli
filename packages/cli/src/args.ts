@@ -19,6 +19,8 @@ export interface CLIArgs {
   verbose: boolean;
   /** Working directory */
   cwd?: string;
+  /** List available models */
+  listModels: boolean;
 }
 
 /**
@@ -32,6 +34,7 @@ export async function parseArgs(): Promise<CLIArgs> {
     continue: false,
     yolo: false,
     verbose: false,
+    listModels: false,
   };
 
   const positional: string[] = [];
@@ -64,6 +67,9 @@ export async function parseArgs(): Promise<CLIArgs> {
         break;
       case '--cwd':
         result.cwd = args[++i];
+        break;
+      case '--list-models':
+        result.listModels = true;
         break;
       default:
         if (!arg.startsWith('-')) {

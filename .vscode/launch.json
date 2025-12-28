@@ -1,0 +1,100 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug CLI",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
+      "args": [
+        "${workspaceFolder}/packages/cli/src/index.ts",
+        "hello world"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    },
+    {
+      "name": "Debug CLI (with prompt)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
+      "args": [
+        "${workspaceFolder}/packages/cli/src/index.ts",
+        "${input:prompt}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    },
+    {
+      "name": "Debug CLI (Google)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
+      "args": [
+        "${workspaceFolder}/packages/cli/src/index.ts",
+        "--model",
+        "gemini-2.0-flash",
+        "${input:prompt}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    },
+    {
+      "name": "Debug Tests",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/vitest",
+      "args": [
+        "run",
+        "--no-coverage"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    },
+    {
+      "name": "Debug Current Test File",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/vitest",
+      "args": [
+        "run",
+        "${relativeFile}",
+        "--no-coverage"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "prompt",
+      "type": "promptString",
+      "description": "Enter the prompt for the agent",
+      "default": "hello"
+    }
+  ]
+}

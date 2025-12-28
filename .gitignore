@@ -6,8 +6,14 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Compiled TypeScript in src (should not exist)
+packages/*/src/**/*.js
+packages/*/src/**/*.js.map
+packages/*/src/**/*.d.ts
+
 # IDE
-.vscode/
+.vscode/*
+!.vscode/launch.json
 .idea/
 *.swp
 *.swo

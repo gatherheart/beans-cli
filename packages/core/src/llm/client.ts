@@ -4,6 +4,7 @@ import type {
   ChatResponse,
   ProviderConfig,
   LLMProvider,
+  ModelInfo,
 } from './types.js';
 
 /**
@@ -65,6 +66,32 @@ function createOpenAIClient(config: ProviderConfig): LLMClient {
       const data = await response.json() as Parameters<typeof parseOpenAIResponse>[0];
       return parseOpenAIResponse(data);
     },
+
+    async listModels(): Promise<ModelInfo[]> {
+      const response = await fetch(`${baseUrl}/models`, {
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          ...(config.organizationId && {
+            'OpenAI-Organization': config.organizationId,
+          }),
+          ...config.headers,
+        },
+        signal: AbortSignal.timeout(config.timeout ?? 60000),
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status}`);
+      }
+
+      const data = await response.json() as { data: Array<{ id: string; owned_by: string }> };
+      return data.data
+        .filter((m) => m.id.startsWith('gpt'))
+        .map((m) => ({
+          id: m.id,
+          name: m.id,
+          description: `Owned by ${m.owned_by}`,
+        }));
+    },
   };
 }
 
@@ -103,6 +130,17 @@ function createAnthropicClient(config: ProviderConfig): LLMClient {
       const data = await response.json() as Parameters<typeof parseAnthropicResponse>[0];
       return parseAnthropicResponse(data);
     },
+
+    async listModels(): Promise<ModelInfo[]> {
+      // Anthropic doesn't have a public list models API, return known models
+      return [
+        { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', description: 'Latest Sonnet model' },
+        { id: 'claude-opus-4-20250514', name: 'Claude Opus 4', description: 'Most capable model' },
+        { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', description: 'Balanced performance' },
+        { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', description: 'Fast and efficient' },
+        { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', description: 'Previous flagship' },
+      ];
+    },
   };
 }
 
@@ -117,35 +155,71 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
     async chat(request: ChatRequest): Promise<ChatResponse> {
       const url = `${baseUrl}/models/${request.model}:generateContent?key=${config.apiKey}`;
 
+      const body = {
+        contents: formatMessagesForGoogle(request),
+        systemInstruction: request.systemPrompt
+          ? { parts: [{ text: request.systemPrompt }] }
+          : undefined,
+        tools: request.tools
+          ? [{ functionDeclarations: request.tools.map(formatToolForGoogle) }]
+          : undefined,
+        generationConfig: {
+          temperature: request.temperature,
+          maxOutputTokens: request.maxTokens,
+          topP: request.topP,
+        },
+      };
+
+      console.log('[Google API] URL:', url.replace(/key=[^&]+/, 'key=***'));
+      console.log('[Google API] Body:', JSON.stringify(body, null, 2));
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...config.headers,
         },
-        body: JSON.stringify({
-          contents: formatMessagesForGoogle(request),
-          systemInstruction: request.systemPrompt
-            ? { parts: [{ text: request.systemPrompt }] }
-            : undefined,
-          tools: request.tools
-            ? [{ functionDeclarations: request.tools.map(formatToolForGoogle) }]
-            : undefined,
-          generationConfig: {
-            temperature: request.temperature,
-            maxOutputTokens: request.maxTokens,
-            topP: request.topP,
-          },
-        }),
+        body: JSON.stringify(body),
         signal: AbortSignal.timeout(config.timeout ?? 60000),
       });
 
       if (!response.ok) {
-        throw new Error(`Google API error: ${response.status}`);
+        const errorBody = await response.text();
+        throw new Error(`Google API error: ${response.status} - ${errorBody}`);
       }
 
       const data = await response.json() as Parameters<typeof parseGoogleResponse>[0];
       return parseGoogleResponse(data, request.model);
+    },
+
+    async listModels(): Promise<ModelInfo[]> {
+      const response = await fetch(`${baseUrl}/models?key=${config.apiKey}`, {
+        headers: config.headers,
+        signal: AbortSignal.timeout(config.timeout ?? 60000),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Google API error: ${response.status} - ${errorBody}`);
+      }
+
+      const data = await response.json() as {
+        models: Array<{
+          name: string;
+          displayName: string;
+          description: string;
+          supportedGenerationMethods: string[];
+        }>;
+      };
+
+      return data.models
+        .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
+        .map((m) => ({
+          id: m.name.replace('models/', ''),
+          name: m.displayName,
+          description: m.description,
+          supportedMethods: m.supportedGenerationMethods,
+        }));
     },
   };
 }
@@ -184,6 +258,31 @@ function createOllamaClient(config: ProviderConfig): LLMClient {
 
       const data = await response.json() as Parameters<typeof parseOllamaResponse>[0];
       return parseOllamaResponse(data, request.model);
+    },
+
+    async listModels(): Promise<ModelInfo[]> {
+      const response = await fetch(`${baseUrl}/api/tags`, {
+        headers: config.headers,
+        signal: AbortSignal.timeout(config.timeout ?? 60000),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Ollama API error: ${response.status}`);
+      }
+
+      const data = await response.json() as {
+        models: Array<{
+          name: string;
+          size: number;
+          modified_at: string;
+        }>;
+      };
+
+      return data.models.map((m) => ({
+        id: m.name,
+        name: m.name,
+        description: `Size: ${Math.round(m.size / 1024 / 1024 / 1024 * 10) / 10}GB`,
+      }));
     },
   };
 }

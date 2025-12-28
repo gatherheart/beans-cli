@@ -7,6 +7,7 @@
 
 import { parseArgs } from './args.js';
 import { runApp } from './app.js';
+import { Config } from '@beans/core';
 
 async function main() {
   const args = await parseArgs();
@@ -24,17 +25,43 @@ Usage:
   beans [options] [prompt]
 
 Options:
-  -h, --help      Show this help message
-  -v, --version   Show version number
-  -c, --continue  Continue previous session
-  -m, --model     Specify model to use
-  --yolo          Auto-approve all tool calls
+  -h, --help       Show this help message
+  -v, --version    Show version number
+  -c, --continue   Continue previous session
+  -m, --model      Specify model to use
+  --list-models    List available models for the current provider
+  --yolo           Auto-approve all tool calls
 
 Examples:
   beans "fix the bug in main.ts"
   beans --model gpt-4o "add unit tests"
+  beans --list-models
   beans --continue
 `);
+    process.exit(0);
+  }
+
+  if (args.listModels) {
+    const config = await Config.getInstance();
+    const client = config.getLLMClient();
+    const llmConfig = config.getLLMConfig();
+
+    console.log(`\nAvailable models for ${llmConfig.provider}:\n`);
+
+    if (client.listModels) {
+      try {
+        const models = await client.listModels();
+        for (const model of models) {
+          const desc = model.description ? ` - ${model.description}` : '';
+          console.log(`  ${model.id}${desc}`);
+        }
+      } catch (error) {
+        console.error(`Error listing models: ${error instanceof Error ? error.message : error}`);
+      }
+    } else {
+      console.log('  Model listing not supported for this provider');
+    }
+
     process.exit(0);
   }
 

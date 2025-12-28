@@ -13,7 +13,7 @@
   "scripts": {
     "start": "node scripts/start.js",
     "dev": "tsx watch packages/cli/src/index.ts",
-    "build": "npm run build --workspaces",
+    "build": "npm run build:core && npm run build:cli",
     "build:core": "npm run build --workspace @beans/core",
     "build:cli": "npm run build --workspace @beans/cli",
     "test": "vitest run",
@@ -23,7 +23,7 @@
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf packages/*/dist node_modules/.cache"
+    "clean": "rm -rf packages/*/dist node_modules/.cache && find packages -name '*.js' -path '*/src/*' -delete && find packages -name '*.js.map' -path '*/src/*' -delete && find packages -name '*.d.ts' -path '*/src/*' -delete && find packages -name '*.d.ts.map' -path '*/src/*' -delete"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -38,6 +38,7 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
+    "dotenv": "^16.4.0",
     "zod": "^3.22.0"
   }
 }
