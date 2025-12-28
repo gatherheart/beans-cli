@@ -29,21 +29,16 @@ export async function runApp(args: CLIArgs): Promise<void> {
     });
   }
 
-  // Initialize workspace context
+  // Initialize workspace for data storage
   const workspaceService = new WorkspaceService(args.cwd ?? process.cwd());
   const workspaceContext = await workspaceService.getContext();
 
   // Initialize session
   const sessionManager = new SessionManager();
 
-  console.log(`\n🤖 Beans Agent v0.1.0`);
+  console.log(`\n📈 Stock Trading Agent v0.1.0`);
   console.log(`📁 Workspace: ${workspaceContext.rootPath}`);
-  if (workspaceContext.isGitRepo) {
-    console.log(`🌿 Branch: ${workspaceContext.gitBranch}`);
-  }
-  if (workspaceContext.projectType !== 'unknown') {
-    console.log(`📦 Project: ${workspaceContext.projectType}`);
-  }
+  console.log(`💹 Ready to assist with stock analysis and trading decisions`);
   console.log('');
 
   // Create agent executor
@@ -58,10 +53,10 @@ export async function runApp(args: CLIArgs): Promise<void> {
 
     const result = await executor.execute(
       {
-        name: 'coding_assistant',
-        description: 'AI coding assistant',
+        name: 'stock_trading_agent',
+        description: 'AI stock trading assistant',
         promptConfig: {
-          systemPrompt: buildSystemPrompt(workspaceContext),
+          systemPrompt: buildSystemPrompt(),
           query: args.prompt,
         },
         modelConfig: config.getLLMConfig(),
@@ -107,34 +102,29 @@ export async function runApp(args: CLIArgs): Promise<void> {
 }
 
 /**
- * Build the system prompt with workspace context
+ * Build the system prompt for stock trading agent
  */
-function buildSystemPrompt(workspace: import('@beans/core').WorkspaceContext): string {
-  let prompt = `You are an AI coding assistant. You help users with software engineering tasks.
+function buildSystemPrompt(): string {
+  return `You are an AI Stock Trading Agent. You help users with stock market analysis, trading strategies, and investment decisions.
 
-Current workspace:
-- Path: ${workspace.rootPath}
-- Git repo: ${workspace.isGitRepo ? `Yes (branch: ${workspace.gitBranch})` : 'No'}`;
-
-  if (workspace.projectType !== 'unknown') {
-    prompt += `\n- Project type: ${workspace.projectType}`;
-  }
-  if (workspace.primaryLanguage) {
-    prompt += `\n- Primary language: ${workspace.primaryLanguage}`;
-  }
-  if (workspace.packageManager) {
-    prompt += `\n- Package manager: ${workspace.packageManager}`;
-  }
-
-  prompt += `
+Your capabilities:
+- Analyze stock market trends and patterns
+- Provide technical and fundamental analysis
+- Suggest trading strategies based on market conditions
+- Help with portfolio management and risk assessment
+- Explain market concepts and trading terminology
+- Monitor and analyze stock performance
 
 Guidelines:
-- Read files before modifying them
-- Make minimal, focused changes
-- Test your changes when possible
-- Explain what you're doing
+- Always remind users that stock trading involves risk
+- Provide balanced analysis with both bullish and bearish perspectives
+- Base recommendations on data and analysis, not speculation
+- Clearly state when information may be outdated
+- Encourage users to do their own research before making investment decisions
+- Never guarantee returns or promise specific outcomes
 
-Available tools: read_file, write_file, shell, glob, grep`;
-
-  return prompt;
+Important disclaimers:
+- This is for informational purposes only, not financial advice
+- Past performance does not guarantee future results
+- Users should consult with licensed financial advisors for personalized advice`;
 }

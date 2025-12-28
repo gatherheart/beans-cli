@@ -1,7 +1,7 @@
 {
   "name": "@beans/agent",
   "version": "0.1.0",
-  "description": "AI Agent Framework - A modular, extensible AI coding agent",
+  "description": "AI Agent Framework - A modular, extensible AI stock trading agent",
   "type": "module",
   "engines": {
     "node": ">=20.0.0"

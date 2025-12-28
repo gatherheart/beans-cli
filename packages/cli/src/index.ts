@@ -19,7 +19,7 @@ async function main() {
 
   if (args.help) {
     console.log(`
-beans-agent - AI-powered coding assistant
+beans-agent - AI-powered stock trading assistant
 
 Usage:
   beans [options] [prompt]
@@ -33,10 +33,10 @@ Options:
   --yolo           Auto-approve all tool calls
 
 Examples:
-  beans "fix the bug in main.ts"
-  beans --model gpt-4o "add unit tests"
+  beans "analyze AAPL stock performance"
+  beans --model gpt-4o "what are the best tech stocks to buy?"
+  beans "explain RSI indicator"
   beans --list-models
-  beans --continue
 `);
     process.exit(0);
   }
