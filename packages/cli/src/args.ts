@@ -21,6 +21,8 @@ export interface CLIArgs {
   cwd?: string;
   /** List available models */
   listModels: boolean;
+  /** Force interactive mode even with a prompt */
+  interactive: boolean;
 }
 
 /**
@@ -35,6 +37,7 @@ export async function parseArgs(): Promise<CLIArgs> {
     yolo: false,
     verbose: false,
     listModels: false,
+    interactive: false,
   };
 
   const positional: string[] = [];
@@ -70,6 +73,10 @@ export async function parseArgs(): Promise<CLIArgs> {
         break;
       case '--list-models':
         result.listModels = true;
+        break;
+      case '-i':
+      case '--interactive':
+        result.interactive = true;
         break;
       default:
         if (!arg.startsWith('-')) {

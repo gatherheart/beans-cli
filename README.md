@@ -68,7 +68,28 @@ Example settings:
 
 ## Usage
 
-### Basic Usage
+### Interactive Chat Mode
+
+Start the agent in interactive chat mode (default when no prompt is provided):
+
+```bash
+# Start interactive chat
+npm run dev
+
+# Interactive mode with initial prompt
+npm run dev -- -i "help me understand this codebase"
+```
+
+In interactive mode:
+- Type messages and press Enter to send
+- Conversation history is maintained for context
+- Use `/help` to see available commands
+- Use `/clear` to clear chat history
+- Use `/exit` or `/quit` to exit
+
+### Single Prompt Mode
+
+Run with a single prompt (executes once and exits):
 
 ```bash
 # Run with a prompt
@@ -90,14 +111,15 @@ npm run dev -- --yolo "refactor the auth module"
 beans [options] [prompt]
 
 Options:
-  -h, --help       Show help message
-  -v, --version    Show version number
-  -c, --continue   Continue previous session
-  -m, --model      Specify model to use
-  --list-models    List available models for the current provider
-  --yolo           Auto-approve all tool calls
-  --verbose        Verbose output
-  --cwd            Set working directory
+  -h, --help          Show help message
+  -v, --version       Show version number
+  -c, --continue      Continue previous session
+  -m, --model         Specify model to use
+  -i, --interactive   Force interactive mode (even with prompt)
+  --list-models       List available models for the current provider
+  --yolo              Auto-approve all tool calls
+  --verbose           Verbose output
+  --cwd               Set working directory
 ```
 
 ## Supported Providers

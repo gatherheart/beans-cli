@@ -12,7 +12,8 @@
   "private": true,
   "scripts": {
     "start": "node scripts/start.js",
-    "dev": "tsx watch packages/cli/src/index.ts",
+    "dev": "tsx packages/cli/src/index.ts",
+    "dev:watch": "tsx watch packages/cli/src/index.ts",
     "build": "npm run build:core && npm run build:cli",
     "build:core": "npm run build --workspace @beans/core",
     "build:cli": "npm run build --workspace @beans/cli",
