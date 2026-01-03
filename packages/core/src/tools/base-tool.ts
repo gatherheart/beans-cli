@@ -72,17 +72,13 @@ export abstract class BaseTool<TParams extends Record<string, unknown>>
     properties: Record<string, ParameterDefinition>;
     required?: string[];
   } {
-    // Basic conversion - in production use zod-to-json-schema
-    const shape = (schema as unknown as z.ZodObject<z.ZodRawShape>)._def.shape?.();
     const properties: Record<string, ParameterDefinition> = {};
     const required: string[] = [];
 
-    if (shape) {
-      for (const [key, value] of Object.entries(shape)) {
-        const zodType = value as z.ZodTypeAny;
+    if (schema instanceof z.ZodObject) {
+      for (const [key, zodType] of Object.entries<z.ZodTypeAny>(schema.shape)) {
         properties[key] = this.zodTypeToProperty(zodType);
 
-        // Check if required (not optional)
         if (!zodType.isOptional()) {
           required.push(key);
         }

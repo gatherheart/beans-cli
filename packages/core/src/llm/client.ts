@@ -8,7 +8,29 @@ import type {
 } from './types.js';
 
 /**
- * Factory for creating LLM clients
+ * Creates an LLM client for the specified provider.
+ *
+ * @remarks
+ * This is the main factory function for creating provider-specific LLM clients.
+ * It implements the factory pattern to abstract away provider differences and
+ * return a unified LLMClient interface regardless of the underlying provider.
+ *
+ * Supported providers:
+ * - **openai**: OpenAI API (also compatible with Azure OpenAI and local endpoints)
+ * - **anthropic**: Anthropic Claude API
+ * - **google**: Google Gemini API
+ * - **ollama**: Ollama local inference server
+ *
+ * Each provider client implements the same LLMClient interface with `chat()` and
+ * `listModels()` methods, handling provider-specific request formatting, response
+ * parsing, and error handling internally.
+ *
+ * @param provider - The LLM provider to create a client for (openai, anthropic,
+ * google, or ollama).
+ * @param config - Provider-specific configuration including API keys, base URLs,
+ * timeout settings, and additional headers.
+ * @returns An LLMClient instance configured for the specified provider.
+ * @throws Error if an unsupported provider is specified.
  */
 export function createLLMClient(
   provider: LLMProvider,
@@ -30,7 +52,25 @@ export function createLLMClient(
 }
 
 /**
- * OpenAI-compatible client (works with OpenAI, Azure, local endpoints)
+ * Creates an OpenAI-compatible LLM client.
+ *
+ * @remarks
+ * This function creates a client that implements the OpenAI chat completions API.
+ * It is compatible with:
+ * - OpenAI's official API (api.openai.com)
+ * - Azure OpenAI Service
+ * - Local OpenAI-compatible endpoints (e.g., LocalAI, vLLM)
+ *
+ * The client implements two methods:
+ * - `chat()`: Sends a chat completion request and returns the response
+ * - `listModels()`: Retrieves available GPT models from the API
+ *
+ * Request formatting and response parsing are handled internally, converting
+ * between the unified LLMClient interface and OpenAI's specific API format.
+ *
+ * @param config - Provider configuration including API key, optional base URL,
+ * organization ID, custom headers, and timeout settings.
+ * @returns An LLMClient instance configured for OpenAI-compatible APIs.
  */
 function createOpenAIClient(config: ProviderConfig): LLMClient {
   const baseUrl = config.baseUrl ?? 'https://api.openai.com/v1';
@@ -96,7 +136,27 @@ function createOpenAIClient(config: ProviderConfig): LLMClient {
 }
 
 /**
- * Anthropic Claude client
+ * Creates an Anthropic Claude LLM client.
+ *
+ * @remarks
+ * This function creates a client that implements the Anthropic Messages API
+ * for communicating with Claude models. It handles the specific requirements
+ * of Anthropic's API including the anthropic-version header and unique message
+ * formatting.
+ *
+ * The client implements two methods:
+ * - `chat()`: Sends a message request and returns Claude's response
+ * - `listModels()`: Returns a static list of known Claude models (Anthropic
+ *   does not provide a public model listing API)
+ *
+ * Key differences from OpenAI's API:
+ * - System prompt is passed as a separate field, not as a message
+ * - Tool definitions use `input_schema` instead of `parameters`
+ * - Response content is an array of content blocks
+ *
+ * @param config - Provider configuration including API key, optional base URL,
+ * custom headers, and timeout settings.
+ * @returns An LLMClient instance configured for the Anthropic API.
  */
 function createAnthropicClient(config: ProviderConfig): LLMClient {
   const baseUrl = config.baseUrl ?? 'https://api.anthropic.com/v1';
@@ -145,7 +205,28 @@ function createAnthropicClient(config: ProviderConfig): LLMClient {
 }
 
 /**
- * Google Gemini client
+ * Creates a Google Gemini LLM client.
+ *
+ * @remarks
+ * This function creates a client that implements the Google Generative Language
+ * API for communicating with Gemini models. It handles Google's unique API
+ * structure including content parts, system instructions, and function
+ * declarations.
+ *
+ * The client implements two methods:
+ * - `chat()`: Sends a generateContent request and returns Gemini's response
+ * - `listModels()`: Retrieves models that support the generateContent method
+ *
+ * Key differences from other providers:
+ * - API key is passed as a query parameter, not in headers
+ * - Messages use a `contents` array with `parts` sub-arrays
+ * - System prompt uses `systemInstruction` with its own parts structure
+ * - Tools are wrapped in a `functionDeclarations` array
+ * - Response candidates may be empty in some edge cases
+ *
+ * @param config - Provider configuration including API key, optional base URL,
+ * custom headers, and timeout settings.
+ * @returns An LLMClient instance configured for the Google Gemini API.
  */
 function createGoogleClient(config: ProviderConfig): LLMClient {
   const baseUrl =
@@ -169,9 +250,6 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
           topP: request.topP,
         },
       };
-
-      console.log('[Google API] URL:', url.replace(/key=[^&]+/, 'key=***'));
-      console.log('[Google API] Body:', JSON.stringify(body, null, 2));
 
       const response = await fetch(url, {
         method: 'POST',
@@ -225,7 +303,27 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
 }
 
 /**
- * Ollama local client
+ * Creates an Ollama local LLM client.
+ *
+ * @remarks
+ * This function creates a client that communicates with a local Ollama server
+ * for running open-source language models. Ollama provides a simple API for
+ * running models like Llama, Mistral, and others locally.
+ *
+ * The client implements two methods:
+ * - `chat()`: Sends a chat request to the local Ollama server
+ * - `listModels()`: Retrieves the list of locally available models (tags)
+ *
+ * Key characteristics:
+ * - Default endpoint is localhost:11434 (Ollama's default port)
+ * - No API key required for local usage
+ * - Longer default timeout (120s) to accommodate slower local inference
+ * - Streaming is disabled by default for simpler response handling
+ * - Model options use Ollama-specific naming (num_predict vs max_tokens)
+ *
+ * @param config - Provider configuration including optional base URL (defaults
+ * to localhost:11434), custom headers, and timeout settings.
+ * @returns An LLMClient instance configured for the Ollama API.
  */
 function createOllamaClient(config: ProviderConfig): LLMClient {
   const baseUrl = config.baseUrl ?? 'http://localhost:11434';
@@ -288,57 +386,238 @@ function createOllamaClient(config: ProviderConfig): LLMClient {
 }
 
 // Message formatting helpers
+
+/**
+ * Formats messages for the OpenAI chat completions API.
+ *
+ * @remarks
+ * Converts the unified Message format to OpenAI's expected structure.
+ * Handles three message types:
+ * - System/User messages: passed through with content
+ * - Assistant messages: includes tool_calls array if tools were invoked
+ * - Tool result messages: split into individual tool messages with tool_call_id
+ *
+ * @param request - The chat request containing messages and optional system prompt.
+ * @returns An array of messages formatted for OpenAI's API.
+ */
 function formatMessagesForOpenAI(request: ChatRequest) {
-  const messages: Array<{ role: string; content: string; tool_calls?: unknown[] }> = [];
+  const messages: Array<{
+    role: string;
+    content: string | null;
+    tool_calls?: unknown[];
+    tool_call_id?: string;
+  }> = [];
 
   if (request.systemPrompt) {
     messages.push({ role: 'system', content: request.systemPrompt });
   }
 
   for (const msg of request.messages) {
-    messages.push({
-      role: msg.role === 'tool' ? 'tool' : msg.role,
-      content: msg.content,
-      tool_calls: msg.toolCalls?.map((tc) => ({
-        id: tc.id,
-        type: 'function',
-        function: { name: tc.name, arguments: JSON.stringify(tc.arguments) },
-      })),
-    });
+    if (msg.role === 'tool' && msg.toolResults) {
+      // Each tool result is a separate message in OpenAI format
+      for (const result of msg.toolResults) {
+        messages.push({
+          role: 'tool',
+          tool_call_id: result.toolCallId,
+          content: result.error ?? result.content,
+        });
+      }
+    } else if (msg.role === 'assistant') {
+      messages.push({
+        role: 'assistant',
+        content: msg.content || null,
+        tool_calls: msg.toolCalls?.map((tc) => ({
+          id: tc.id,
+          type: 'function',
+          function: { name: tc.name, arguments: JSON.stringify(tc.arguments) },
+        })),
+      });
+    } else {
+      messages.push({ role: msg.role, content: msg.content });
+    }
   }
 
   return messages;
 }
 
+/**
+ * Formats messages for the Anthropic Messages API.
+ *
+ * @remarks
+ * Converts the unified Message format to Anthropic's expected structure.
+ * Handles three message types:
+ * - User messages: passed through as-is
+ * - Assistant messages: includes tool_use blocks if tool calls were made
+ * - Tool result messages: formatted as user messages with tool_result blocks
+ *
+ * @param request - The chat request containing messages.
+ * @returns An array of messages formatted for Anthropic's API.
+ */
 function formatMessagesForAnthropic(request: ChatRequest) {
-  return request.messages.map((msg) => ({
-    role: msg.role === 'assistant' ? 'assistant' : 'user',
-    content: msg.content,
-  }));
+  const messages: Array<{
+    role: 'user' | 'assistant';
+    content: string | Array<{ type: string; [key: string]: unknown }>;
+  }> = [];
+
+  for (const msg of request.messages) {
+    if (msg.role === 'assistant') {
+      // Build content array with text and tool_use blocks
+      const content: Array<{ type: string; [key: string]: unknown }> = [];
+
+      if (msg.content) {
+        content.push({ type: 'text', text: msg.content });
+      }
+
+      if (msg.toolCalls) {
+        for (const tc of msg.toolCalls) {
+          content.push({
+            type: 'tool_use',
+            id: tc.id,
+            name: tc.name,
+            input: tc.arguments,
+          });
+        }
+      }
+
+      messages.push({
+        role: 'assistant',
+        content: content.length > 0 ? content : msg.content,
+      });
+    } else if (msg.role === 'tool' && msg.toolResults) {
+      // Tool results are sent as user messages with tool_result blocks
+      const content = msg.toolResults.map((result) => ({
+        type: 'tool_result',
+        tool_use_id: result.toolCallId,
+        content: result.error ?? result.content,
+      }));
+
+      messages.push({ role: 'user', content });
+    } else {
+      // Regular user message
+      messages.push({ role: 'user', content: msg.content });
+    }
+  }
+
+  return messages;
 }
 
+/**
+ * Formats messages for the Google Generative Language API.
+ *
+ * @remarks
+ * Converts the unified Message format to Google's expected structure.
+ * Handles three message types:
+ * - User messages: text wrapped in parts array
+ * - Model messages: includes functionCall parts if tool calls were made
+ * - Tool results: formatted as user messages with functionResponse parts
+ *
+ * @param request - The chat request containing messages.
+ * @returns An array of contents formatted for Google's API.
+ */
 function formatMessagesForGoogle(request: ChatRequest) {
-  return request.messages.map((msg) => ({
-    role: msg.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: msg.content }],
-  }));
+  const contents: Array<{
+    role: 'user' | 'model';
+    parts: Array<{ text?: string; functionCall?: unknown; functionResponse?: unknown }>;
+  }> = [];
+
+  for (const msg of request.messages) {
+    if (msg.role === 'assistant') {
+      const parts: Array<{ text?: string; functionCall?: unknown }> = [];
+
+      if (msg.content) {
+        parts.push({ text: msg.content });
+      }
+
+      if (msg.toolCalls) {
+        for (const tc of msg.toolCalls) {
+          parts.push({
+            functionCall: { name: tc.name, args: tc.arguments },
+          });
+        }
+      }
+
+      contents.push({ role: 'model', parts });
+    } else if (msg.role === 'tool' && msg.toolResults) {
+      // Tool results are sent as user messages with functionResponse parts
+      const parts = msg.toolResults.map((result) => ({
+        functionResponse: {
+          name: result.toolCallId,
+          response: { content: result.error ?? result.content },
+        },
+      }));
+
+      contents.push({ role: 'user', parts });
+    } else {
+      contents.push({ role: 'user', parts: [{ text: msg.content }] });
+    }
+  }
+
+  return contents;
 }
 
+/**
+ * Formats messages for the Ollama chat API.
+ *
+ * @remarks
+ * Converts the unified Message format to Ollama's expected structure.
+ * Ollama follows a format similar to OpenAI, with the system prompt
+ * prepended as a system message. Tool calls and results follow OpenAI's
+ * format with tool_calls arrays and tool_call_id references.
+ *
+ * @param request - The chat request containing messages and optional system prompt.
+ * @returns An array of messages formatted for Ollama's API.
+ */
 function formatMessagesForOllama(request: ChatRequest) {
-  const messages = [];
+  const messages: Array<{
+    role: string;
+    content: string;
+    tool_calls?: unknown[];
+    tool_call_id?: string;
+  }> = [];
 
   if (request.systemPrompt) {
     messages.push({ role: 'system', content: request.systemPrompt });
   }
 
   for (const msg of request.messages) {
-    messages.push({ role: msg.role, content: msg.content });
+    if (msg.role === 'tool' && msg.toolResults) {
+      for (const result of msg.toolResults) {
+        messages.push({
+          role: 'tool',
+          tool_call_id: result.toolCallId,
+          content: result.error ?? result.content,
+        });
+      }
+    } else if (msg.role === 'assistant') {
+      messages.push({
+        role: 'assistant',
+        content: msg.content,
+        tool_calls: msg.toolCalls?.map((tc) => ({
+          id: tc.id,
+          type: 'function',
+          function: { name: tc.name, arguments: JSON.stringify(tc.arguments) },
+        })),
+      });
+    } else {
+      messages.push({ role: msg.role, content: msg.content });
+    }
   }
 
   return messages;
 }
 
 // Tool formatting helpers
+
+/**
+ * Formats a tool definition for the OpenAI function calling API.
+ *
+ * @remarks
+ * Wraps the tool definition in OpenAI's expected structure with a 'function'
+ * type and nested function object containing name, description, and parameters.
+ *
+ * @param tool - The unified tool definition to format.
+ * @returns A tool object formatted for OpenAI's API.
+ */
 function formatToolForOpenAI(tool: import('../tools/types.js').ToolDefinition) {
   return {
     type: 'function',
@@ -350,6 +629,17 @@ function formatToolForOpenAI(tool: import('../tools/types.js').ToolDefinition) {
   };
 }
 
+/**
+ * Formats a tool definition for the Anthropic tool use API.
+ *
+ * @remarks
+ * Converts the tool definition to Anthropic's expected structure. The key
+ * difference from OpenAI is that parameters are passed as `input_schema`
+ * instead of `parameters`.
+ *
+ * @param tool - The unified tool definition to format.
+ * @returns A tool object formatted for Anthropic's API.
+ */
 function formatToolForAnthropic(tool: import('../tools/types.js').ToolDefinition) {
   return {
     name: tool.name,
@@ -358,6 +648,17 @@ function formatToolForAnthropic(tool: import('../tools/types.js').ToolDefinition
   };
 }
 
+/**
+ * Formats a tool definition for the Google function declarations API.
+ *
+ * @remarks
+ * Converts the tool definition to Google's expected structure. Google uses
+ * a straightforward format with name, description, and parameters at the
+ * top level.
+ *
+ * @param tool - The unified tool definition to format.
+ * @returns A function declaration object formatted for Google's API.
+ */
 function formatToolForGoogle(tool: import('../tools/types.js').ToolDefinition) {
   return {
     name: tool.name,
@@ -366,6 +667,16 @@ function formatToolForGoogle(tool: import('../tools/types.js').ToolDefinition) {
   };
 }
 
+/**
+ * Formats a tool definition for the Ollama tool calling API.
+ *
+ * @remarks
+ * Converts the tool definition to Ollama's expected structure, which follows
+ * the OpenAI format with a 'function' type wrapper and nested function object.
+ *
+ * @param tool - The unified tool definition to format.
+ * @returns A tool object formatted for Ollama's API.
+ */
 function formatToolForOllama(tool: import('../tools/types.js').ToolDefinition) {
   return {
     type: 'function',
@@ -378,6 +689,18 @@ function formatToolForOllama(tool: import('../tools/types.js').ToolDefinition) {
 }
 
 // Response parsing helpers
+
+/**
+ * Parses an OpenAI chat completion response into the unified format.
+ *
+ * @remarks
+ * Extracts content, tool calls, usage statistics, and finish reason from
+ * OpenAI's response structure. Tool call arguments are parsed from JSON
+ * strings back into objects.
+ *
+ * @param data - The raw response from OpenAI's chat completions API.
+ * @returns A ChatResponse object in the unified format.
+ */
 function parseOpenAIResponse(data: {
   choices: Array<{
     message: {
@@ -412,15 +735,43 @@ function parseOpenAIResponse(data: {
   };
 }
 
+/**
+ * Parses an Anthropic Messages response into the unified format.
+ *
+ * @remarks
+ * Extracts text content and tool_use blocks from Anthropic's content array.
+ * Tool use blocks are converted to the unified ToolCall format with id, name,
+ * and arguments (called 'input' in Anthropic's format).
+ *
+ * @param data - The raw response from Anthropic's Messages API.
+ * @returns A ChatResponse object in the unified format.
+ */
 function parseAnthropicResponse(data: {
-  content: Array<{ type: string; text?: string }>;
+  content: Array<{
+    type: string;
+    text?: string;
+    id?: string;
+    name?: string;
+    input?: Record<string, unknown>;
+  }>;
   stop_reason: string;
   usage: { input_tokens: number; output_tokens: number };
   model: string;
 }): ChatResponse {
   const textContent = data.content.find((c) => c.type === 'text');
+  const toolUseBlocks = data.content.filter((c) => c.type === 'tool_use');
+
+  const toolCalls = toolUseBlocks.length > 0
+    ? toolUseBlocks.map((block) => ({
+        id: block.id!,
+        name: block.name!,
+        arguments: block.input ?? {},
+      }))
+    : undefined;
+
   return {
     content: textContent?.text ?? null,
+    toolCalls,
     usage: {
       promptTokens: data.usage.input_tokens,
       completionTokens: data.usage.output_tokens,
@@ -431,24 +782,70 @@ function parseAnthropicResponse(data: {
   };
 }
 
+/**
+ * Parses a Google Generative Language response into the unified format.
+ *
+ * @remarks
+ * Handles Google's unique response structure with candidates and content parts.
+ * Extracts both text content and functionCall parts for tool invocation.
+ * Includes error handling for API errors and empty candidate arrays.
+ *
+ * @param data - The raw response from Google's generateContent API.
+ * @param model - The model identifier to include in the response.
+ * @returns A ChatResponse object in the unified format.
+ * @throws Error if the response contains an API error.
+ */
 function parseGoogleResponse(
   data: {
-    candidates: Array<{
-      content: { parts: Array<{ text?: string }> };
-      finishReason: string;
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{
+          text?: string;
+          functionCall?: { name: string; args: Record<string, unknown> };
+        }>;
+      };
+      finishReason?: string;
     }>;
     usageMetadata?: {
       promptTokenCount: number;
       candidatesTokenCount: number;
       totalTokenCount: number;
     };
+    error?: { message: string; code: number };
   },
   model: string
 ): ChatResponse {
+  // Handle API errors
+  if (data.error) {
+    throw new Error(`Google API error: ${data.error.message}`);
+  }
+
+  // Handle empty candidates
+  if (!data.candidates || data.candidates.length === 0) {
+    return {
+      content: null,
+      model,
+      finishReason: 'stop',
+    };
+  }
+
   const candidate = data.candidates[0];
-  const text = candidate.content.parts.find((p) => p.text)?.text;
+  const parts = candidate.content?.parts ?? [];
+
+  const text = parts.find((p) => p.text)?.text;
+  const functionCalls = parts.filter((p) => p.functionCall);
+
+  const toolCalls = functionCalls.length > 0
+    ? functionCalls.map((part, index) => ({
+        id: `call_${index}`,
+        name: part.functionCall!.name,
+        arguments: part.functionCall!.args,
+      }))
+    : undefined;
+
   return {
     content: text ?? null,
+    toolCalls,
     usage: data.usageMetadata
       ? {
           promptTokens: data.usageMetadata.promptTokenCount,
@@ -457,10 +854,22 @@ function parseGoogleResponse(
         }
       : undefined,
     model,
-    finishReason: 'stop',
+    finishReason: toolCalls ? 'tool_calls' : 'stop',
   };
 }
 
+/**
+ * Parses an Ollama chat response into the unified format.
+ *
+ * @remarks
+ * Extracts content from Ollama's simple response structure. Ollama responses
+ * are straightforward with a message object containing the content. Usage
+ * statistics are not currently provided by Ollama's API.
+ *
+ * @param data - The raw response from Ollama's chat API.
+ * @param model - The model identifier to include in the response.
+ * @returns A ChatResponse object in the unified format.
+ */
 function parseOllamaResponse(
   data: { message: { content: string }; done: boolean },
   model: string
