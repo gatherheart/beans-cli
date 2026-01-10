@@ -139,4 +139,4 @@ export interface ProviderConfig {
 /**
  * Supported LLM providers
  */
-export type LLMProvider = 'openai' | 'anthropic' | 'google' | 'ollama' | 'custom';
+export type LLMProvider = 'google' | 'ollama';

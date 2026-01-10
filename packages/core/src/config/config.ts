@@ -12,8 +12,8 @@ import type { LLMClient, LLMProvider } from '../llm/types.js';
  */
 const defaults: AppConfig = {
   llm: {
-    provider: 'openai',
-    model: 'gpt-4o',
+    provider: 'google',
+    model: 'gemini-2.0-flash-exp',
     temperature: 0.7,
     maxTokens: 4096,
   },
@@ -24,7 +24,7 @@ const defaults: AppConfig = {
     autoApprove: 'none',
   },
   tools: {
-    enabled: ['read_file', 'write_file', 'shell', 'glob', 'grep'],
+    enabled: ['read_file', 'write_file', 'shell', 'glob', 'grep', 'web_search'],
     disabled: [],
     shellTimeout: 120000,
   },
@@ -230,11 +230,8 @@ export class Config {
 
     // Fall back to standard env vars
     const envVars: Record<LLMProvider, string> = {
-      openai: 'OPENAI_API_KEY',
-      anthropic: 'ANTHROPIC_API_KEY',
       google: 'GOOGLE_API_KEY',
       ollama: '', // No key needed
-      custom: '',
     };
 
     return process.env[envVars[provider]] ?? '';

@@ -161,46 +161,68 @@ export class ChatSession {
         onActivity?.({ type: 'turn_start', turnNumber: turnCount });
 
         // Call LLM with accumulated messages
-        const response = await this.llmClient.chat({
+        const tools = this.getToolDefinitions();
+
+        const chatRequest = {
           model: this.modelConfig.model,
           messages: this.messages,
           systemPrompt: this.systemPrompt,
-          tools: this.getToolDefinitions(),
+          tools,
           temperature: this.modelConfig.temperature,
           maxTokens: this.modelConfig.maxTokens,
-        });
+        };
 
-        // Debug: log the response
-        console.log('\n[DEBUG] LLM Response:', JSON.stringify({
-          hasContent: !!response.content,
-          contentLength: response.content?.length ?? 0,
-          hasToolCalls: !!(response.toolCalls && response.toolCalls.length > 0),
-          toolCallCount: response.toolCalls?.length ?? 0,
-          finishReason: response.finishReason,
-        }, null, 2));
+        let content = '';
+        let toolCalls: ToolCall[] = [];
 
-        // Handle thinking content
-        if (response.thinking) {
-          onActivity?.({ type: 'thinking', content: response.thinking });
-        }
+        // Use streaming if available
+        if (this.llmClient.chatStream) {
+          const stream = this.llmClient.chatStream(chatRequest);
+          for await (const chunk of stream) {
+            if (chunk.content) {
+              content += chunk.content;
+              onActivity?.({ type: 'content_chunk', content: chunk.content });
+            }
+            if (chunk.thinking) {
+              onActivity?.({ type: 'thinking', content: chunk.thinking });
+            }
+            if (chunk.toolCallDelta) {
+              // Collect tool calls
+              const tc = chunk.toolCallDelta as ToolCall;
+              if (tc.id && tc.name) {
+                toolCalls.push(tc);
+              }
+            }
+          }
+        } else {
+          // Fall back to non-streaming
+          const response = await this.llmClient.chat(chatRequest);
+          content = response.content ?? '';
+          toolCalls = response.toolCalls ?? [];
 
-        // Handle content
-        if (response.content) {
-          onActivity?.({ type: 'content_chunk', content: response.content });
+          // Handle thinking content
+          if (response.thinking) {
+            onActivity?.({ type: 'thinking', content: response.thinking });
+          }
+
+          // Handle content
+          if (content) {
+            onActivity?.({ type: 'content_chunk', content });
+          }
         }
 
         // Handle tool calls
-        if (response.toolCalls && response.toolCalls.length > 0) {
+        if (toolCalls.length > 0) {
           const toolResults = await this.executeToolCalls(
-            response.toolCalls,
+            toolCalls,
             onActivity
           );
 
           // Add assistant message with tool calls
           this.messages.push({
             role: 'assistant',
-            content: response.content ?? '',
-            toolCalls: response.toolCalls,
+            content: content,
+            toolCalls: toolCalls,
           });
 
           // Add tool results
@@ -211,8 +233,8 @@ export class ChatSession {
           });
         } else {
           // No tool calls - add final response and done
-          if (response.content) {
-            this.messages.push({ role: 'assistant', content: response.content });
+          if (content) {
+            this.messages.push({ role: 'assistant', content: content });
           }
           onActivity?.({ type: 'turn_end', turnNumber: turnCount });
           break;

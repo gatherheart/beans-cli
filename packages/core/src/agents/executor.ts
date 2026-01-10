@@ -98,11 +98,13 @@ export class AgentExecutor {
         onActivity?.({ type: 'turn_start', turnNumber: turnCount });
 
         // Call LLM
+        const tools = this.getToolDefinitions(definition);
+
         const response = await this.llmClient.chat({
           model: definition.modelConfig.model,
           messages,
           systemPrompt,
-          tools: this.getToolDefinitions(definition),
+          tools,
           temperature: definition.modelConfig.temperature,
           maxTokens: definition.modelConfig.maxTokens,
         });
