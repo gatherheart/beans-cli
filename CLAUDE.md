@@ -190,6 +190,26 @@ beans --list-models
 3. **LLM Interface**: See `docs/prd/llm-interface.md` for request/response specs
 4. **Tools**: Extend `BaseTool` class, register in `tools/builtin/index.ts`
 
+## Documenting Issues and Solutions
+
+When implementing features or fixing bugs, document all issues encountered and their solutions:
+
+1. **Create a documentation file** in `docs/` describing:
+   - Each issue/error encountered
+   - The root cause
+   - The solution with code examples
+   - Affected files
+
+2. **Include in documentation:**
+   - Error messages (exact text)
+   - Why the issue occurred
+   - Step-by-step solution
+   - Code snippets showing before/after
+
+3. **Example:** See `docs/cli-ui-implementation.md` for reference
+
+This helps future developers understand design decisions and troubleshoot similar issues.
+
 ## Before Committing
 
 1. Ensure all CLAUDE.md files are updated

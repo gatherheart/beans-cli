@@ -3,8 +3,10 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "esModuleInterop": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/**/*.tsx"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }
