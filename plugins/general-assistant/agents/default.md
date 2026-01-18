@@ -1,6 +1,7 @@
 ---
 name: default
 description: A helpful general-purpose AI assistant
+extends: base
 ---
 
 # General Assistant

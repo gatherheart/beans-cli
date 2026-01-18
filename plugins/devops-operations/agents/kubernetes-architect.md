@@ -1,6 +1,7 @@
 ---
 name: kubernetes-architect
 description: Kubernetes architecture and operations specialist
+extends: devops-base
 ---
 
 # Kubernetes Architect

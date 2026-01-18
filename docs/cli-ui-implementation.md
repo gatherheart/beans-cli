@@ -439,6 +439,34 @@ Implement "stream with final render" strategy:
 
 ---
 
+## Issue 15: Duplicate React Keys for Tool Calls
+
+### Problem
+```
+Encountered two children with the same key, `call_0`. Keys should be unique...
+```
+
+The LLM returns tool call IDs like `call_0`, `call_1` that reset for each message. When multiple messages have tool calls, React encounters duplicate keys across the component tree.
+
+### Solution
+Use a combination of message ID and index for unique keys:
+
+```tsx
+// Before - toolCall.id may be duplicated across messages
+{message.toolCalls.map(toolCall => (
+  <ToolCallDisplay key={toolCall.id} toolCall={toolCall} />
+))}
+
+// After - combine message ID with index for uniqueness
+{message.toolCalls.map((toolCall, index) => (
+  <ToolCallDisplay key={`${message.id}-tool-${index}`} toolCall={toolCall} />
+))}
+```
+
+**File:** `packages/cli/src/ui/components/Message.tsx`
+
+---
+
 ## Reference
 
 - gemini-cli: `/Users/bean/kakao/gemini-cli` - Reference implementation

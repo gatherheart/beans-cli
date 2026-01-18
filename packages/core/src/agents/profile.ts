@@ -244,9 +244,17 @@ ${config.customInstructions}`;
 }
 
 /**
+ * Parsed frontmatter with optional extends field
+ */
+interface ParsedFrontmatter {
+  frontmatter: Record<string, string>;
+  body: string;
+}
+
+/**
  * Parse YAML frontmatter from Markdown content
  */
-function parseYamlFrontmatter(content: string): { frontmatter: Record<string, string>; body: string } {
+function parseYamlFrontmatter(content: string): ParsedFrontmatter {
   const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
 
   if (!frontmatterMatch) {
@@ -279,12 +287,64 @@ function nameToDisplayName(name: string): string {
 }
 
 /**
- * Load agent profile from a Markdown file
+ * Resolve base profile path from extends field
+ */
+async function resolveBasePath(extendsValue: string, currentFilePath: string): Promise<string | null> {
+  const fs = await import('node:fs/promises');
+  const path = await import('node:path');
+
+  // Check common locations for base profiles
+  const possiblePaths = [
+    // Relative to current file's directory
+    path.join(path.dirname(currentFilePath), extendsValue + '.md'),
+    path.join(path.dirname(currentFilePath), extendsValue),
+    // In plugins/bases directory (relative to project root)
+    path.join(path.dirname(currentFilePath), '..', '..', 'bases', extendsValue + '.md'),
+    path.join(path.dirname(currentFilePath), '..', 'bases', extendsValue + '.md'),
+    // Direct path
+    extendsValue.endsWith('.md') ? extendsValue : extendsValue + '.md',
+  ];
+
+  for (const possiblePath of possiblePaths) {
+    try {
+      await fs.access(possiblePath);
+      return possiblePath;
+    } catch {
+      // Try next path
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Load agent profile from a Markdown file with inheritance support
  */
 export async function loadAgentProfile(filePath: string): Promise<AgentProfile> {
   const fs = await import('node:fs/promises');
   const content = await fs.readFile(filePath, 'utf-8');
-  return parseMarkdownProfile(content);
+
+  const { frontmatter } = parseYamlFrontmatter(content);
+
+  // Check for extends field
+  let basePrompt = '';
+  if (frontmatter.extends) {
+    const basePath = await resolveBasePath(frontmatter.extends, filePath);
+    if (basePath) {
+      const baseProfile = await loadAgentProfile(basePath);
+      basePrompt = baseProfile.systemPrompt + '\n\n';
+    }
+  }
+
+  // Parse the current profile
+  const profile = parseMarkdownProfile(content);
+
+  // Prepend base prompt if exists
+  if (basePrompt) {
+    profile.systemPrompt = basePrompt + profile.systemPrompt;
+  }
+
+  return profile;
 }
 
 /**

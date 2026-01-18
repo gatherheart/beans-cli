@@ -79,8 +79,8 @@ export const Message = React.memo(function Message({ message }: MessageProps): R
       {/* Tool calls */}
       {message.toolCalls && message.toolCalls.length > 0 && (
         <Box flexDirection="column" paddingLeft={2}>
-          {message.toolCalls.map(toolCall => (
-            <ToolCallDisplay key={toolCall.id} toolCall={toolCall} />
+          {message.toolCalls.map((toolCall, index) => (
+            <ToolCallDisplay key={`${message.id}-tool-${index}`} toolCall={toolCall} />
           ))}
         </Box>
       )}

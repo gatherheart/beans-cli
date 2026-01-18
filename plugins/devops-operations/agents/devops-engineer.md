@@ -1,6 +1,7 @@
 ---
 name: devops-engineer
 description: DevOps specialist for CI/CD, infrastructure, and automation
+extends: devops-base
 ---
 
 # DevOps Engineer

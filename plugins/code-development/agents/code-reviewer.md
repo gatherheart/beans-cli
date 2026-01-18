@@ -1,6 +1,7 @@
 ---
 name: code-reviewer
 description: Expert code reviewer focusing on quality, security, and best practices
+extends: coding-base
 ---
 
 # Code Reviewer

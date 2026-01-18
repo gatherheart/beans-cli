@@ -1,6 +1,7 @@
 ---
 name: typescript-expert
 description: TypeScript specialist for type-safe development
+extends: coding-base
 ---
 
 # TypeScript Expert

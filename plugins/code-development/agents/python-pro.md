@@ -1,6 +1,7 @@
 ---
 name: python-pro
 description: Professional Python developer for modern Python development
+extends: coding-base
 ---
 
 # Python Pro
