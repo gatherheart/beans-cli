@@ -31,6 +31,8 @@ export interface CLIArgs {
   sop?: string;
   /** Path to SOP file */
   sopFile?: string;
+  /** Enable debug mode to display LLM requests and responses */
+  debug: boolean;
 }
 
 /**
@@ -46,6 +48,7 @@ export async function parseArgs(): Promise<CLIArgs> {
     verbose: false,
     listModels: false,
     interactive: false,
+    debug: false,
   };
 
   const positional: string[] = [];
@@ -98,6 +101,9 @@ export async function parseArgs(): Promise<CLIArgs> {
         break;
       case '--sop-file':
         result.sopFile = args[++i];
+        break;
+      case '--debug':
+        result.debug = true;
         break;
       default:
         if (!arg.startsWith('-')) {

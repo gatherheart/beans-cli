@@ -95,5 +95,12 @@ describe('CLI Args Parser', () => {
     expect(args.yolo).toBe(false);
     expect(args.verbose).toBe(false);
     expect(args.listModels).toBe(false);
+    expect(args.debug).toBe(false);
+  });
+
+  it('should parse --debug flag', async () => {
+    process.argv = ['node', 'beans', '--debug'];
+    const args = await parseArgs();
+    expect(args.debug).toBe(true);
   });
 });

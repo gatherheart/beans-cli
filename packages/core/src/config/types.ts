@@ -14,6 +14,20 @@ export interface AppConfig {
   telemetry: TelemetryConfig;
   /** UI settings */
   ui: UIConfig;
+  /** Debug settings */
+  debug: DebugConfig;
+}
+
+/**
+ * Debug configuration
+ */
+export interface DebugConfig {
+  /** Enable debug mode */
+  enabled: boolean;
+  /** Log LLM requests */
+  logRequests: boolean;
+  /** Log LLM responses */
+  logResponses: boolean;
 }
 
 /**

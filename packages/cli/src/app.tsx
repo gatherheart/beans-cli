@@ -69,6 +69,14 @@ export async function runApp(args: CLIArgs): Promise<void> {
     });
   }
 
+  // Enable debug mode if specified
+  if (args.debug) {
+    await config.updateConfig({
+      debug: { ...config.getDebugConfig(), enabled: true },
+    });
+    console.log('🐛 Debug mode enabled - LLM requests and responses will be logged');
+  }
+
   // Initialize workspace for data storage
   const workspaceService = new WorkspaceService(args.cwd ?? process.cwd());
   const workspaceContext = await workspaceService.getContext();

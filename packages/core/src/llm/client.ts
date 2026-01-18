@@ -33,14 +33,133 @@ export function createLLMClient(
   provider: LLMProvider,
   config: ProviderConfig
 ): LLMClient {
+  let client: LLMClient;
   switch (provider) {
     case 'google':
-      return createGoogleClient(config);
+      client = createGoogleClient(config);
+      break;
     case 'ollama':
-      return createOllamaClient(config);
+      client = createOllamaClient(config);
+      break;
     default:
       throw new Error(`Unsupported provider: ${provider}`);
   }
+
+  // Wrap with debug logging if enabled
+  if (config.debug?.enabled) {
+    return wrapWithDebugLogging(client, config.debug);
+  }
+
+  return client;
+}
+
+/**
+ * Wraps an LLM client with debug logging for requests and responses.
+ */
+function wrapWithDebugLogging(
+  client: LLMClient,
+  debug: NonNullable<ProviderConfig['debug']>
+): LLMClient {
+  const logRequest = (request: ChatRequest) => {
+    if (!debug.logRequests) return;
+    console.log('\n' + '='.repeat(60));
+    console.log('🔵 LLM REQUEST');
+    console.log('='.repeat(60));
+    console.log(`Model: ${request.model}`);
+    if (request.systemPrompt) {
+      console.log(`\nSystem Prompt:\n${request.systemPrompt}`);
+    }
+    console.log('\nMessages:');
+    request.messages.forEach((msg) => {
+      console.log(`  [${msg.role}]: ${msg.content?.substring(0, 200)}${(msg.content?.length ?? 0) > 200 ? '...' : ''}`);
+      if (msg.toolCalls) {
+        console.log(`    Tool Calls: ${JSON.stringify(msg.toolCalls.map(tc => tc.name))}`);
+      }
+      if (msg.toolResults) {
+        console.log(`    Tool Results: ${msg.toolResults.length} result(s)`);
+      }
+    });
+    if (request.tools) {
+      console.log(`\nTools: ${request.tools.map(t => t.name).join(', ')}`);
+    }
+    console.log('='.repeat(60) + '\n');
+  };
+
+  const logResponse = (response: ChatResponse) => {
+    if (!debug.logResponses) return;
+    console.log('\n' + '='.repeat(60));
+    console.log('🟢 LLM RESPONSE');
+    console.log('='.repeat(60));
+    console.log(`Model: ${response.model}`);
+    console.log(`Finish Reason: ${response.finishReason}`);
+    if (response.content) {
+      console.log(`\nContent:\n${response.content.substring(0, 500)}${response.content.length > 500 ? '...' : ''}`);
+    }
+    if (response.toolCalls) {
+      console.log('\nTool Calls:');
+      response.toolCalls.forEach((tc) => {
+        console.log(`  - ${tc.name}: ${JSON.stringify(tc.arguments).substring(0, 200)}`);
+      });
+    }
+    if (response.usage) {
+      console.log(`\nUsage: prompt=${response.usage.promptTokens}, completion=${response.usage.completionTokens}, total=${response.usage.totalTokens}`);
+    }
+    console.log('='.repeat(60) + '\n');
+  };
+
+  return {
+    async chat(request: ChatRequest): Promise<ChatResponse> {
+      logRequest(request);
+      const response = await client.chat(request);
+      logResponse(response);
+      return response;
+    },
+
+    async *chatStream(request: ChatRequest) {
+      logRequest(request);
+      if (!client.chatStream) {
+        const response = await client.chat(request);
+        logResponse(response);
+        yield {
+          content: response.content ?? undefined,
+          done: true,
+          finishReason: response.finishReason,
+          usage: response.usage,
+        };
+        return;
+      }
+
+      let accumulatedContent = '';
+      const accumulatedToolCalls: import('../agents/types.js').ToolCall[] = [];
+
+      for await (const chunk of client.chatStream(request)) {
+        if (chunk.content) {
+          accumulatedContent += chunk.content;
+        }
+        const delta = chunk.toolCallDelta;
+        if (delta && typeof delta.id === 'string' && typeof delta.name === 'string') {
+          accumulatedToolCalls.push({
+            id: delta.id,
+            name: delta.name,
+            arguments: delta.arguments ?? {},
+          });
+        }
+        if (chunk.done && debug.logResponses) {
+          const response: ChatResponse = {
+            content: accumulatedContent || null,
+            toolCalls: accumulatedToolCalls.length > 0 ? accumulatedToolCalls : undefined,
+            model: request.model,
+            finishReason: chunk.finishReason ?? 'stop',
+            usage: chunk.usage,
+          };
+          logResponse(response);
+        }
+        yield chunk;
+      }
+    },
+
+    listModels: client.listModels?.bind(client),
+  };
 }
 
 /**

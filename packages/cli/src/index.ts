@@ -35,6 +35,7 @@ Options:
   --sop-file <path>       Load SOP from file
   --list-models           List available models for the current provider
   --yolo                  Auto-approve all tool calls
+  --debug                 Show LLM requests and responses for debugging
 
 Examples:
   beans "help me refactor this code"

@@ -134,6 +134,15 @@ export interface ProviderConfig {
   timeout?: number;
   /** Custom headers */
   headers?: Record<string, string>;
+  /** Debug configuration */
+  debug?: {
+    /** Enable debug mode */
+    enabled: boolean;
+    /** Log requests */
+    logRequests: boolean;
+    /** Log responses */
+    logResponses: boolean;
+  };
 }
 
 /**

@@ -1,4 +1,4 @@
-import type { AppConfig, LLMConfig, AgentConfig, ToolsConfig, TelemetryConfig, UIConfig } from './types.js';
+import type { AppConfig, LLMConfig, AgentConfig, ToolsConfig, TelemetryConfig, UIConfig, DebugConfig } from './types.js';
 import { loadSettings, saveSettings, type Settings } from './settings.js';
 import { loadEnv } from './env.js';
 import { ToolRegistry } from '../tools/registry.js';
@@ -37,6 +37,11 @@ const defaults: AppConfig = {
     showThinking: true,
     compact: false,
     maxOutputLines: 500,
+  },
+  debug: {
+    enabled: false,
+    logRequests: true,
+    logResponses: true,
   },
 };
 
@@ -118,6 +123,13 @@ export class Config {
   }
 
   /**
+   * Get debug configuration
+   */
+  getDebugConfig(): DebugConfig {
+    return { ...this.config.debug };
+  }
+
+  /**
    * Get the tool registry (lazy-loaded)
    */
   getToolRegistry(): ToolRegistry {
@@ -159,6 +171,7 @@ export class Config {
         apiKey,
         baseUrl: this.config.llm.baseUrl,
         defaultModel: this.config.llm.model,
+        debug: this.config.debug,
       });
     }
     return this._llmClient;
@@ -176,6 +189,7 @@ export class Config {
       tools: { ...this.config.tools, ...updates.tools },
       telemetry: { ...this.config.telemetry, ...updates.telemetry },
       ui: { ...this.config.ui, ...updates.ui },
+      debug: { ...this.config.debug, ...updates.debug },
     };
 
     // Reset lazy-loaded services
@@ -196,6 +210,7 @@ export class Config {
       tools: { ...defaults.tools, ...settings.tools },
       telemetry: { ...defaults.telemetry, ...settings.telemetry },
       ui: { ...defaults.ui, ...settings.ui },
+      debug: { ...defaults.debug, ...settings.debug },
     };
   }
 
@@ -209,6 +224,7 @@ export class Config {
       tools: this.config.tools,
       telemetry: this.config.telemetry,
       ui: this.config.ui,
+      debug: this.config.debug,
     };
   }
 
