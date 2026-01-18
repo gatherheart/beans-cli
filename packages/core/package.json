@@ -1,7 +1,7 @@
 {
   "name": "@beans/core",
   "version": "0.1.0",
-  "description": "Core agent framework - tools, agents, and LLM integration for stock trading",
+  "description": "Core agent framework - tools, agents, and LLM integration",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

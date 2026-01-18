@@ -3,48 +3,162 @@
 ## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        CLI Layer                             │
-│  ┌─────────┐  ┌─────────┐  ┌─────────────────────────────┐  │
-│  │ args.ts │  │ app.ts  │  │ Interactive Chat Loop       │  │
-│  │         │──│         │──│ (readline-based)            │  │
-│  │ Parsing │  │ Router  │  │                             │  │
-│  └─────────┘  └─────────┘  └─────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                       Core Layer                             │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │                    ChatSession                       │    │
-│  │  - System prompt (set once)                         │    │
-│  │  - Message history (accumulates)                    │    │
-│  │  - sendMessage() → returns response                 │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                              │                               │
-│         ┌────────────────────┼────────────────────┐         │
-│         ▼                    ▼                    ▼         │
-│  ┌─────────────┐      ┌─────────────┐      ┌───────────┐   │
-│  │  LLMClient  │      │ ToolRegistry│      │  Config   │   │
-│  │             │      │             │      │           │   │
-│  │ - chat()    │      │ - getTool() │      │ - load()  │   │
-│  │ - stream()  │      │ - register()│      │ - save()  │   │
-│  └─────────────┘      └─────────────┘      └───────────┘   │
-│         │                    │                               │
-│         ▼                    ▼                               │
-│  ┌─────────────┐      ┌─────────────┐                       │
-│  │  Providers  │      │ Built-in    │                       │
-│  │ - OpenAI    │      │ Tools       │                       │
-│  │ - Anthropic │      │ - read_file │                       │
-│  │ - Google    │      │ - write_file│                       │
-│  │ - Ollama    │      │ - shell     │                       │
-│  └─────────────┘      │ - glob      │                       │
-│                       │ - grep      │                       │
-│                       └─────────────┘                       │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                          Plugin Layer                                │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │                      plugins/                                │    │
+│  │  ┌──────────────────┐ ┌──────────────────┐ ┌─────────────┐  │    │
+│  │  │ general-assistant│ │ code-development │ │ devops-ops  │  │    │
+│  │  │  └─agents/       │ │  └─agents/       │ │  └─agents/  │  │    │
+│  │  │    └─default.md  │ │    └─*.md        │ │    └─*.md   │  │    │
+│  │  │  └─commands/     │ │  └─commands/     │ │  └─commands/│  │    │
+│  │  │  └─skills/       │ │  └─skills/       │ │  └─skills/  │  │    │
+│  │  └──────────────────┘ └──────────────────┘ └─────────────┘  │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                           CLI Layer                                  │
+│  ┌─────────┐  ┌─────────────┐  ┌────────────────────────────────┐   │
+│  │ args.ts │  │   app.ts    │  │    Interactive Chat Loop       │   │
+│  │         │──│             │──│    (readline-based)            │   │
+│  │ Parsing │  │ ┌─────────┐ │  │                                │   │
+│  └─────────┘  │ │ Profile │ │  │  Commands: /help /profile      │   │
+│               │ │ Resolver│ │  │            /sop /clear /exit   │   │
+│               │ └─────────┘ │  │                                │   │
+│               └─────────────┘  └────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                          Core Layer                                  │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                       Agent System                             │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐   │  │
+│  │  │ ChatSession │  │AgentExecutor│  │   AgentProfile      │   │  │
+│  │  │             │  │             │  │                     │   │  │
+│  │  │-systemPrompt│  │-execute()   │  │-loadAgentProfile()  │   │  │
+│  │  │-messages[]  │  │-agent loop  │  │-parseMarkdownProfile│   │  │
+│  │  │-sendMessage │  │             │  │-AgentProfileBuilder │   │  │
+│  │  │-updateSOP() │  │             │  │                     │   │  │
+│  │  └─────────────┘  └─────────────┘  └─────────────────────┘   │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                │                                     │
+│         ┌──────────────────────┼──────────────────────┐             │
+│         ▼                      ▼                      ▼             │
+│  ┌─────────────┐        ┌─────────────┐        ┌───────────┐       │
+│  │  LLMClient  │        │ ToolRegistry│        │  Config   │       │
+│  │             │        │             │        │           │       │
+│  │ - chat()    │        │ - getTool() │        │ - load()  │       │
+│  │ - stream()  │        │ - register()│        │ - save()  │       │
+│  │ - listModels│        │ - getAll()  │        │ - update()│       │
+│  └─────────────┘        └─────────────┘        └───────────┘       │
+│         │                      │                                    │
+│         ▼                      ▼                                    │
+│  ┌─────────────┐        ┌─────────────┐                            │
+│  │  Providers  │        │ Built-in    │                            │
+│  │ - Google    │        │ Tools       │                            │
+│  │ - Ollama    │        │ - read_file │                            │
+│  │             │        │ - write_file│                            │
+│  │ (Planned:)  │        │ - shell     │                            │
+│  │ - OpenAI    │        │ - glob      │                            │
+│  │ - Anthropic │        │ - grep      │                            │
+│  └─────────────┘        └─────────────┘                            │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## Plugin System Architecture
+
+Following the [wshobson/agents](https://github.com/wshobson/agents) pattern:
+
+```
+plugins/
+├── {domain}/
+│   ├── agents/           # Agent definitions (Markdown + YAML)
+│   │   └── {agent}.md
+│   ├── commands/         # Tools and workflows (TODO)
+│   └── skills/           # Knowledge modules (Markdown)
+│       └── {skill}.md
+```
+
+### Agent File Format
+
+```markdown
+---
+name: agent-name
+description: Brief description
+---
+
+# Agent Title
+
+## Purpose
+What the agent does...
+
+## Capabilities
+- Capability 1
+- Capability 2
+
+## Guidelines
+1. Guideline 1
+2. Guideline 2
+```
+
+### Skill File Format
+
+```markdown
+---
+name: skill-name
+triggers:
+  - trigger phrase 1
+  - trigger phrase 2
+---
+
+# Skill Title
+
+## Use When
+When to activate this skill...
+
+## Instructions
+How to apply this knowledge...
+
+## Resources
+Examples and references...
 ```
 
 ## Data Flow
+
+### Profile Resolution Flow
+
+```
+CLI Start
+    │
+    ▼
+┌────────────────────────────────────────┐
+│         resolveAgentProfile()          │
+│                                        │
+│  1. --agent-profile flag? ──────────►  Load .md file
+│         │ No                           │
+│         ▼                              │
+│  2. -a description? ────────────────►  Generate via LLM
+│         │ No                                    │
+│         ▼                                       ▼
+│  3. .beans/agent.md exists? ────────►  Load workspace profile
+│         │ No                           │
+│         ▼                              │
+│  4. plugins/.../default.md ─────────►  Load default plugin
+│         │ No                           │
+│         ▼                              │
+│  5. DEFAULT_AGENT_PROFILE ──────────►  Hardcoded fallback
+│                                        │
+└────────────────────────────────────────┘
+    │
+    ▼
+AgentProfile {
+  name, displayName, description,
+  purpose, systemPrompt, version
+}
+```
 
 ### Interactive Chat Flow
 
@@ -52,105 +166,221 @@
 User Input
     │
     ▼
-┌────────────────┐
-│ ChatSession    │
-│ sendMessage()  │
-│                │
-│ 1. Add user    │
-│    message to  │
-│    history     │
-│                │
-│ 2. Call LLM    │◄─── System prompt (in config, not repeated)
-│    with:       │◄─── All accumulated messages
-│    - messages  │◄─── Tool definitions
-│    - tools     │
-│                │
-│ 3. Process     │
-│    response    │
-│                │
-│ 4. If tool     │────► Execute tools in parallel
-│    calls:      │◄──── Add results to history
-│    loop back   │
-│                │
-│ 5. Return      │
-│    response    │
-└────────────────┘
+┌────────────────────────────────────────┐
+│            ChatSession                  │
+│            sendMessage()                │
+│                                        │
+│  1. Check slash commands               │
+│     /help, /profile, /sop, /clear      │
+│         │                              │
+│         ▼                              │
+│  2. Add user message to history        │
+│         │                              │
+│         ▼                              │
+│  3. Build ChatRequest:                 │
+│     - model                            │
+│     - messages (accumulated)           │
+│     - systemPrompt (from profile)      │
+│     - tools (from registry)            │
+│         │                              │
+│         ▼                              │
+│  4. Call LLMClient.chat()              │
+│         │                              │
+│         ▼                              │
+│  5. Process response:                  │
+│     - If tool_calls → execute tools    │
+│       → add results to history         │
+│       → loop back to step 3            │
+│     - If content → add to history      │
+│         │                              │
+│         ▼                              │
+│  6. Return response                    │
+└────────────────────────────────────────┘
     │
     ▼
 Display to User
 ```
 
-### Single Prompt Flow
+### Tool Execution Flow
 
 ```
-User Prompt
+LLM Response (with toolCalls)
     │
     ▼
-┌────────────────┐
-│ AgentExecutor  │
-│ execute()      │
-│                │
-│ 1. Build fresh │
-│    messages    │
-│                │
-│ 2. Execute     │
-│    agent loop  │
-│                │
-│ 3. Return      │
-│    result      │
-└────────────────┘
+┌────────────────────────────────────────┐
+│         Tool Execution Loop            │
+│                                        │
+│  For each toolCall:                    │
+│    │                                   │
+│    ▼                                   │
+│  ┌──────────────────────────────────┐ │
+│  │ 1. Get tool from registry        │ │
+│  │ 2. Validate parameters           │ │
+│  │ 3. Check confirmation (if needed)│ │
+│  │ 4. Execute tool                  │ │
+│  │ 5. Capture result/error          │ │
+│  └──────────────────────────────────┘ │
+│    │                                   │
+│    ▼                                   │
+│  Collect all ToolResults               │
+│  (executed in parallel)                │
+└────────────────────────────────────────┘
     │
     ▼
-Exit
+Add tool message to history
+Continue agent loop
 ```
 
 ## Key Design Decisions
 
-### 1. Session Management (gemini-cli pattern)
+### 1. Plugin-Based Agent System
 
-- **System prompt**: Set once in ChatSession config, NOT in message history
-- **History**: Only user/assistant/tool messages accumulate
-- **Stateful**: Single ChatSession instance maintains conversation state
+**Decision**: Agents defined as Markdown files with YAML frontmatter
 
-### 2. Provider Abstraction
+**Rationale**:
+- Human-readable and editable
+- Version control friendly
+- Follows wshobson/agents pattern
+- Easy to share and distribute
 
-- **LLMClient interface**: Unified API for all providers
-- **Factory pattern**: `createLLMClient()` based on config
-- **Tool formatting**: Provider-specific tool definition adaptation
+**Structure**:
+```
+plugins/
+├── general-assistant/agents/default.md    # Default
+├── code-development/agents/*.md           # Dev tools
+└── devops-operations/agents/*.md          # Ops tools
+```
 
-### 3. Tool System
+### 2. Session Management (gemini-cli pattern)
 
-- **Registry pattern**: Central registry for tool discovery
-- **Base class**: `BaseTool` for consistent interface
-- **Parallel execution**: Tool calls executed concurrently
+**Decision**: System prompt set once, messages accumulate
+
+**Rationale**:
+- Efficient token usage (no repeated system prompt)
+- Natural conversation flow
+- Easy to update SOP at runtime
+
+**Implementation**:
+```typescript
+// System prompt: Set once in ChatSession
+const session = new ChatSession({ systemPrompt });
+
+// Messages: Accumulate across turns
+await session.sendMessage("First");   // history: [user1]
+await session.sendMessage("Second");  // history: [user1, asst1, user2]
+```
+
+### 3. Provider Abstraction
+
+**Decision**: Unified LLMClient interface for all providers
+
+**Rationale**:
+- Easy to add new providers
+- Consistent API across providers
+- Provider-specific details hidden
+
+**Interface**:
+```typescript
+interface LLMClient {
+  chat(request: ChatRequest): Promise<ChatResponse>;
+  chatStream?(request: ChatRequest): AsyncGenerator<ChatStreamChunk>;
+  listModels?(): Promise<ModelInfo[]>;
+}
+```
+
+### 4. Tool System
+
+**Decision**: Registry pattern with parallel execution
+
+**Rationale**:
+- Central discovery of available tools
+- Consistent tool interface via BaseTool
+- Parallel execution for performance
+
+**Built-in Tools**:
+| Tool | Purpose |
+|------|---------|
+| `read_file` | Read file contents |
+| `write_file` | Write/append files |
+| `shell` | Execute commands |
+| `glob` | Pattern matching |
+| `grep` | Content search |
 
 ## Module Dependencies
 
 ```
-@beans/cli
+plugins/                          # Agent definitions (Markdown)
     │
-    └──► @beans/core
+    ▼
+@beans/cli                        # Command line interface
+    │
+    ├── args.ts                   # Argument parsing
+    ├── app.ts                    # Main application
+    │   ├── resolveAgentProfile() # Profile resolution
+    │   ├── runSinglePrompt()     # One-shot mode
+    │   └── runInteractiveChat()  # Chat mode
+    │
+    └──► @beans/core              # Core framework
               │
-              ├──► agents/ (ChatSession, AgentExecutor)
+              ├── agents/
+              │   ├── profile.ts       # AgentProfile, loading
+              │   ├── chat-session.ts  # ChatSession
+              │   ├── executor.ts      # AgentExecutor
+              │   └── types.ts         # Type definitions
               │
-              ├──► tools/ (ToolRegistry, built-in tools)
+              ├── tools/
+              │   ├── registry.ts      # ToolRegistry
+              │   ├── base-tool.ts     # BaseTool class
+              │   └── builtin/         # Built-in tools
               │
-              ├──► llm/ (LLMClient, providers)
+              ├── llm/
+              │   ├── client.ts        # Factory function
+              │   ├── types.ts         # LLM interfaces
+              │   └── providers/       # Google, Ollama
               │
-              ├──► config/ (Config, settings)
+              ├── config/
+              │   └── config.ts        # Config singleton
               │
-              └──► context/ (SessionManager, WorkspaceService)
+              └── context/
+                  ├── session.ts       # SessionManager
+                  └── workspace.ts     # WorkspaceService
 ```
 
 ## Configuration Hierarchy
 
-1. **Default config**: Hardcoded defaults in code
-2. **User config**: `~/.config/beans-agent/settings.json`
-3. **Project config**: `.beans/settings.json` (overrides user)
-4. **CLI flags**: `--model`, `--yolo` (overrides all)
+Priority (highest to lowest):
+
+1. **CLI flags**: `--model`, `--yolo`, `--agent-profile`
+2. **Environment**: `GOOGLE_API_KEY`, `OLLAMA_HOST`
+3. **Project config**: `.beans/settings.json`
+4. **User config**: `~/.config/beans-agent/settings.json`
+5. **Defaults**: Hardcoded in code
+
+## File Locations
+
+| Type | Location |
+|------|----------|
+| Default agent | `plugins/general-assistant/agents/default.md` |
+| Workspace agent | `.beans/agent.md` |
+| Generated profiles | `.beans/agent-profile.md` |
+| User settings | `~/.config/beans-agent/settings.json` |
+| Project settings | `.beans/settings.json` |
 
 ## Error Handling
 
-- **Tool errors**: Caught and returned as tool result with error field
-- **LLM errors**: Propagated up, terminate agent loop
-- **Config errors**: Graceful fallback to defaults
+| Error Type | Handling |
+|------------|----------|
+| Tool errors | Caught, returned as ToolResult with error field |
+| LLM errors | Propagated up, terminate agent loop |
+| Profile errors | Fallback to default profile |
+| Config errors | Graceful fallback to defaults |
+
+## Future Considerations
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Commands | TODO | Plugin-specific tools/workflows |
+| Skills loading | TODO | Trigger-based skill activation |
+| OpenAI provider | Planned | Add to llm/providers/ |
+| Anthropic provider | Planned | Add to llm/providers/ |
+| Plugin marketplace | Future | Discover/install plugins |

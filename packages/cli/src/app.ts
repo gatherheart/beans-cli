@@ -3,11 +3,27 @@
  */
 
 import readline from 'node:readline';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { CLIArgs } from './args.js';
 import { Config } from '@beans/core';
 import { AgentExecutor, ChatSession } from '@beans/core';
 import { SessionManager } from '@beans/core';
 import { WorkspaceService } from '@beans/core';
+import {
+  AgentProfileBuilder,
+  loadAgentProfile,
+  saveAgentProfile,
+  DEFAULT_AGENT_PROFILE,
+  type AgentProfile,
+} from '@beans/core';
+
+// Get the package root directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PACKAGE_ROOT = path.resolve(__dirname, '../../..');
+const DEFAULT_AGENT_PATH = path.join(PACKAGE_ROOT, 'plugins', 'general-assistant', 'agents', 'default.md');
 
 /**
  * Runs the main CLI application with the provided arguments.
@@ -58,12 +74,25 @@ export async function runApp(args: CLIArgs): Promise<void> {
   // Initialize session
   const sessionManager = new SessionManager();
 
-  console.log(`\n📈 Stock Trading Agent v0.1.0`);
+  // Load or generate agent profile
+  const agentProfile = await resolveAgentProfile(config, args);
+
+  console.log(`\n🤖 ${agentProfile.displayName} v${agentProfile.version}`);
   console.log(`📁 Workspace: ${workspaceContext.rootPath}`);
-  console.log(`💹 Ready to assist with stock analysis and trading decisions`);
+  console.log(`📋 ${agentProfile.description}`);
   console.log('');
 
-  const systemPrompt = buildSystemPrompt();
+  // Apply SOP if provided
+  let finalProfile = agentProfile;
+  const sop = await resolveSOP(args);
+  if (sop) {
+    const builder = new AgentProfileBuilder(config.getLLMClient(), config.getLLMConfig().model);
+    finalProfile = builder.updateProfileWithSOP(agentProfile, sop);
+    console.log('📝 SOP applied to agent profile');
+    console.log('');
+  }
+
+  const systemPrompt = finalProfile.systemPrompt;
 
   // If we have an initial prompt and not interactive mode, run single shot
   if (args.prompt && !args.interactive) {
@@ -72,10 +101,10 @@ export async function runApp(args: CLIArgs): Promise<void> {
       config.getLLMClient(),
       config.getToolRegistry()
     );
-    await runSinglePrompt(executor, config, systemPrompt, args.prompt, sessionManager);
+    await runSinglePrompt(executor, config, systemPrompt, args.prompt, sessionManager, finalProfile);
   } else {
     // Interactive continuous chat mode - use ChatSession
-    await runInteractiveChat(config, systemPrompt, args.prompt);
+    await runInteractiveChat(config, systemPrompt, args.prompt, finalProfile);
   }
 }
 
@@ -108,14 +137,15 @@ async function runSinglePrompt(
   config: Config,
   systemPrompt: string,
   prompt: string,
-  sessionManager: SessionManager
+  sessionManager: SessionManager,
+  profile: AgentProfile
 ): Promise<void> {
   console.log(`> ${prompt}\n`);
 
   const result = await executor.execute(
     {
-      name: 'stock_trading_agent',
-      description: 'AI stock trading assistant',
+      name: profile.name,
+      description: profile.description,
       promptConfig: {
         systemPrompt,
         query: prompt,
@@ -198,7 +228,8 @@ async function runSinglePrompt(
 async function runInteractiveChat(
   config: Config,
   systemPrompt: string,
-  initialPrompt?: string
+  initialPrompt?: string,
+  profile?: AgentProfile
 ): Promise<void> {
   // Create a single readline interface for the entire session
   const rl = readline.createInterface({
@@ -240,10 +271,42 @@ async function runInteractiveChat(
       if (command === 'help') {
         console.log(`
 Available commands:
-  /help  - Show this help message
-  /clear - Clear chat history
-  /exit  - Exit the application
+  /help    - Show this help message
+  /clear   - Clear chat history
+  /profile - Show current agent profile
+  /sop     - Update SOP (usage: /sop <new sop text>)
+  /exit    - Exit the application
 `);
+        return true;
+      }
+      if (command === 'profile') {
+        if (profile) {
+          console.log(`
+Current Agent Profile:
+  Name: ${profile.displayName}
+  Description: ${profile.description}
+  Purpose: ${profile.purpose}
+  Version: ${profile.version}
+`);
+        } else {
+          console.log('No profile loaded.\n');
+        }
+        return true;
+      }
+      if (command.startsWith('sop ')) {
+        const newSop = trimmed.slice(5); // Remove '/sop '
+        if (newSop.trim()) {
+          const builder = new AgentProfileBuilder(config.getLLMClient(), config.getLLMConfig().model);
+          const updatedProfile = builder.updateProfileWithSOP(
+            profile || DEFAULT_AGENT_PROFILE,
+            newSop
+          );
+          // Update the chat session with new system prompt
+          chatSession.updateSystemPrompt(updatedProfile.systemPrompt);
+          console.log('✅ SOP updated successfully.\n');
+        } else {
+          console.log('Usage: /sop <your sop text>\n');
+        }
         return true;
       }
       console.log(`Unknown command: ${trimmed}. Type /help for available commands.\n`);
@@ -341,48 +404,99 @@ Available commands:
 }
 
 /**
- * Builds the system prompt that defines the stock trading agent's behavior.
+ * Resolves the agent profile based on CLI arguments.
  *
- * @remarks
- * This function constructs the comprehensive system prompt that establishes
- * the agent's identity, capabilities, guidelines, and disclaimers. The prompt
- * is designed to create a helpful yet responsible AI trading assistant.
+ * Priority order:
+ * 1. Load from profile file (--agent-profile)
+ * 2. Generate from description using LLM (--agent or -a)
+ * 3. Load from workspace .beans/agent.json
+ * 4. Load from default agents/default.json
+ * 5. Use hardcoded default profile
  *
- * The system prompt includes:
- * - **Agent identity**: Defines the agent as an AI Stock Trading Agent
- * - **Capabilities**: Lists what the agent can help with, including market
- *   analysis, trading strategies, portfolio management, and education
- * - **Guidelines**: Establishes responsible behavior such as acknowledging
- *   risks, providing balanced analysis, and encouraging user research
- * - **Disclaimers**: Important legal disclaimers about the informational
- *   nature of the advice and the need for professional consultation
- *
- * This prompt is set once at session creation and remains constant throughout
- * the conversation, following the gemini-cli pattern for system instructions.
- *
- * @returns The complete system prompt string for the stock trading agent.
+ * @param config - The application configuration
+ * @param args - CLI arguments
+ * @returns The resolved agent profile
  */
-function buildSystemPrompt(): string {
-  return `You are an AI Stock Trading Agent. You help users with stock market analysis, trading strategies, and investment decisions.
+async function resolveAgentProfile(config: Config, args: CLIArgs): Promise<AgentProfile> {
+  // 1. Try to load from profile file (explicit --agent-profile)
+  if (args.agentProfile) {
+    try {
+      console.log(`Loading agent profile from: ${args.agentProfile}`);
+      const profile = await loadAgentProfile(args.agentProfile);
+      return profile;
+    } catch (error) {
+      console.warn(`Failed to load profile from ${args.agentProfile}, falling back to generation`);
+    }
+  }
 
-Your capabilities:
-- Analyze stock market trends and patterns
-- Provide technical and fundamental analysis
-- Suggest trading strategies based on market conditions
-- Help with portfolio management and risk assessment
-- Explain market concepts and trading terminology
-- Monitor and analyze stock performance
+  // 2. Generate from description using LLM
+  if (args.agentDescription) {
+    console.log('Generating agent profile from description...');
+    const builder = new AgentProfileBuilder(config.getLLMClient(), config.getLLMConfig().model);
+    const sop = await resolveSOP(args);
+    const profile = await builder.buildProfile({
+      description: args.agentDescription,
+      sop: sop || undefined,
+    });
 
-Guidelines:
-- Always remind users that stock trading involves risk
-- Provide balanced analysis with both bullish and bearish perspectives
-- Base recommendations on data and analysis, not speculation
-- Clearly state when information may be outdated
-- Encourage users to do their own research before making investment decisions
-- Never guarantee returns or promise specific outcomes
+    // Optionally save the generated profile
+    const workspaceDir = args.cwd ?? process.cwd();
+    const profilePath = `${workspaceDir}/.beans/agent-profile.md`;
+    try {
+      await saveAgentProfile(profile, profilePath);
+      console.log(`Profile saved to: ${profilePath}`);
+    } catch {
+      // Ignore save errors - profile generation succeeded
+    }
 
-Important disclaimers:
-- This is for informational purposes only, not financial advice
-- Past performance does not guarantee future results
-- Users should consult with licensed financial advisors for personalized advice`;
+    return profile;
+  }
+
+  // 3. Try to load from workspace .beans/agent.md
+  const workspaceDir = args.cwd ?? process.cwd();
+  const workspaceAgentPath = path.join(workspaceDir, '.beans', 'agent.md');
+  try {
+    await fs.access(workspaceAgentPath);
+    const profile = await loadAgentProfile(workspaceAgentPath);
+    return profile;
+  } catch {
+    // File doesn't exist or can't be read, continue to next option
+  }
+
+  // 4. Try to load from default agents/default.json
+  try {
+    await fs.access(DEFAULT_AGENT_PATH);
+    const profile = await loadAgentProfile(DEFAULT_AGENT_PATH);
+    return profile;
+  } catch {
+    // File doesn't exist or can't be read, continue to fallback
+  }
+
+  // 5. Use hardcoded default profile as final fallback
+  return DEFAULT_AGENT_PROFILE;
+}
+
+/**
+ * Resolves SOP from CLI arguments.
+ *
+ * @param args - CLI arguments
+ * @returns The SOP string or null if not provided
+ */
+async function resolveSOP(args: CLIArgs): Promise<string | null> {
+  // Direct SOP from command line
+  if (args.sop) {
+    return args.sop;
+  }
+
+  // Load from file
+  if (args.sopFile) {
+    try {
+      const content = await fs.readFile(args.sopFile, 'utf-8');
+      return content.trim();
+    } catch (error) {
+      console.warn(`Failed to load SOP from ${args.sopFile}`);
+    }
+  }
+
+  return null;
 }

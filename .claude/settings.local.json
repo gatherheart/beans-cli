@@ -4,7 +4,10 @@
       "Bash(grep:*)",
       "Bash(mkdir:*)",
       "Bash(bash -c 'cd /Users/bean/kakao && ls -la beans-code/')",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(find:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

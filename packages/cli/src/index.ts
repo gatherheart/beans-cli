@@ -19,23 +19,28 @@ async function main() {
 
   if (args.help) {
     console.log(`
-beans-agent - AI-powered stock trading assistant
+beans-agent - AI-powered dynamic agent framework
 
 Usage:
   beans [options] [prompt]
 
 Options:
-  -h, --help       Show this help message
-  -v, --version    Show version number
-  -c, --continue   Continue previous session
-  -m, --model      Specify model to use
-  --list-models    List available models for the current provider
-  --yolo           Auto-approve all tool calls
+  -h, --help              Show this help message
+  -v, --version           Show version number
+  -c, --continue          Continue previous session
+  -m, --model             Specify model to use
+  -a, --agent <desc>      Generate agent from description
+  --agent-profile <path>  Load agent profile from file
+  --sop <text>            Inject SOP into agent
+  --sop-file <path>       Load SOP from file
+  --list-models           List available models for the current provider
+  --yolo                  Auto-approve all tool calls
 
 Examples:
-  beans "analyze AAPL stock performance"
-  beans --model gpt-4o "what are the best tech stocks to buy?"
-  beans "explain RSI indicator"
+  beans "help me refactor this code"
+  beans -a "A helpful coding assistant" "review my code"
+  beans --agent-profile ./my-agent.json
+  beans --sop "Always explain step by step"
   beans --list-models
 `);
     process.exit(0);

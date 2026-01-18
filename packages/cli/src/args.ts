@@ -23,6 +23,14 @@ export interface CLIArgs {
   listModels: boolean;
   /** Force interactive mode even with a prompt */
   interactive: boolean;
+  /** Agent description - used to generate agent profile via LLM */
+  agentDescription?: string;
+  /** Path to agent profile file */
+  agentProfile?: string;
+  /** SOP (Standard Operating Procedure) to inject into the agent */
+  sop?: string;
+  /** Path to SOP file */
+  sopFile?: string;
 }
 
 /**
@@ -77,6 +85,19 @@ export async function parseArgs(): Promise<CLIArgs> {
       case '-i':
       case '--interactive':
         result.interactive = true;
+        break;
+      case '-a':
+      case '--agent':
+        result.agentDescription = args[++i];
+        break;
+      case '--agent-profile':
+        result.agentProfile = args[++i];
+        break;
+      case '--sop':
+        result.sop = args[++i];
+        break;
+      case '--sop-file':
+        result.sopFile = args[++i];
         break;
       default:
         if (!arg.startsWith('-')) {

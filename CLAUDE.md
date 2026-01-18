@@ -1,98 +1,198 @@
 # Claude Instructions for Beans Agent
 
-## Reference Project
+## Reference Projects
 
-**Always refer to `../gemini-cli` for patterns and best practices.**
+- **Patterns**: `../gemini-cli` for implementation patterns
+- **Agent Structure**: https://github.com/wshobson/agents
 
 ## Project Overview
 
-Beans Agent is an AI-powered stock trading assistant built as a modular CLI framework. It supports multiple LLM providers and includes built-in tools for file operations and shell commands.
+Beans Agent is a dynamic AI agent framework built as a modular CLI. It supports multiple LLM providers (Google, Ollama), includes built-in tools for file operations and shell commands, and features a plugin-based agent system.
 
 ## Architecture Overview
 
 ```
 beans-code/
+├── plugins/                          # Plugin-based agent system
+│   ├── general-assistant/            # Default general-purpose plugin
+│   │   ├── agents/
+│   │   │   └── default.md            # Default agent (used when no args)
+│   │   ├── commands/                 # (TODO)
+│   │   └── skills/                   # (TODO)
+│   ├── code-development/             # Code development plugin
+│   │   ├── agents/
+│   │   │   ├── code-reviewer.md
+│   │   │   ├── typescript-expert.md
+│   │   │   └── python-pro.md
+│   │   ├── commands/
+│   │   └── skills/
+│   │       └── testing-patterns.md
+│   └── devops-operations/            # DevOps plugin
+│       ├── agents/
+│       │   ├── devops-engineer.md
+│       │   └── kubernetes-architect.md
+│       ├── commands/
+│       └── skills/
+│           └── docker-patterns.md
 ├── packages/
-│   ├── core/           # Core framework - agents, tools, LLM clients
+│   ├── core/                         # Core framework
 │   │   └── src/
-│   │       ├── agents/     # Agent execution engine
-│   │       ├── tools/      # Tool system and built-in tools
-│   │       ├── llm/        # LLM client providers
-│   │       ├── config/     # Configuration management
-│   │       └── context/    # Session and workspace context
-│   └── cli/            # Command line interface
+│   │       ├── agents/               # Agent execution engine
+│   │       ├── tools/                # Tool system and built-in tools
+│   │       ├── llm/                  # LLM client providers
+│   │       ├── config/               # Configuration management
+│   │       └── context/              # Session and workspace context
+│   └── cli/                          # Command line interface
 │       └── src/
-│           ├── index.ts    # Entry point
-│           ├── args.ts     # CLI argument parsing
-│           └── app.ts      # Main application
+│           ├── index.ts              # Entry point
+│           ├── args.ts               # CLI argument parsing
+│           └── app.ts                # Main application
 ├── docs/
-│   ├── prd/            # Product requirement documents
-│   └── architecture/   # Architecture documentation
-└── CLAUDE.md           # This file
+│   ├── prd/                          # Product requirement documents
+│   └── architecture/                 # Architecture documentation
+└── CLAUDE.md                         # This file
+```
+
+## Plugin System
+
+Following the wshobson/agents architecture with three-layer structure:
+
+### 1. Agents (Markdown with YAML frontmatter)
+
+Domain specialists defined as Markdown files:
+
+```markdown
+---
+name: code-reviewer
+description: Expert code reviewer focusing on quality and security
+---
+
+# Code Reviewer
+
+## Purpose
+You are an expert code reviewer...
+
+## Capabilities
+- Code quality analysis
+- Security review
+...
+```
+
+**YAML Frontmatter Fields:**
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Unique identifier (snake_case) |
+| `description` | Yes | Brief one-line description |
+
+### 2. Commands (TODO)
+
+Tools and workflows for the domain.
+
+### 3. Skills
+
+Modular knowledge packages with triggers:
+
+```markdown
+---
+name: testing-patterns
+triggers:
+  - write tests
+  - unit test
+  - mocking
+---
+
+# Testing Patterns
+
+## Use When
+User requests help with testing...
+
+## Instructions
+...
 ```
 
 ## Key Components
 
-### ChatSession (packages/core/src/agents/chat-session.ts)
+### AgentProfile (`packages/core/src/agents/profile.ts`)
+- Loads agent profiles from Markdown files
+- Parses YAML frontmatter for metadata (name, description)
+- Uses Markdown body as system prompt
+- `AgentProfileBuilder` generates profiles via LLM
+
+### ChatSession (`packages/core/src/agents/chat-session.ts`)
 - Manages continuous chat with accumulated history
-- System prompt set once at session start, NOT repeated
-- Messages accumulate across turns
+- System prompt set once at session start
+- Supports runtime SOP updates via `updateSystemPrompt()`
 
-### AgentExecutor (packages/core/src/agents/executor.ts)
-- Single-shot execution for one-off prompts
-- Creates fresh message array for each execute() call
+### AgentExecutor (`packages/core/src/agents/executor.ts`)
+- Runs the agent loop (LLM call → tool execution → repeat)
+- Handles streaming responses
+- Manages turn limits and timeouts
 
-### ToolRegistry (packages/core/src/tools/registry.ts)
-- Manages available tools
-- Built-in tools: read_file, write_file, shell, glob, grep
+### LLM Client (`packages/core/src/llm/`)
+- Unified interface for multiple providers
+- Currently supports: Google (Gemini), Ollama
+- See `docs/prd/llm-interface.md` for request/response format
 
-### LLM Client (packages/core/src/llm/client.ts)
-- Factory pattern for provider-specific clients
-- Supports: OpenAI, Anthropic, Google, Ollama
+### Tool System (`packages/core/src/tools/`)
+- Built-in tools: `read_file`, `write_file`, `shell`, `glob`, `grep`
+- Extensible via `BaseTool` class
+- Tools registered in `ToolRegistry`
+
+## Profile Resolution Order
+
+When the CLI starts, it resolves the agent profile:
+
+1. `--agent-profile <path>` - Explicit .md file
+2. `-a <description>` - Generate via LLM
+3. `.beans/agent.md` - Workspace-specific profile
+4. `plugins/general-assistant/agents/default.md` - Default agent
+5. Hardcoded fallback
+
+## CLI Usage
+
+```bash
+# Use default agent
+beans
+
+# Use specific agent from plugins
+beans --agent-profile ./plugins/code-development/agents/code-reviewer.md
+
+# Generate agent from description
+beans -a "A security-focused code reviewer"
+
+# Inject SOP (Standard Operating Procedure)
+beans --sop "Always check for SQL injection"
+
+# Load SOP from file
+beans --sop-file ./my-sop.txt
+
+# Auto-approve all tool calls
+beans --yolo "prompt"
+
+# List available models
+beans --list-models
+```
+
+## Interactive Commands
+
+| Command | Description |
+|---------|-------------|
+| `/help` | Show available commands |
+| `/profile` | View current agent profile |
+| `/sop <text>` | Update SOP during session |
+| `/clear` | Clear chat history |
+| `/exit` | Exit application |
 
 ## Development Guidelines
 
-1. **Reference gemini-cli**: Always check `../gemini-cli` for implementation patterns
-2. **Session Management**: Use ChatSession for continuous chat, system prompt once
-3. **Keep Documentation in Sync**: Update CLAUDE.md files when changing code
-4. **Documentation Locations**:
-   - Feature specifications: `docs/prd/`
-   - Architecture docs: `docs/architecture/`
-   - Package docs: `packages/*/CLAUDE.md`
-
-## Session Management Pattern
-
-Following gemini-cli's approach:
-
-```typescript
-// CORRECT: Create session once, send multiple messages
-const session = new ChatSession(llmClient, toolRegistry, {
-  systemPrompt,  // Set once
-  modelConfig,
-  toolConfig,
-});
-
-await session.sendMessage("First message");  // History accumulates
-await session.sendMessage("Second message"); // Has context from first
-```
-
-```typescript
-// WRONG: Creating new execution each time repeats system prompt
-for (const msg of messages) {
-  await executor.execute({ systemPrompt, query: msg }); // System prompt repeated!
-}
-```
-
-## File Organization
-
-Each package directory should have:
-- `CLAUDE.md` - Instructions and architecture for that package
-- `src/index.ts` - Public exports
-- Clear separation of concerns
+1. **Plugin Structure**: Follow `plugins/{domain}/{agents,commands,skills}/` pattern
+2. **Agent Format**: Use Markdown with YAML frontmatter (name, description only)
+3. **LLM Interface**: See `docs/prd/llm-interface.md` for request/response specs
+4. **Tools**: Extend `BaseTool` class, register in `tools/builtin/index.ts`
 
 ## Before Committing
 
 1. Ensure all CLAUDE.md files are updated
 2. Run `npm run build` to verify compilation
 3. Run `npm test` if tests exist
-4. Update README.md if features changed
+4. Update documentation if features changed
