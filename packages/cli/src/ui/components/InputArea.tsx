@@ -9,14 +9,13 @@
 
 import React, { useState, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { useChatContext } from '../contexts/ChatContext.js';
+import { useChatState, useChatActions } from '../contexts/ChatContext.js';
 
 const HELP_TEXT = `## Available Commands
 
 - **/help** - Show this help message
 - **/clear** - Clear chat history
 - **/profile** - Show current agent profile
-- **/sop <text>** - Update standard operating procedure
 - **/exit** - Exit the application
 
 **Multi-line input:**
@@ -29,7 +28,8 @@ interface InputAreaProps {
 
 export function InputArea({ onExit }: InputAreaProps): React.ReactElement {
   const [input, setInput] = useState('');
-  const { sendMessage, addSystemMessage, clearHistory, updateSOP, isLoading, profile } = useChatContext();
+  const { isLoading, profile } = useChatState();
+  const { sendMessage, addSystemMessage, clearHistory } = useChatActions();
 
   const handleSubmit = useCallback(async (value: string) => {
     const trimmed = value.trim();
@@ -72,18 +72,6 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
         return;
       }
 
-      if (command.startsWith('sop ')) {
-        const sop = trimmed.slice(5).trim();
-        if (sop) {
-          updateSOP(sop);
-          addSystemMessage(`SOP updated successfully.`);
-        } else {
-          addSystemMessage('Usage: /sop <your sop text>');
-        }
-        setInput('');
-        return;
-      }
-
       // Unknown command
       addSystemMessage(`Unknown command: ${trimmed}. Type /help for available commands.`);
       setInput('');
@@ -92,7 +80,7 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
 
     setInput('');
     await sendMessage(trimmed);
-  }, [sendMessage, addSystemMessage, clearHistory, updateSOP, onExit, profile]);
+  }, [sendMessage, addSystemMessage, clearHistory, onExit, profile]);
 
   // Handle keyboard input
   useInput((char, key) => {

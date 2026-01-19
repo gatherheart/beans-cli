@@ -4,7 +4,7 @@
 
 import React, { useEffect } from 'react';
 import { Box, Text, useApp } from 'ink';
-import { ChatProvider, useChatContext } from './contexts/ChatContext.js';
+import { ChatProvider, useChatState, useChatActions } from './contexts/ChatContext.js';
 import { ChatView } from './components/ChatView.js';
 import { InputArea } from './components/InputArea.js';
 import type { Config } from '@beans/core';
@@ -40,7 +40,8 @@ function Header({ profile }: { profile?: AgentProfile }): React.ReactElement {
 }
 
 function AppContent({ initialPrompt, onExit }: { initialPrompt?: string; onExit: () => void }): React.ReactElement {
-  const { sendMessage, profile } = useChatContext();
+  const { profile } = useChatState();
+  const { sendMessage } = useChatActions();
 
   // Send initial prompt if provided
   useEffect(() => {

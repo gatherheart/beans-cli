@@ -46,7 +46,12 @@ beans-code/
 │       └── src/
 │           ├── index.ts              # Entry point
 │           ├── args.ts               # CLI argument parsing
-│           └── app.ts                # Main application
+│           ├── app.tsx               # Main application
+│           └── ui/                   # Ink-based React UI
+│               ├── App.tsx           # Root component
+│               ├── contexts/         # React contexts (gemini-cli pattern)
+│               ├── hooks/            # Custom hooks
+│               └── components/       # UI components
 ├── docs/
 │   ├── prd/                          # Product requirement documents
 │   └── architecture/                 # Architecture documentation
@@ -121,7 +126,6 @@ User requests help with testing...
 ### ChatSession (`packages/core/src/agents/chat-session.ts`)
 - Manages continuous chat with accumulated history
 - System prompt set once at session start
-- Supports runtime SOP updates via `updateSystemPrompt()`
 
 ### AgentExecutor (`packages/core/src/agents/executor.ts`)
 - Runs the agent loop (LLM call → tool execution → repeat)
@@ -137,6 +141,13 @@ User requests help with testing...
 - Built-in tools: `read_file`, `write_file`, `shell`, `glob`, `grep`
 - Extensible via `BaseTool` class
 - Tools registered in `ToolRegistry`
+
+### CLI UI (`packages/cli/src/ui/`)
+Following gemini-cli patterns for state management:
+- **ChatStateContext**: Read-only state (messages, isLoading, error, profile)
+- **ChatActionsContext**: Action handlers (sendMessage, addSystemMessage, clearHistory)
+- **useChatHistory hook**: Encapsulates message management logic
+- **Components**: ChatView, Message, MarkdownDisplay, InputArea
 
 ## Profile Resolution Order
 
@@ -160,12 +171,6 @@ beans --agent-profile ./plugins/code-development/agents/code-reviewer.md
 # Generate agent from description
 beans -a "A security-focused code reviewer"
 
-# Inject SOP (Standard Operating Procedure)
-beans --sop "Always check for SQL injection"
-
-# Load SOP from file
-beans --sop-file ./my-sop.txt
-
 # Auto-approve all tool calls
 beans --yolo "prompt"
 
@@ -179,7 +184,6 @@ beans --list-models
 |---------|-------------|
 | `/help` | Show available commands |
 | `/profile` | View current agent profile |
-| `/sop <text>` | Update SOP during session |
 | `/clear` | Clear chat history |
 | `/exit` | Exit application |
 

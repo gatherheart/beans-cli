@@ -71,7 +71,6 @@ const session = new ChatSession(llmClient, toolRegistry, {
 
 await session.sendMessage("First message");   // History accumulates
 await session.sendMessage("Second message");  // Has context from first
-session.updateSystemPrompt(newPrompt);        // Update SOP at runtime
 ```
 
 ### AgentProfile (`agents/profile.ts`)
@@ -137,6 +136,11 @@ const llmClient = config.getLLMClient();
 const toolRegistry = config.getToolRegistry();
 const llmConfig = config.getLLMConfig();
 ```
+
+**Default Configuration:**
+- Provider: `google`
+- Model: `gemini-2.0-flash-exp`
+- Supported providers: `google`, `ollama`
 
 ## Built-in Tools
 

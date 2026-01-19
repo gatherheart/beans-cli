@@ -33,8 +33,6 @@ export interface AgentProfile {
 export interface AgentProfileConfig {
   /** User's description of what the agent should do */
   description: string;
-  /** Optional SOP (Standard Operating Procedure) to include */
-  sop?: string;
   /** Optional custom instructions to append */
   customInstructions?: string;
 }
@@ -106,13 +104,6 @@ User's Description:
 ${config.description}
 `;
 
-    if (config.sop) {
-      prompt += `
-Standard Operating Procedure (SOP) to follow:
-${config.sop}
-`;
-    }
-
     if (config.customInstructions) {
       prompt += `
 Additional Instructions:
@@ -127,7 +118,7 @@ Generate a JSON response with the following structure:
   "displayName": "Human Readable Name",
   "description": "Brief one-line description",
   "purpose": "2-3 sentences about the agent's goals and objectives",
-  "systemPrompt": "Complete system prompt that defines the agent's behavior, capabilities, guidelines, and any disclaimers. This should be comprehensive and include the SOP if provided."
+  "systemPrompt": "Complete system prompt that defines the agent's behavior, capabilities, guidelines, and any disclaimers. This should be comprehensive."
 }
 
 Important:
@@ -135,7 +126,7 @@ Important:
 - The displayName should be user-friendly
 - The description should be concise (under 100 characters)
 - The purpose should explain what the agent is designed to do
-- The systemPrompt should be detailed and actionable, incorporating the SOP if provided
+- The systemPrompt should be detailed and actionable
 
 Respond ONLY with valid JSON, no additional text.`;
 
@@ -202,13 +193,6 @@ Guidelines:
 - Ask for clarification when needed
 - Provide clear and actionable responses`;
 
-    if (config.sop) {
-      prompt += `
-
-Standard Operating Procedure:
-${config.sop}`;
-    }
-
     if (config.customInstructions) {
       prompt += `
 
@@ -217,29 +201,6 @@ ${config.customInstructions}`;
     }
 
     return prompt;
-  }
-
-  /**
-   * Update an existing profile with new SOP
-   */
-  updateProfileWithSOP(profile: AgentProfile, sop: string): AgentProfile {
-    // Find if there's an existing SOP section and replace it, or append
-    let newSystemPrompt = profile.systemPrompt;
-
-    const sopPattern = /Standard Operating Procedure:[\s\S]*?(?=\n\n[A-Z]|$)/;
-    if (sopPattern.test(newSystemPrompt)) {
-      newSystemPrompt = newSystemPrompt.replace(
-        sopPattern,
-        `Standard Operating Procedure:\n${sop}`
-      );
-    } else {
-      newSystemPrompt += `\n\nStandard Operating Procedure:\n${sop}`;
-    }
-
-    return {
-      ...profile,
-      systemPrompt: newSystemPrompt,
-    };
   }
 }
 

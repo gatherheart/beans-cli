@@ -92,17 +92,7 @@ export async function runApp(args: CLIArgs): Promise<void> {
   console.log(`📋 ${agentProfile.description}`);
   console.log('');
 
-  // Apply SOP if provided
-  let finalProfile = agentProfile;
-  const sop = await resolveSOP(args);
-  if (sop) {
-    const builder = new AgentProfileBuilder(config.getLLMClient(), config.getLLMConfig().model);
-    finalProfile = builder.updateProfileWithSOP(agentProfile, sop);
-    console.log('📝 SOP applied to agent profile');
-    console.log('');
-  }
-
-  const systemPrompt = finalProfile.systemPrompt;
+  const systemPrompt = agentProfile.systemPrompt;
 
   // If we have an initial prompt and not interactive mode, run single shot
   if (args.prompt && !args.interactive) {
@@ -111,10 +101,10 @@ export async function runApp(args: CLIArgs): Promise<void> {
       config.getLLMClient(),
       config.getToolRegistry()
     );
-    await runSinglePrompt(executor, config, systemPrompt, args.prompt, sessionManager, finalProfile);
+    await runSinglePrompt(executor, config, systemPrompt, args.prompt, sessionManager, agentProfile);
   } else {
     // Interactive continuous chat mode - use ChatSession
-    await runInteractiveChat(config, systemPrompt, args.prompt, finalProfile);
+    await runInteractiveChat(config, systemPrompt, args.prompt, agentProfile);
   }
 }
 
@@ -217,7 +207,6 @@ async function runSinglePrompt(
  * - `/clear` - Clears the conversation history
  * - `/exit`, `/quit`, `/q` - Exits the application
  * - `/profile` - Shows current agent profile
- * - `/sop <text>` - Updates the standard operating procedure
  *
  * @param config - The application configuration containing LLM and agent settings.
  * @param systemPrompt - The system prompt that defines the agent's behavior.
@@ -275,10 +264,8 @@ async function resolveAgentProfile(config: Config, args: CLIArgs): Promise<Agent
   if (args.agentDescription) {
     console.log('Generating agent profile from description...');
     const builder = new AgentProfileBuilder(config.getLLMClient(), config.getLLMConfig().model);
-    const sop = await resolveSOP(args);
     const profile = await builder.buildProfile({
       description: args.agentDescription,
-      sop: sop || undefined,
     });
 
     // Optionally save the generated profile
@@ -316,29 +303,4 @@ async function resolveAgentProfile(config: Config, args: CLIArgs): Promise<Agent
 
   // 5. Use hardcoded default profile as final fallback
   return DEFAULT_AGENT_PROFILE;
-}
-
-/**
- * Resolves SOP from CLI arguments.
- *
- * @param args - CLI arguments
- * @returns The SOP string or null if not provided
- */
-async function resolveSOP(args: CLIArgs): Promise<string | null> {
-  // Direct SOP from command line
-  if (args.sop) {
-    return args.sop;
-  }
-
-  // Load from file
-  if (args.sopFile) {
-    try {
-      const content = await fs.readFile(args.sopFile, 'utf-8');
-      return content.trim();
-    } catch (error) {
-      console.warn(`Failed to load SOP from ${args.sopFile}`);
-    }
-  }
-
-  return null;
 }

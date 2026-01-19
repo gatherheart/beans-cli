@@ -6,11 +6,11 @@
 import React from 'react';
 import { Box, Text, Static } from 'ink';
 import { Message } from './Message.js';
-import { useChatContext } from '../contexts/ChatContext.js';
+import { useChatState } from '../contexts/ChatContext.js';
 import type { Message as MessageType } from '../contexts/ChatContext.js';
 
 export function ChatView(): React.ReactElement {
-  const { messages, error } = useChatContext();
+  const { messages, error } = useChatState();
 
   // Separate completed and streaming messages
   const completedMessages = messages.filter(m => !m.isStreaming);

@@ -27,10 +27,6 @@ export interface CLIArgs {
   agentDescription?: string;
   /** Path to agent profile file */
   agentProfile?: string;
-  /** SOP (Standard Operating Procedure) to inject into the agent */
-  sop?: string;
-  /** Path to SOP file */
-  sopFile?: string;
   /** Enable debug mode to display LLM requests and responses */
   debug: boolean;
 }
@@ -95,12 +91,6 @@ export async function parseArgs(): Promise<CLIArgs> {
         break;
       case '--agent-profile':
         result.agentProfile = args[++i];
-        break;
-      case '--sop':
-        result.sop = args[++i];
-        break;
-      case '--sop-file':
-        result.sopFile = args[++i];
         break;
       case '--debug':
         result.debug = true;

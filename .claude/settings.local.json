@@ -13,7 +13,9 @@
       "Bash(npm ls:*)",
       "Bash(npm view:*)",
       "Bash(npm cache clean:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(tree:*)",
+      "Bash(npm test:*)"
     ]
   }
 }

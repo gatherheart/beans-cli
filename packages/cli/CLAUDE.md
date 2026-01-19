@@ -8,14 +8,20 @@ The CLI package provides the command-line interface for the AI agent framework. 
 
 ```
 packages/cli/src/
-├── index.ts          # Entry point - parses args and runs app
-├── args.ts           # CLI argument parsing
-└── app.ts            # Main application logic
-    ├── runApp()              # Main entry, initializes config and loads profile
-    ├── runSinglePrompt()     # Single prompt execution (non-interactive)
-    ├── runInteractiveChat()  # Continuous chat loop with readline
-    ├── resolveAgentProfile() # Profile resolution logic
-    └── resolveSOP()          # SOP resolution logic
+├── index.ts              # Entry point - parses args and runs app
+├── args.ts               # CLI argument parsing
+├── app.tsx               # Main application logic and routing
+└── ui/
+    ├── App.tsx           # Root Ink component
+    ├── contexts/
+    │   └── ChatContext.tsx    # State and actions contexts (gemini-cli pattern)
+    ├── hooks/
+    │   └── useChatHistory.ts  # Custom hook for message management
+    └── components/
+        ├── ChatView.tsx       # Message history display
+        ├── Message.tsx        # Individual message renderer
+        ├── MarkdownDisplay.tsx # Markdown terminal rendering
+        └── InputArea.tsx      # User input handler
 ```
 
 ## Key Components
@@ -38,22 +44,20 @@ packages/cli/src/
 | `--interactive` | `-i` | Force interactive mode |
 | `--agent` | `-a` | Agent description (generates via LLM) |
 | `--agent-profile` | - | Path to agent profile (.md file) |
-| `--sop` | - | SOP text to inject |
-| `--sop-file` | - | Path to SOP file |
 | `--yolo` | - | Auto-approve all tool calls |
 | `--verbose` | - | Verbose output |
 | `--cwd` | - | Working directory |
 | `--list-models` | - | List available models |
+| `--debug` | - | Enable debug mode |
 
-### Application (`app.ts`)
+### Application (`app.tsx`)
 
 **runApp(args)**
 1. Initialize Config singleton
-2. Apply model/yolo overrides
+2. Apply model/yolo/debug overrides
 3. Initialize WorkspaceService and SessionManager
 4. Resolve agent profile (see Profile Resolution below)
-5. Apply SOP if provided
-6. Route to single prompt or interactive mode
+5. Route to single prompt or interactive mode
 
 **runSinglePrompt()**
 - Creates `AgentExecutor` instance
@@ -62,10 +66,48 @@ packages/cli/src/
 - Prints session summary
 
 **runInteractiveChat()**
-- Creates `ChatSession` instance (persistent across turns)
-- Uses Node.js `readline` for input
-- Handles slash commands
-- System prompt set once, history accumulates
+- Renders Ink-based React UI
+- Uses ChatProvider for state management
+- Handles slash commands via InputArea
+
+## UI Architecture (gemini-cli pattern)
+
+### Context Separation
+
+Following gemini-cli patterns, contexts are split for performance:
+
+```typescript
+// ChatStateContext - read-only state
+const { messages, isLoading, error, profile } = useChatState();
+
+// ChatActionsContext - action handlers
+const { sendMessage, addSystemMessage, clearHistory } = useChatActions();
+
+// Combined (deprecated, use separate hooks)
+const all = useChatContext();
+```
+
+### Custom Hooks
+
+**useChatHistory** - Encapsulates message management:
+```typescript
+const history = useChatHistory();
+history.addUserMessage(content);
+history.addAssistantMessage();
+history.updateMessageContent(id, content);
+history.updateMessageToolCalls(id, toolCalls);
+history.completeMessage(id);
+history.removeMessage(id);
+history.clearMessages();
+```
+
+### Component Responsibilities
+
+| Component | Context Usage | Purpose |
+|-----------|---------------|---------|
+| ChatView | `useChatState()` | Display messages, errors |
+| InputArea | `useChatState()` + `useChatActions()` | Handle input, slash commands |
+| AppContent | `useChatState()` + `useChatActions()` | Initial prompt, layout |
 
 ## Profile Resolution Order
 
@@ -85,7 +127,6 @@ Following gemini-cli patterns:
 - **ChatSession**: Single instance for interactive mode
 - **System prompt**: Set once at session creation
 - **Message history**: Accumulates across turns
-- **SOP updates**: Via `/sop` command or `updateSystemPrompt()`
 
 ## Usage Examples
 
@@ -111,14 +152,11 @@ npm run dev -- -a "A helpful coding assistant for TypeScript"
 # Load agent from profile file
 npm run dev -- --agent-profile ./plugins/code-development/agents/code-reviewer.md
 
-# With SOP
-npm run dev -- --sop "Always explain step by step"
-
-# With SOP from file
-npm run dev -- --sop-file ./sop.txt
-
 # List available models
 npm run dev -- --list-models
+
+# Enable debug mode
+npm run dev -- --debug
 ```
 
 ## Slash Commands (Interactive Mode)
@@ -128,15 +166,14 @@ npm run dev -- --list-models
 | `/help` | Show available commands |
 | `/clear` | Clear chat history |
 | `/profile` | Show current agent profile |
-| `/sop <text>` | Update SOP during session |
 | `/exit`, `/quit`, `/q` | Exit the application |
 
 ## Development Guidelines
 
 1. **Reference gemini-cli**: Always refer to `../gemini-cli` for patterns
-2. **Keep it simple**: Use Node.js readline, not complex UI frameworks
-3. **Stream output**: Use `process.stdout.write()` for streaming responses
-4. **Handle errors**: Catch and display errors gracefully
+2. **Context separation**: Use `useChatState()` and `useChatActions()` separately
+3. **Custom hooks**: Extract domain logic into reusable hooks
+4. **Stream output**: Use activity callbacks for streaming responses
 5. **Profile format**: Only Markdown files supported (.md)
 
 ## Testing

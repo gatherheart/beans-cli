@@ -350,29 +350,6 @@ export class ChatSession {
   }
 
   /**
-   * Updates the system prompt for this session.
-   *
-   * @remarks
-   * This method allows changing the system prompt during an active session,
-   * which is useful for dynamically updating the agent's behavior based on
-   * new SOP (Standard Operating Procedure) or other runtime requirements.
-   *
-   * The updated system prompt will be used for all subsequent `sendMessage()`
-   * calls. Previous messages in the history are not affected.
-   *
-   * Common use cases include:
-   * - Dynamically updating SOP during a session
-   * - Adjusting agent behavior based on user preferences
-   * - Implementing role switching within the same session
-   *
-   * @param newSystemPrompt - The new system prompt to use for future messages.
-   * @returns void
-   */
-  updateSystemPrompt(newSystemPrompt: string): void {
-    this.systemPrompt = newSystemPrompt;
-  }
-
-  /**
    * Returns the current system prompt.
    *
    * @returns The current system prompt string.

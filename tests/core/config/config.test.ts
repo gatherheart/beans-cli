@@ -59,48 +59,48 @@ describe('Config', () => {
   });
 
   describe('getLLMConfig', () => {
-    it('should return default provider as openai when no settings', async () => {
+    it('should return default provider as google when no settings', async () => {
       vi.mocked(settings.loadSettings).mockResolvedValue({});
       Config.reset();
 
       const config = await Config.getInstance();
       const llmConfig = config.getLLMConfig();
 
-      expect(llmConfig.provider).toBe('openai');
+      expect(llmConfig.provider).toBe('google');
     });
 
-    it('should return default model as gpt-4o when no settings', async () => {
+    it('should return default model as gemini-2.0-flash-exp when no settings', async () => {
       vi.mocked(settings.loadSettings).mockResolvedValue({});
       Config.reset();
 
       const config = await Config.getInstance();
       const llmConfig = config.getLLMConfig();
 
-      expect(llmConfig.model).toBe('gpt-4o');
+      expect(llmConfig.model).toBe('gemini-2.0-flash-exp');
     });
 
     it('should use provider from settings when provided', async () => {
       vi.mocked(settings.loadSettings).mockResolvedValue({
-        llm: { provider: 'anthropic' },
+        llm: { provider: 'ollama' },
       });
       Config.reset();
 
       const config = await Config.getInstance();
       const llmConfig = config.getLLMConfig();
 
-      expect(llmConfig.provider).toBe('anthropic');
+      expect(llmConfig.provider).toBe('ollama');
     });
 
     it('should use model from settings when provided', async () => {
       vi.mocked(settings.loadSettings).mockResolvedValue({
-        llm: { model: 'claude-3-opus' },
+        llm: { model: 'llama3.2' },
       });
       Config.reset();
 
       const config = await Config.getInstance();
       const llmConfig = config.getLLMConfig();
 
-      expect(llmConfig.model).toBe('claude-3-opus');
+      expect(llmConfig.model).toBe('llama3.2');
     });
   });
 });

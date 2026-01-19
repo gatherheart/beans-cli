@@ -21,13 +21,16 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                           CLI Layer                                  │
 │  ┌─────────┐  ┌─────────────┐  ┌────────────────────────────────┐   │
-│  │ args.ts │  │   app.ts    │  │    Interactive Chat Loop       │   │
-│  │         │──│             │──│    (readline-based)            │   │
-│  │ Parsing │  │ ┌─────────┐ │  │                                │   │
-│  └─────────┘  │ │ Profile │ │  │  Commands: /help /profile      │   │
-│               │ │ Resolver│ │  │            /sop /clear /exit   │   │
-│               │ └─────────┘ │  │                                │   │
-│               └─────────────┘  └────────────────────────────────┘   │
+│  │ args.ts │  │  app.tsx    │  │      Ink-based React UI        │   │
+│  │         │──│             │──│                                │   │
+│  │ Parsing │  │ ┌─────────┐ │  │  ┌──────────────────────────┐  │   │
+│  └─────────┘  │ │ Profile │ │  │  │ ChatStateContext         │  │   │
+│               │ │ Resolver│ │  │  │ ChatActionsContext       │  │   │
+│               │ └─────────┘ │  │  │ useChatHistory hook      │  │   │
+│               └─────────────┘  │  └──────────────────────────┘  │   │
+│                                │  Commands: /help /profile      │   │
+│                                │            /clear /exit        │   │
+│                                └────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
                                    │
                                    ▼
@@ -41,7 +44,7 @@
 │  │  │-systemPrompt│  │-execute()   │  │-loadAgentProfile()  │   │  │
 │  │  │-messages[]  │  │-agent loop  │  │-parseMarkdownProfile│   │  │
 │  │  │-sendMessage │  │             │  │-AgentProfileBuilder │   │  │
-│  │  │-updateSOP() │  │             │  │                     │   │  │
+│  │  │-clearHistory│  │             │  │                     │   │  │
 │  │  └─────────────┘  └─────────────┘  └─────────────────────┘   │  │
 │  └───────────────────────────────────────────────────────────────┘  │
 │                                │                                     │
@@ -171,7 +174,7 @@ User Input
 │            sendMessage()                │
 │                                        │
 │  1. Check slash commands               │
-│     /help, /profile, /sop, /clear      │
+│     /help, /profile, /clear, /exit     │
 │         │                              │
 │         ▼                              │
 │  2. Add user message to history        │
@@ -258,7 +261,7 @@ plugins/
 **Rationale**:
 - Efficient token usage (no repeated system prompt)
 - Natural conversation flow
-- Easy to update SOP at runtime
+- Clear separation of concerns
 
 **Implementation**:
 ```typescript
@@ -315,10 +318,16 @@ plugins/                          # Agent definitions (Markdown)
 @beans/cli                        # Command line interface
     │
     ├── args.ts                   # Argument parsing
-    ├── app.ts                    # Main application
+    ├── app.tsx                   # Main application
     │   ├── resolveAgentProfile() # Profile resolution
     │   ├── runSinglePrompt()     # One-shot mode
-    │   └── runInteractiveChat()  # Chat mode
+    │   └── runInteractiveChat()  # Ink UI mode
+    │
+    ├── ui/                       # Ink-based React UI
+    │   ├── App.tsx               # Root component
+    │   ├── contexts/             # ChatStateContext, ChatActionsContext
+    │   ├── hooks/                # useChatHistory
+    │   └── components/           # ChatView, Message, InputArea
     │
     └──► @beans/core              # Core framework
               │

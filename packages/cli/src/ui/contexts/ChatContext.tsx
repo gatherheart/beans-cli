@@ -1,41 +1,47 @@
 /**
- * Chat context for managing state across Ink components
+ * Chat contexts for managing state across Ink components
+ *
+ * Following gemini-cli patterns:
+ * - ChatStateContext: Read-only state (messages, loading, error, profile)
+ * - ChatActionsContext: Action handlers (sendMessage, addSystemMessage, clearHistory)
+ *
+ * This separation prevents unnecessary re-renders:
+ * - Components that only need actions won't re-render when messages change
+ * - Components that only need state won't re-render when actions are recreated
  */
 
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { ChatSession, Config } from '@beans/core';
 import type { AgentActivityEvent } from '@beans/core';
 import type { AgentProfile } from '@beans/core';
+import { useChatHistory } from '../hooks/useChatHistory.js';
+import type { Message, ToolCallInfo } from '../hooks/useChatHistory.js';
 
-export interface Message {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  isStreaming: boolean;
-  toolCalls?: ToolCallInfo[];
-}
+// Re-export types for convenience
+export type { Message, ToolCallInfo } from '../hooks/useChatHistory.js';
 
-export interface ToolCallInfo {
-  id: string;
-  name: string;
-  args: Record<string, unknown>;
-  result?: string;
-  isComplete: boolean;
-}
-
-interface ChatContextValue {
+/**
+ * Read-only state context
+ */
+interface ChatStateValue {
   messages: Message[];
   isLoading: boolean;
   error: string | null;
-  sendMessage: (content: string) => Promise<void>;
-  addSystemMessage: (content: string) => void;
-  clearHistory: () => void;
-  updateSOP: (sop: string) => void;
   profile: AgentProfile | null;
 }
 
-const ChatContext = createContext<ChatContextValue | null>(null);
+/**
+ * Action handlers context
+ */
+interface ChatActionsValue {
+  sendMessage: (content: string) => Promise<void>;
+  addSystemMessage: (content: string) => void;
+  clearHistory: () => void;
+}
+
+const ChatStateContext = createContext<ChatStateValue | null>(null);
+const ChatActionsContext = createContext<ChatActionsValue | null>(null);
 
 export interface ChatProviderProps {
   children: ReactNode;
@@ -45,9 +51,11 @@ export interface ChatProviderProps {
 }
 
 export function ChatProvider({ children, config, systemPrompt, profile }: ChatProviderProps): React.ReactElement {
-  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Use custom hook for message management
+  const history = useChatHistory();
 
   const chatSessionRef = useRef<ChatSession | null>(null);
 
@@ -73,25 +81,11 @@ export function ChatProvider({ children, config, systemPrompt, profile }: ChatPr
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;
 
-    const userMessageId = `user-${Date.now()}`;
-    const assistantMessageId = `assistant-${Date.now()}`;
-
     // Add user message
-    setMessages(prev => [...prev, {
-      id: userMessageId,
-      role: 'user',
-      content: content.trim(),
-      isStreaming: false,
-    }]);
+    history.addUserMessage(content);
 
     // Add empty assistant message (will be filled via streaming)
-    setMessages(prev => [...prev, {
-      id: assistantMessageId,
-      role: 'assistant',
-      content: '',
-      isStreaming: true,
-      toolCalls: [],
-    }]);
+    const assistantMessageId = history.addAssistantMessage();
 
     setIsLoading(true);
     setError(null);
@@ -106,11 +100,7 @@ export function ChatProvider({ children, config, systemPrompt, profile }: ChatPr
           switch (event.type) {
             case 'content_chunk':
               currentContent += event.content;
-              setMessages(prev => prev.map(msg =>
-                msg.id === assistantMessageId
-                  ? { ...msg, content: currentContent }
-                  : msg
-              ));
+              history.updateMessageContent(assistantMessageId, currentContent);
               break;
 
             case 'tool_call_start':
@@ -120,11 +110,7 @@ export function ChatProvider({ children, config, systemPrompt, profile }: ChatPr
                 args: event.toolCall.arguments,
                 isComplete: false,
               });
-              setMessages(prev => prev.map(msg =>
-                msg.id === assistantMessageId
-                  ? { ...msg, toolCalls: [...toolCalls] }
-                  : msg
-              ));
+              history.updateMessageToolCalls(assistantMessageId, toolCalls);
               break;
 
             case 'tool_call_end': {
@@ -137,11 +123,7 @@ export function ChatProvider({ children, config, systemPrompt, profile }: ChatPr
                     : event.result,
                   isComplete: true,
                 };
-                setMessages(prev => prev.map(msg =>
-                  msg.id === assistantMessageId
-                    ? { ...msg, toolCalls: [...toolCalls] }
-                    : msg
-                ));
+                history.updateMessageToolCalls(assistantMessageId, toolCalls);
               }
               break;
             }
@@ -154,66 +136,79 @@ export function ChatProvider({ children, config, systemPrompt, profile }: ChatPr
       });
 
       // Mark streaming as complete
-      setMessages(prev => prev.map(msg =>
-        msg.id === assistantMessageId
-          ? { ...msg, isStreaming: false }
-          : msg
-      ));
+      history.completeMessage(assistantMessageId);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       // Remove the empty assistant message on error
-      setMessages(prev => prev.filter(msg => msg.id !== assistantMessageId));
+      history.removeMessage(assistantMessageId);
     } finally {
       setIsLoading(false);
     }
-  }, [getChatSession]);
+  }, [getChatSession, history]);
 
   const addSystemMessage = useCallback((content: string) => {
-    const messageId = `system-${Date.now()}`;
-    setMessages(prev => [...prev, {
-      id: messageId,
-      role: 'system',
-      content,
-      isStreaming: false,
-    }]);
-  }, []);
+    history.addSystemMessage(content);
+  }, [history]);
 
   const clearHistory = useCallback(() => {
     const session = getChatSession();
     session.clearHistory();
-    setMessages([]);
+    history.clearMessages();
     setError(null);
-  }, [getChatSession]);
+  }, [getChatSession, history]);
 
-  const updateSOP = useCallback((sop: string) => {
-    const session = getChatSession();
-    // Append SOP to existing system prompt
-    const newPrompt = `${systemPrompt}\n\n## Standard Operating Procedure\n${sop}`;
-    session.updateSystemPrompt(newPrompt);
-  }, [getChatSession, systemPrompt]);
-
-  const value: ChatContextValue = {
-    messages,
+  // Memoize state value to prevent unnecessary re-renders
+  const stateValue = useMemo<ChatStateValue>(() => ({
+    messages: history.messages,
     isLoading,
     error,
+    profile: profile || null,
+  }), [history.messages, isLoading, error, profile]);
+
+  // Memoize actions value to prevent unnecessary re-renders
+  const actionsValue = useMemo<ChatActionsValue>(() => ({
     sendMessage,
     addSystemMessage,
     clearHistory,
-    updateSOP,
-    profile: profile || null,
-  };
+  }), [sendMessage, addSystemMessage, clearHistory]);
 
   return (
-    <ChatContext.Provider value={value}>
-      {children}
-    </ChatContext.Provider>
+    <ChatStateContext.Provider value={stateValue}>
+      <ChatActionsContext.Provider value={actionsValue}>
+        {children}
+      </ChatActionsContext.Provider>
+    </ChatStateContext.Provider>
   );
 }
 
-export function useChatContext(): ChatContextValue {
-  const context = useContext(ChatContext);
+/**
+ * Hook to access chat state (messages, loading, error, profile)
+ */
+export function useChatState(): ChatStateValue {
+  const context = useContext(ChatStateContext);
   if (!context) {
-    throw new Error('useChatContext must be used within a ChatProvider');
+    throw new Error('useChatState must be used within a ChatProvider');
   }
   return context;
+}
+
+/**
+ * Hook to access chat actions (sendMessage, addSystemMessage, clearHistory)
+ */
+export function useChatActions(): ChatActionsValue {
+  const context = useContext(ChatActionsContext);
+  if (!context) {
+    throw new Error('useChatActions must be used within a ChatProvider');
+  }
+  return context;
+}
+
+/**
+ * Combined hook for components that need both state and actions
+ * @deprecated Prefer using useChatState() and useChatActions() separately
+ */
+export function useChatContext(): ChatStateValue & ChatActionsValue {
+  const state = useChatState();
+  const actions = useChatActions();
+  return { ...state, ...actions };
 }
