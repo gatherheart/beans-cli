@@ -1,18 +1,27 @@
 # Beans Agent
 
-AI-powered coding assistant framework.
+A dynamic AI agent framework with plugin-based agents, built-in tools, and multi-provider LLM support.
+
+## Features
+
+- **Plugin-based Agent System** - Define agents as Markdown files with YAML frontmatter
+- **Multiple LLM Providers** - Google Gemini, Ollama (local)
+- **Built-in Tools** - File operations, shell commands, glob, grep
+- **Ink-based CLI** - React-powered terminal UI with markdown rendering
+- **Streaming Responses** - Real-time output with tool call progress
 
 ## Installation
 
 ```bash
 npm install
+npm run build
 ```
 
 ## Configuration
 
 ### Environment Variables
 
-Copy `.env.example` to `.env` and add your API keys:
+Copy `.env.example` to `.env` and add your API key:
 
 ```bash
 cp .env.example .env
@@ -20,19 +29,11 @@ cp .env.example .env
 
 Edit `.env`:
 ```
-# OpenAI
-OPENAI_API_KEY=sk-...
-
-# Anthropic
-ANTHROPIC_API_KEY=sk-ant-...
-
-# Google AI
+# Google AI (default provider)
 GOOGLE_API_KEY=AIza...
 ```
 
 ### Settings File
-
-Create a settings file to configure the default provider and model.
 
 **User settings** (applies globally):
 ```
@@ -49,7 +50,7 @@ Example settings:
 {
   "llm": {
     "provider": "google",
-    "model": "gemini-2.0-flash",
+    "model": "gemini-2.0-flash-exp",
     "temperature": 0.7,
     "maxTokens": 4096
   },
@@ -68,41 +69,48 @@ Example settings:
 
 ## Usage
 
-### Interactive Chat Mode
-
-Start the agent in interactive chat mode (default when no prompt is provided):
+### Interactive Mode
 
 ```bash
 # Start interactive chat
 npm run dev
 
-# Interactive mode with initial prompt
+# With initial prompt
 npm run dev -- -i "help me understand this codebase"
 ```
 
-In interactive mode:
-- Type messages and press Enter to send
-- Conversation history is maintained for context
-- Use `/help` to see available commands
-- Use `/clear` to clear chat history
-- Use `/exit` or `/quit` to exit
+Interactive commands:
+| Command | Description |
+|---------|-------------|
+| `/help` | Show available commands |
+| `/profile` | View current agent profile |
+| `/clear` | Clear chat history |
+| `/exit` | Exit application |
 
 ### Single Prompt Mode
-
-Run with a single prompt (executes once and exits):
 
 ```bash
 # Run with a prompt
 npm run dev "fix the bug in main.ts"
 
 # With specific model
-npm run dev -- --model gpt-4o "add unit tests"
+npm run dev -- --model gemini-2.5-pro "add unit tests"
 
-# List available models for current provider
+# List available models
 npm run dev -- --list-models
 
-# Auto-approve all tool calls (use with caution)
+# Auto-approve all tool calls
 npm run dev -- --yolo "refactor the auth module"
+```
+
+### Agent Profiles
+
+```bash
+# Use specific agent from plugins
+npm run dev -- --agent-profile ./plugins/code-development/agents/code-reviewer.md
+
+# Generate agent from description
+npm run dev -- -a "A security-focused code reviewer"
 ```
 
 ### CLI Options
@@ -111,56 +119,34 @@ npm run dev -- --yolo "refactor the auth module"
 beans [options] [prompt]
 
 Options:
-  -h, --help          Show help message
-  -v, --version       Show version number
-  -c, --continue      Continue previous session
-  -m, --model         Specify model to use
-  -i, --interactive   Force interactive mode (even with prompt)
-  --list-models       List available models for the current provider
-  --yolo              Auto-approve all tool calls
-  --verbose           Verbose output
-  --cwd               Set working directory
+  -h, --help            Show help message
+  -v, --version         Show version number
+  -m, --model           Specify model to use
+  -a, --agent           Generate agent from description
+  --agent-profile       Use specific agent profile file
+  -i, --interactive     Force interactive mode
+  --list-models         List available models
+  --yolo                Auto-approve all tool calls
+  --verbose             Verbose output
+  --debug               Show LLM requests and responses
+  --cwd                 Set working directory
 ```
 
 ## Supported Providers
 
-| Provider   | Models                                      | API Key Env Var     |
-|------------|---------------------------------------------|---------------------|
-| `openai`   | `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`     | `OPENAI_API_KEY`    |
-| `anthropic`| `claude-sonnet-4-20250514`, `claude-3-5-sonnet-20241022` | `ANTHROPIC_API_KEY` |
-| `google`   | `gemini-2.0-flash`, `gemini-2.5-pro`       | `GOOGLE_API_KEY`    |
-| `ollama`   | Any local model                             | (none required)     |
-
-Use `--list-models` to see all available models for your configured provider.
+| Provider | Models | API Key |
+|----------|--------|---------|
+| `google` | `gemini-2.0-flash-exp`, `gemini-2.5-pro` | `GOOGLE_API_KEY` |
+| `ollama` | Any local model | (none required) |
 
 ### Provider Examples
 
-**OpenAI (default):**
-```json
-{
-  "llm": {
-    "provider": "openai",
-    "model": "gpt-4o"
-  }
-}
-```
-
-**Anthropic:**
-```json
-{
-  "llm": {
-    "provider": "anthropic",
-    "model": "claude-3-5-sonnet-20241022"
-  }
-}
-```
-
-**Google:**
+**Google (default):**
 ```json
 {
   "llm": {
     "provider": "google",
-    "model": "gemini-2.0-flash"
+    "model": "gemini-2.0-flash-exp"
   }
 }
 ```
@@ -176,15 +162,43 @@ Use `--list-models` to see all available models for your configured provider.
 }
 ```
 
-## Available Tools
+## Built-in Tools
 
-| Tool         | Description                          |
-|--------------|--------------------------------------|
-| `read_file`  | Read file contents                   |
-| `write_file` | Create or modify files               |
-| `shell`      | Execute shell commands               |
-| `glob`       | Find files matching patterns         |
-| `grep`       | Search file contents                 |
+| Tool | Description |
+|------|-------------|
+| `read_file` | Read file contents |
+| `write_file` | Create or modify files |
+| `shell` | Execute shell commands |
+| `glob` | Find files matching patterns |
+| `grep` | Search file contents |
+
+## Project Structure
+
+```
+beans-code/
+├── packages/
+│   ├── core/                 # Core framework
+│   │   └── src/
+│   │       ├── agents/       # Agent execution engine
+│   │       ├── tools/        # Tool system
+│   │       ├── llm/          # LLM providers
+│   │       └── config/       # Configuration
+│   └── cli/                  # Command line interface
+│       └── src/
+│           ├── ui/           # Ink-based React UI
+│           └── app.tsx       # Main application
+├── plugins/                  # Agent definitions
+│   ├── general-assistant/    # Default agent
+│   ├── code-development/     # Code-focused agents
+│   └── devops-operations/    # DevOps agents
+├── docs/
+│   ├── sop/                  # Development guidelines
+│   ├── prd/                  # Feature specifications
+│   ├── guides/               # Implementation guides
+│   ├── issues/               # Problems and solutions
+│   └── architecture/         # System design
+└── CLAUDE.md                 # AI assistant instructions
+```
 
 ## Development
 
@@ -198,24 +212,19 @@ npm run build
 # Run tests
 npm test
 
-# Type check
-npm run typecheck
-
-# Lint
-npm run lint
+# Full validation (build, test, typecheck, lint)
+npm run preflight
 ```
 
-## Project Structure
+## Documentation
 
-```
-beans-code/
-├── packages/
-│   ├── core/          # Core framework (agents, tools, LLM clients)
-│   └── cli/           # Command line interface
-├── .env               # Your API keys (gitignored)
-├── .env.example       # Template for environment variables
-└── package.json       # Root workspace config
-```
+| Folder | Purpose |
+|--------|---------|
+| [docs/sop/](docs/sop/) | Development guidelines, coding standards |
+| [docs/prd/](docs/prd/) | Feature specifications with status tracking |
+| [docs/guides/](docs/guides/) | Implementation explanations |
+| [docs/issues/](docs/issues/) | Problems encountered and solutions |
+| [docs/architecture/](docs/architecture/) | System design documentation |
 
 ## License
 
