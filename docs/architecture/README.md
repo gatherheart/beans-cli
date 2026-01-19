@@ -38,9 +38,8 @@ plugins/              → Agent definitions (Markdown)
 | Document | Location | Content |
 |----------|----------|---------|
 | LLM Interface | `../prd/llm-interface.md` | Request/response format |
-| Root CLAUDE.md | `/CLAUDE.md` | Project overview |
-| CLI CLAUDE.md | `/packages/cli/CLAUDE.md` | CLI specifics |
-| Core CLAUDE.md | `/packages/core/CLAUDE.md` | Core framework |
+| CLI UI Architecture | `../guides/cli-ui-architecture.md` | UI components and data flow |
+| Development Guidelines | `../sop/` | Coding standards, testing |
 
 ## Guidelines
 

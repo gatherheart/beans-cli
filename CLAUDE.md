@@ -53,7 +53,10 @@ beans-code/
 │               ├── hooks/            # Custom hooks
 │               └── components/       # UI components
 ├── docs/
+│   ├── sop/                          # Development guidelines
 │   ├── prd/                          # Product requirement documents
+│   ├── guides/                       # Implementation guides
+│   ├── issues/                       # Issues and solutions
 │   └── architecture/                 # Architecture documentation
 └── CLAUDE.md                         # This file
 ```
@@ -194,25 +197,17 @@ beans --list-models
 3. **LLM Interface**: See `docs/prd/llm-interface.md` for request/response specs
 4. **Tools**: Extend `BaseTool` class, register in `tools/builtin/index.ts`
 
-## Documenting Issues and Solutions
+## Documentation Structure
 
-When implementing features or fixing bugs, document all issues encountered and their solutions:
+| Folder | Purpose |
+|--------|---------|
+| `docs/sop/` | Development guidelines, coding standards, testing |
+| `docs/prd/` | Feature specifications with task list tracking |
+| `docs/guides/` | Implementation explanations (how things work) |
+| `docs/issues/` | Problems encountered and solutions |
+| `docs/architecture/` | System design and component interactions |
 
-1. **Create a documentation file** in `docs/` describing:
-   - Each issue/error encountered
-   - The root cause
-   - The solution with code examples
-   - Affected files
-
-2. **Include in documentation:**
-   - Error messages (exact text)
-   - Why the issue occurred
-   - Step-by-step solution
-   - Code snippets showing before/after
-
-3. **Example:** See `docs/cli-ui-implementation.md` for reference
-
-This helps future developers understand design decisions and troubleshoot similar issues.
+When implementing features or fixing bugs, document issues in `docs/issues/`. See existing files for reference.
 
 ## Before Committing
 
