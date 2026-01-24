@@ -50,7 +50,9 @@ beans-code/
 │           └── ui/                   # Ink-based React UI
 │               ├── App.tsx           # Root component
 │               ├── contexts/         # React contexts (gemini-cli pattern)
-│               ├── hooks/            # Custom hooks
+│               ├── hooks/            # Custom hooks (useChatHistory, useTerminalSize)
+│               ├── theme/            # Color palette (colors.ts)
+│               ├── utils/            # Formatting utilities
 │               └── components/       # UI components
 ├── docs/
 │   ├── sop/                          # Development guidelines
@@ -187,8 +189,25 @@ beans --list-models
 |---------|-------------|
 | `/help` | Show available commands |
 | `/profile` | View current agent profile |
+| `/history` | Show LLM message history |
+| `/memory` | Show current system prompt |
 | `/clear` | Clear chat history |
 | `/exit` | Exit application |
+
+## Input Controls
+
+| Key | Action |
+|-----|--------|
+| Enter | Submit message |
+| Shift+Enter, Ctrl+J | Insert newline |
+| Left/Right Arrow | Move cursor |
+| Ctrl+A / Ctrl+E | Move to start / end |
+| Ctrl+U | Clear input |
+| Ctrl+C | Exit |
+
+## Debug Mode
+
+Use `--debug` flag to log LLM requests/responses to `~/.beans/logs/debug.log`.
 
 ## Development Guidelines
 

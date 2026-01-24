@@ -13,7 +13,7 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { ChatSession, Config } from '@beans/core';
-import type { AgentActivityEvent } from '@beans/core';
+import type { AgentActivityEvent, Message as LLMMessage } from '@beans/core';
 import type { AgentProfile } from '@beans/core';
 import { useChatHistory } from '../hooks/useChatHistory.js';
 import type { Message, ToolCallInfo } from '../hooks/useChatHistory.js';
@@ -38,6 +38,8 @@ interface ChatActionsValue {
   sendMessage: (content: string) => Promise<void>;
   addSystemMessage: (content: string) => void;
   clearHistory: () => void;
+  getLLMHistory: () => LLMMessage[];
+  getSystemPrompt: () => string;
 }
 
 const ChatStateContext = createContext<ChatStateValue | null>(null);
@@ -157,6 +159,16 @@ export function ChatProvider({ children, config, systemPrompt, profile }: ChatPr
     setError(null);
   }, [getChatSession, history]);
 
+  const getLLMHistory = useCallback((): LLMMessage[] => {
+    const session = getChatSession();
+    return session.getHistory();
+  }, [getChatSession]);
+
+  const getSystemPrompt = useCallback((): string => {
+    const session = getChatSession();
+    return session.getSystemPrompt();
+  }, [getChatSession]);
+
   // Memoize state value to prevent unnecessary re-renders
   const stateValue = useMemo<ChatStateValue>(() => ({
     messages: history.messages,
@@ -170,7 +182,9 @@ export function ChatProvider({ children, config, systemPrompt, profile }: ChatPr
     sendMessage,
     addSystemMessage,
     clearHistory,
-  }), [sendMessage, addSystemMessage, clearHistory]);
+    getLLMHistory,
+    getSystemPrompt,
+  }), [sendMessage, addSystemMessage, clearHistory, getLLMHistory, getSystemPrompt]);
 
   return (
     <ChatStateContext.Provider value={stateValue}>

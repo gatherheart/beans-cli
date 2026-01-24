@@ -6,6 +6,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { createLowlight, common } from 'lowlight';
 import type { Element, Text as HastText, Root, RootContent } from 'hast';
+import { colors } from '../theme/colors.js';
 
 const lowlight = createLowlight(common);
 
@@ -102,9 +103,9 @@ function CodeBlock({ code, language }: CodeBlockProps): React.ReactElement {
   return (
     <Box flexDirection="column" marginY={1} paddingLeft={2}>
       {language && (
-        <Text color="gray" dimColor>{language}</Text>
+        <Text color={colors.muted} dimColor>{language}</Text>
       )}
-      <Box borderStyle="round" borderColor="gray" paddingX={1}>
+      <Box borderStyle="round" borderColor={colors.muted} paddingX={1}>
         <Box flexDirection="column">
           {lines.map((line, i) => (
             <Text key={i}>{renderHighlightedCode(line, language)}</Text>
@@ -224,7 +225,7 @@ export const MarkdownDisplay = React.memo(function MarkdownDisplay({ text }: Mar
       if (level <= 2) {
         elements.push(
           <Box key={key} marginY={1}>
-            <Text bold color="cyan"><RenderInline text={headerText} /></Text>
+            <Text bold color={colors.header}><RenderInline text={headerText} /></Text>
           </Box>
         );
       } else if (level <= 4) {
@@ -247,7 +248,7 @@ export const MarkdownDisplay = React.memo(function MarkdownDisplay({ text }: Mar
     if (hrRegex.test(line)) {
       elements.push(
         <Box key={key} marginY={1}>
-          <Text color="gray">{'─'.repeat(40)}</Text>
+          <Text color={colors.muted}>{'─'.repeat(40)}</Text>
         </Box>
       );
       return;
@@ -258,8 +259,8 @@ export const MarkdownDisplay = React.memo(function MarkdownDisplay({ text }: Mar
     if (blockquoteMatch) {
       elements.push(
         <Box key={key} paddingLeft={2}>
-          <Text color="gray">│ </Text>
-          <Text italic color="gray"><RenderInline text={blockquoteMatch[1]} /></Text>
+          <Text color={colors.muted}>│ </Text>
+          <Text italic color={colors.muted}><RenderInline text={blockquoteMatch[1]} /></Text>
         </Box>
       );
       return;
@@ -271,7 +272,7 @@ export const MarkdownDisplay = React.memo(function MarkdownDisplay({ text }: Mar
       const indent = ulMatch[1].length;
       elements.push(
         <Box key={key} paddingLeft={indent + 2}>
-          <Text color="cyan">• </Text>
+          <Text color={colors.primary}>• </Text>
           <Text><RenderInline text={ulMatch[3]} /></Text>
         </Box>
       );
@@ -285,7 +286,7 @@ export const MarkdownDisplay = React.memo(function MarkdownDisplay({ text }: Mar
       const num = olMatch[2];
       elements.push(
         <Box key={key} paddingLeft={indent + 2}>
-          <Text color="cyan">{num}. </Text>
+          <Text color={colors.primary}>{num}. </Text>
           <Text><RenderInline text={olMatch[3]} /></Text>
         </Box>
       );

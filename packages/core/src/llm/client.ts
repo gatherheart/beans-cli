@@ -1,3 +1,6 @@
+import { appendFileSync, mkdirSync, existsSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
 import type {
   LLMClient,
   ChatRequest,
@@ -5,7 +8,25 @@ import type {
   ProviderConfig,
   LLMProvider,
   ModelInfo,
+  DebugRequestData,
+  DebugResponseData,
 } from './types.js';
+
+// Debug log file path
+const DEBUG_LOG_DIR = join(homedir(), '.beans', 'logs');
+const DEBUG_LOG_FILE = join(DEBUG_LOG_DIR, 'debug.log');
+
+function ensureLogDir(): void {
+  if (!existsSync(DEBUG_LOG_DIR)) {
+    mkdirSync(DEBUG_LOG_DIR, { recursive: true });
+  }
+}
+
+function writeDebugLog(content: string): void {
+  ensureLogDir();
+  const timestamp = new Date().toISOString();
+  appendFileSync(DEBUG_LOG_FILE, `[${timestamp}]\n${content}\n\n`);
+}
 
 /**
  * Creates an LLM client for the specified provider.
@@ -60,51 +81,99 @@ function wrapWithDebugLogging(
   client: LLMClient,
   debug: NonNullable<ProviderConfig['debug']>
 ): LLMClient {
+  const emitDebugEvent = debug.onDebugEvent;
+
+  const buildRequestData = (request: ChatRequest): DebugRequestData => ({
+    model: request.model,
+    systemPrompt: request.systemPrompt,
+    messageCount: request.messages.length,
+    toolCount: request.tools?.length ?? 0,
+    messages: request.messages.map(msg => ({
+      role: msg.role,
+      contentPreview: msg.content?.substring(0, 200) ?? '',
+      toolCallCount: msg.toolCalls?.length,
+      toolResultCount: msg.toolResults?.length,
+    })),
+  });
+
+  const buildResponseData = (response: ChatResponse): DebugResponseData => ({
+    model: response.model,
+    finishReason: response.finishReason,
+    contentPreview: response.content?.substring(0, 500) ?? '',
+    toolCallCount: response.toolCalls?.length ?? 0,
+    usage: response.usage,
+  });
+
   const logRequest = (request: ChatRequest) => {
-    if (!debug.logRequests) return;
-    console.log('\n' + '='.repeat(60));
-    console.log('🔵 LLM REQUEST');
-    console.log('='.repeat(60));
-    console.log(`Model: ${request.model}`);
-    if (request.systemPrompt) {
-      console.log(`\nSystem Prompt:\n${request.systemPrompt}`);
+    // Emit event for UI if callback provided
+    if (emitDebugEvent) {
+      emitDebugEvent({ type: 'request', data: buildRequestData(request) });
     }
-    console.log('\nMessages:');
+
+    if (!debug.logRequests) return;
+
+    const lines: string[] = [
+      '─'.repeat(60),
+      '🔵 REQUEST',
+      `Model: ${request.model}`,
+    ];
+
+    if (request.systemPrompt) {
+      lines.push('', 'System Prompt:', request.systemPrompt);
+    }
+
+    lines.push('', 'Messages:');
     request.messages.forEach((msg) => {
-      console.log(`  [${msg.role}]: ${msg.content?.substring(0, 200)}${(msg.content?.length ?? 0) > 200 ? '...' : ''}`);
+      lines.push(`  [${msg.role}]: ${msg.content || ''}`);
       if (msg.toolCalls) {
-        console.log(`    Tool Calls: ${JSON.stringify(msg.toolCalls.map(tc => tc.name))}`);
+        lines.push(`    Tool Calls: ${JSON.stringify(msg.toolCalls, null, 2)}`);
       }
       if (msg.toolResults) {
-        console.log(`    Tool Results: ${msg.toolResults.length} result(s)`);
+        msg.toolResults.forEach(r => {
+          lines.push(`    Tool Result [${r.toolCallId}]: ${r.content}`);
+        });
       }
     });
+
     if (request.tools) {
-      console.log(`\nTools: ${request.tools.map(t => t.name).join(', ')}`);
+      lines.push('', `Tools: ${request.tools.map(t => t.name).join(', ')}`);
     }
-    console.log('='.repeat(60) + '\n');
+
+    lines.push('─'.repeat(60));
+    writeDebugLog(lines.join('\n'));
   };
 
   const logResponse = (response: ChatResponse) => {
-    if (!debug.logResponses) return;
-    console.log('\n' + '='.repeat(60));
-    console.log('🟢 LLM RESPONSE');
-    console.log('='.repeat(60));
-    console.log(`Model: ${response.model}`);
-    console.log(`Finish Reason: ${response.finishReason}`);
-    if (response.content) {
-      console.log(`\nContent:\n${response.content.substring(0, 500)}${response.content.length > 500 ? '...' : ''}`);
+    // Emit event for UI if callback provided
+    if (emitDebugEvent) {
+      emitDebugEvent({ type: 'response', data: buildResponseData(response) });
     }
-    if (response.toolCalls) {
-      console.log('\nTool Calls:');
+
+    if (!debug.logResponses) return;
+
+    const lines: string[] = [
+      '🟢 RESPONSE',
+      `Model: ${response.model}`,
+      `Finish: ${response.finishReason}`,
+    ];
+
+    if (response.content) {
+      lines.push('', 'Content:', response.content);
+    }
+
+    if (response.toolCalls && response.toolCalls.length > 0) {
+      lines.push('', 'Tool Calls:');
       response.toolCalls.forEach((tc) => {
-        console.log(`  - ${tc.name}: ${JSON.stringify(tc.arguments).substring(0, 200)}`);
+        lines.push(`  - ${tc.name}: ${JSON.stringify(tc.arguments, null, 2)}`);
       });
     }
+
     if (response.usage) {
-      console.log(`\nUsage: prompt=${response.usage.promptTokens}, completion=${response.usage.completionTokens}, total=${response.usage.totalTokens}`);
+      lines.push('', `Tokens: ${response.usage.promptTokens} prompt + ${response.usage.completionTokens} completion = ${response.usage.totalTokens} total`);
     }
-    console.log('='.repeat(60) + '\n');
+
+    lines.push('─'.repeat(60));
+    writeDebugLog(lines.join('\n'));
   };
 
   return {

@@ -16,12 +16,17 @@ packages/cli/src/
     ├── contexts/
     │   └── ChatContext.tsx    # State and actions contexts (gemini-cli pattern)
     ├── hooks/
-    │   └── useChatHistory.ts  # Custom hook for message management
+    │   ├── useChatHistory.ts  # Custom hook for message management
+    │   └── useTerminalSize.ts # Terminal resize detection
+    ├── theme/
+    │   └── colors.ts          # Centralized pastel color palette
+    ├── utils/
+    │   └── formatHistory.ts   # LLM history formatting
     └── components/
         ├── ChatView.tsx       # Message history display
         ├── Message.tsx        # Individual message renderer
         ├── MarkdownDisplay.tsx # Markdown terminal rendering
-        └── InputArea.tsx      # User input handler
+        └── InputArea.tsx      # User input with cursor navigation
 ```
 
 ## Key Components
@@ -166,7 +171,44 @@ npm run dev -- --debug
 | `/help` | Show available commands |
 | `/clear` | Clear chat history |
 | `/profile` | Show current agent profile |
+| `/history` | Show LLM message history |
+| `/memory` | Show current system prompt |
 | `/exit`, `/quit`, `/q` | Exit the application |
+
+## Input Controls
+
+| Key | Action |
+|-----|--------|
+| Enter | Submit message |
+| Shift+Enter, Ctrl+J | Insert newline |
+| `\` + Enter | Insert newline (removes backslash) |
+| Left/Right Arrow | Move cursor |
+| Ctrl+A | Move cursor to start |
+| Ctrl+E | Move cursor to end |
+| Ctrl+U | Clear input line |
+| Ctrl+C | Exit application |
+
+## Color Theme
+
+Colors are centralized in `ui/theme/colors.ts`:
+
+| Color | Hex | Usage |
+|-------|-----|-------|
+| primary | #87CEFA | Input border, list bullets |
+| user | #DDA0DD | User message prefix |
+| assistant | #98FB98 | Assistant message prefix |
+| system | #F0E68C | System message prefix |
+| success | #98FB98 | Tool completion |
+| warning | #F0E68C | Processing indicator |
+| error | #FFB6C1 | Error messages |
+| header | #B0C4DE | Markdown headers |
+
+## Debug Mode
+
+When `--debug` flag is used, LLM requests and responses are logged to:
+```
+~/.beans/logs/debug.log
+```
 
 ## Development Guidelines
 

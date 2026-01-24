@@ -5,7 +5,7 @@ import { ToolRegistry } from '../tools/registry.js';
 import { createBuiltinTools } from '../tools/builtin/index.js';
 import { AgentRegistry } from '../agents/registry.js';
 import { createLLMClient } from '../llm/client.js';
-import type { LLMClient, LLMProvider } from '../llm/types.js';
+import type { LLMClient, LLMProvider, DebugEvent } from '../llm/types.js';
 
 /**
  * Default configuration values
@@ -56,6 +56,9 @@ export class Config {
   private _toolRegistry: ToolRegistry | null = null;
   private _agentRegistry: AgentRegistry | null = null;
   private _llmClient: LLMClient | null = null;
+
+  // Debug event callback (set by UI)
+  private _debugEventCallback: ((event: DebugEvent) => void) | null = null;
 
   private constructor(settings: Settings) {
     this.config = this.mergeWithDefaults(settings);
@@ -167,14 +170,30 @@ export class Config {
   getLLMClient(): LLMClient {
     if (!this._llmClient) {
       const apiKey = this.resolveApiKey();
+      const debugConfig = this.config.debug.enabled
+        ? {
+            ...this.config.debug,
+            onDebugEvent: this._debugEventCallback ?? undefined,
+          }
+        : undefined;
       this._llmClient = createLLMClient(this.config.llm.provider, {
         apiKey,
         baseUrl: this.config.llm.baseUrl,
         defaultModel: this.config.llm.model,
-        debug: this.config.debug,
+        debug: debugConfig,
       });
     }
     return this._llmClient;
+  }
+
+  /**
+   * Set the debug event callback for UI integration
+   * Must be called before getLLMClient() for the callback to take effect
+   */
+  setDebugEventCallback(callback: ((event: DebugEvent) => void) | null): void {
+    this._debugEventCallback = callback;
+    // Reset LLM client so it gets recreated with the new callback
+    this._llmClient = null;
   }
 
   /**

@@ -142,6 +142,47 @@ export interface ProviderConfig {
     logRequests: boolean;
     /** Log responses */
     logResponses: boolean;
+    /** Optional callback for debug events (used by UI) */
+    onDebugEvent?: (event: DebugEvent) => void;
+  };
+}
+
+/**
+ * Debug event emitted by the LLM client
+ */
+export interface DebugEvent {
+  type: 'request' | 'response';
+  data: DebugRequestData | DebugResponseData;
+}
+
+/**
+ * Debug request data
+ */
+export interface DebugRequestData {
+  model: string;
+  systemPrompt?: string;
+  messageCount: number;
+  toolCount: number;
+  messages: Array<{
+    role: string;
+    contentPreview: string;
+    toolCallCount?: number;
+    toolResultCount?: number;
+  }>;
+}
+
+/**
+ * Debug response data
+ */
+export interface DebugResponseData {
+  model: string;
+  finishReason: string;
+  contentPreview: string;
+  toolCallCount: number;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
   };
 }
 

@@ -1,39 +1,31 @@
 /**
  * Message component for displaying chat messages
- * Streams plain text during generation, renders markdown when complete
  */
 
 import React from 'react';
 import { Box, Text } from 'ink';
 import Spinner from 'ink-spinner';
 import { MarkdownDisplay } from './MarkdownDisplay.js';
+import { colors, getToolColor } from '../theme/colors.js';
 import type { Message as MessageType, ToolCallInfo } from '../contexts/ChatContext.js';
 
 interface MessageProps {
   message: MessageType;
 }
 
-function ToolCallDisplay({ toolCall }: { toolCall: ToolCallInfo }): React.ReactElement {
+function ToolCalls({ tools }: { tools: ToolCallInfo[] }): React.ReactElement {
   return (
-    <Box flexDirection="column" marginY={1} paddingLeft={2}>
-      <Box>
-        {toolCall.isComplete ? (
-          <Text color="green">✓ </Text>
-        ) : (
-          <Text color="yellow">
-            <Spinner type="dots" />
-            {' '}
-          </Text>
-        )}
-        <Text bold color="cyan">{toolCall.name}</Text>
-      </Box>
-      {toolCall.result && (
-        <Box paddingLeft={2}>
-          <Text color="gray" dimColor>
-            {toolCall.result}
-          </Text>
+    <Box gap={1}>
+      {tools.map((tool) => (
+        <Box key={tool.id}>
+          {tool.isComplete ? (
+            <Text color={colors.success}>✓ </Text>
+          ) : (
+            <Text color={colors.warning}><Spinner type="dots" />{' '}</Text>
+          )}
+          <Text color={getToolColor(tool.name)}>{tool.name}</Text>
         </Box>
-      )}
+      ))}
     </Box>
   );
 }
@@ -41,47 +33,33 @@ function ToolCallDisplay({ toolCall }: { toolCall: ToolCallInfo }): React.ReactE
 export const Message = React.memo(function Message({ message }: MessageProps): React.ReactElement {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
+  const hasTools = message.toolCalls && message.toolCalls.length > 0;
 
   return (
-    <Box flexDirection="column" marginY={1}>
-      {/* Message header with role indicator */}
-      <Box>
-        {isUser ? (
-          <Text color="blue" bold>{'> '}</Text>
-        ) : isSystem ? (
-          <Text color="yellow" bold>{'ℹ '}</Text>
-        ) : (
-          <Text color="green" bold>{'✦ '}</Text>
-        )}
+    <Box flexDirection="column">
+      {/* Tool calls inline */}
+      {hasTools && <ToolCalls tools={message.toolCalls!} />}
 
-        {/* Content */}
-        <Box flexDirection="column" flexGrow={1}>
+      {/* Message content */}
+      {(message.content || (!hasTools && message.isStreaming)) && (
+        <Box>
           {isUser ? (
-            // User messages: plain text
-            <Text>{message.content}</Text>
-          ) : message.isStreaming ? (
-            // Assistant streaming: show plain text + spinner
-            <Box flexDirection="column">
-              <Text>{message.content}</Text>
-              {message.content.length === 0 && (
-                <Text color="gray">
-                  <Spinner type="dots" /> Thinking...
-                </Text>
-              )}
-            </Box>
+            <Text color={colors.user} bold>{'> '}</Text>
+          ) : isSystem ? (
+            <Text color={colors.system} bold>{'ℹ '}</Text>
           ) : (
-            // Assistant/System complete: render markdown
-            <MarkdownDisplay text={message.content} />
+            <Text color={colors.assistant} bold>{'✦ '}</Text>
           )}
-        </Box>
-      </Box>
 
-      {/* Tool calls */}
-      {message.toolCalls && message.toolCalls.length > 0 && (
-        <Box flexDirection="column" paddingLeft={2}>
-          {message.toolCalls.map((toolCall, index) => (
-            <ToolCallDisplay key={`${message.id}-tool-${index}`} toolCall={toolCall} />
-          ))}
+          <Box flexDirection="column" flexGrow={1}>
+            {isUser ? (
+              <Text>{message.content}</Text>
+            ) : message.isStreaming ? (
+              <Text>{message.content || <Text color="gray"><Spinner type="dots" /></Text>}</Text>
+            ) : (
+              <MarkdownDisplay text={message.content} />
+            )}
+          </Box>
         </Box>
       )}
     </Box>
