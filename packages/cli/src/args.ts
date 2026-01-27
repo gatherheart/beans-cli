@@ -29,6 +29,8 @@ export interface CLIArgs {
   agentProfile?: string;
   /** Enable debug mode to display LLM requests and responses */
   debug: boolean;
+  /** UI test mode with mock LLM responses */
+  uiTest: boolean;
 }
 
 /**
@@ -45,6 +47,7 @@ export async function parseArgs(): Promise<CLIArgs> {
     listModels: false,
     interactive: false,
     debug: false,
+    uiTest: false,
   };
 
   const positional: string[] = [];
@@ -94,6 +97,9 @@ export async function parseArgs(): Promise<CLIArgs> {
         break;
       case '--debug':
         result.debug = true;
+        break;
+      case '--ui-test':
+        result.uiTest = true;
         break;
       default:
         if (!arg.startsWith('-')) {

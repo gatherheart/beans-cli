@@ -12,6 +12,7 @@ const lowlight = createLowlight(common);
 
 interface MarkdownDisplayProps {
   text: string;
+  width?: number;
 }
 
 // Map highlight.js classes to terminal colors
@@ -101,17 +102,13 @@ function CodeBlock({ code, language }: CodeBlockProps): React.ReactElement {
   const lines = code.split('\n');
 
   return (
-    <Box flexDirection="column" marginY={1} paddingLeft={2}>
+    <Box flexDirection="column" marginY={1} paddingLeft={4}>
       {language && (
-        <Text color={colors.muted} dimColor>{language}</Text>
+        <Text color={colors.muted} dimColor>  {language}</Text>
       )}
-      <Box borderStyle="round" borderColor={colors.muted} paddingX={1}>
-        <Box flexDirection="column">
-          {lines.map((line, i) => (
-            <Text key={i}>{renderHighlightedCode(line, language)}</Text>
-          ))}
-        </Box>
-      </Box>
+      {lines.map((line, i) => (
+        <Text key={i}>{renderHighlightedCode(line, language)}</Text>
+      ))}
     </Box>
   );
 }
@@ -173,7 +170,7 @@ function RenderInline({ text }: InlineProps): React.ReactElement {
   return <>{parts.length > 0 ? parts : text}</>;
 }
 
-export const MarkdownDisplay = React.memo(function MarkdownDisplay({ text }: MarkdownDisplayProps): React.ReactElement {
+export const MarkdownDisplay = React.memo(function MarkdownDisplay({ text, width }: MarkdownDisplayProps): React.ReactElement {
   const lines = text.split(/\r?\n/);
   const elements: React.ReactNode[] = [];
 
@@ -301,7 +298,7 @@ export const MarkdownDisplay = React.memo(function MarkdownDisplay({ text }: Mar
 
     // Regular paragraph
     elements.push(
-      <Box key={key}>
+      <Box key={key} width={width}>
         <Text wrap="wrap"><RenderInline text={line} /></Text>
       </Box>
     );
@@ -314,5 +311,5 @@ export const MarkdownDisplay = React.memo(function MarkdownDisplay({ text }: Mar
     );
   }
 
-  return <Box flexDirection="column">{elements}</Box>;
+  return <Box flexDirection="column" width={width}>{elements}</Box>;
 });

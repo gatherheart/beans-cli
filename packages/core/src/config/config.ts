@@ -197,6 +197,13 @@ export class Config {
   }
 
   /**
+   * Set a custom LLM client (for testing)
+   */
+  setLLMClient(client: LLMClient): void {
+    this._llmClient = client;
+  }
+
+  /**
    * Update configuration
    */
   async updateConfig(updates: Partial<AppConfig>): Promise<void> {

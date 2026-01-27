@@ -42,7 +42,7 @@ interface InputAreaProps {
   width?: number;
 }
 
-export function InputArea({ onExit, width }: InputAreaProps): React.ReactElement {
+export const InputArea = React.memo(function InputArea({ onExit, width }: InputAreaProps): React.ReactElement {
   const [input, setInput] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
   const [cursorVisible, setCursorVisible] = useState(true);
@@ -260,4 +260,4 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
       </Box>
     </Box>
   );
-}
+});

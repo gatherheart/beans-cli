@@ -8,18 +8,20 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { CLIArgs } from './args.js';
-import { Config } from '@beans/core';
-import { AgentExecutor } from '@beans/core';
-import { SessionManager } from '@beans/core';
-import { WorkspaceService } from '@beans/core';
 import {
+  Config,
+  AgentExecutor,
+  SessionManager,
+  WorkspaceService,
   AgentProfileBuilder,
   loadAgentProfile,
   saveAgentProfile,
   DEFAULT_AGENT_PROFILE,
+  MockLLMClient,
   type AgentProfile,
 } from '@beans/core';
 import { App } from './ui/App.js';
+import { Mode, setMode, isDebug } from './mode.js';
 
 // Get the package root directory
 const __filename = fileURLToPath(import.meta.url);
@@ -52,8 +54,18 @@ const DEFAULT_AGENT_PATH = path.join(PACKAGE_ROOT, 'plugins', 'general-assistant
  * @returns A promise that resolves when the application exits.
  */
 export async function runApp(args: CLIArgs): Promise<void> {
+  // Set mode flags from CLI args
+  let modeFlags = Mode.NONE;
+  if (args.debug) modeFlags |= Mode.DEBUG;
+  setMode(modeFlags);
+
   // Initialize configuration
   const config = await Config.getInstance();
+
+  // UI test mode: use mock LLM client
+  if (args.uiTest) {
+    config.setLLMClient(new MockLLMClient());
+  }
 
   // Override model if specified
   if (args.model) {
@@ -70,7 +82,7 @@ export async function runApp(args: CLIArgs): Promise<void> {
   }
 
   // Enable debug mode if specified
-  if (args.debug) {
+  if (isDebug()) {
     await config.updateConfig({
       debug: { ...config.getDebugConfig(), enabled: true },
     });

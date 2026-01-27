@@ -1,5 +1,10 @@
 /**
  * ChatView component - displays the chat history
+ *
+ * Following claude-code pattern (from docs/issues/terminal-resize-handling.md):
+ * - Don't use Static (causes duplicate messages on resize)
+ * - Use React.memo on child components for performance
+ * - Pass width for proper text wrapping
  */
 
 import React from 'react';
@@ -14,11 +19,13 @@ interface ChatViewProps {
 
 export function ChatView({ width }: ChatViewProps): React.ReactElement {
   const { messages, error } = useChatState();
+  // Account for padding/borders (2 chars each side)
+  const contentWidth = width ? width - 4 : undefined;
 
   return (
-    <Box flexDirection="column" flexGrow={1} width={width} justifyContent="flex-end">
+    <Box flexDirection="column" width={width}>
       {messages.map(message => (
-        <Message key={message.id} message={message} />
+        <Message key={message.id} message={message} width={contentWidth} />
       ))}
 
       {messages.length === 0 && (

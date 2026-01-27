@@ -1,10 +1,10 @@
 /**
  * Root Ink application component
  *
- * Resize handling follows claude-code pattern:
- * - Parent tracks dimensions state
- * - Passes width to children
- * - Ink/Yoga handles re-layout automatically (no terminal clearing needed)
+ * Simple layout - content flows naturally from top to bottom:
+ * - Messages appear at top
+ * - Input follows after messages
+ * - No height constraints to avoid rendering corruption
  */
 
 import React, { useEffect } from 'react';
@@ -25,7 +25,7 @@ interface AppProps {
 
 function AppContent({ initialPrompt, onExit }: { initialPrompt?: string; onExit: () => void }): React.ReactElement {
   const { sendMessage } = useChatActions();
-  const { columns, rows } = useTerminalSize();
+  const { columns } = useTerminalSize();
 
   // Send initial prompt if provided
   useEffect(() => {
@@ -35,7 +35,7 @@ function AppContent({ initialPrompt, onExit }: { initialPrompt?: string; onExit:
   }, []); // Only run once on mount
 
   return (
-    <Box flexDirection="column" width={columns} height={rows}>
+    <Box flexDirection="column" width={columns}>
       <ChatView width={columns} />
       <InputArea onExit={onExit} width={columns} />
     </Box>

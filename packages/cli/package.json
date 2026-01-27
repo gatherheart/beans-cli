@@ -27,6 +27,7 @@
   "devDependencies": {
     "@types/react": "^19.1.8",
     "@types/yargs": "^17.0.0",
+    "ink-testing-library": "^4.0.0",
     "typescript": "^5.4.0",
     "vitest": "^3.0.0"
   }

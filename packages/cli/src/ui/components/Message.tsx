@@ -1,5 +1,9 @@
 /**
  * Message component for displaying chat messages
+ *
+ * Following claude-code pattern:
+ * - Width is passed down for proper text wrapping
+ * - Uses wrap="wrap" on Text components
  */
 
 import React from 'react';
@@ -11,6 +15,7 @@ import type { Message as MessageType, ToolCallInfo } from '../contexts/ChatConte
 
 interface MessageProps {
   message: MessageType;
+  width?: number;
 }
 
 function ToolCalls({ tools }: { tools: ToolCallInfo[] }): React.ReactElement {
@@ -30,13 +35,15 @@ function ToolCalls({ tools }: { tools: ToolCallInfo[] }): React.ReactElement {
   );
 }
 
-export const Message = React.memo(function Message({ message }: MessageProps): React.ReactElement {
+export const Message = React.memo(function Message({ message, width }: MessageProps): React.ReactElement {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
   const hasTools = message.toolCalls && message.toolCalls.length > 0;
+  // Account for the prefix (2 chars: symbol + space)
+  const textWidth = width ? width - 2 : undefined;
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" marginBottom={1}>
       {/* Tool calls inline */}
       {hasTools && <ToolCalls tools={message.toolCalls!} />}
 
@@ -51,13 +58,13 @@ export const Message = React.memo(function Message({ message }: MessageProps): R
             <Text color={colors.assistant} bold>{'✦ '}</Text>
           )}
 
-          <Box flexDirection="column" flexGrow={1}>
+          <Box flexDirection="column" width={textWidth}>
             {isUser ? (
-              <Text>{message.content}</Text>
+              <Text wrap="wrap">{message.content}</Text>
             ) : message.isStreaming ? (
-              <Text>{message.content || <Text color="gray"><Spinner type="dots" /></Text>}</Text>
+              <Text wrap="wrap">{message.content || <Text color="gray"><Spinner type="dots" /></Text>}</Text>
             ) : (
-              <MarkdownDisplay text={message.content} />
+              <MarkdownDisplay text={message.content} width={textWidth} />
             )}
           </Box>
         </Box>
