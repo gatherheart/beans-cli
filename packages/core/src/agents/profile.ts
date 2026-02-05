@@ -67,7 +67,7 @@ export class AgentProfileBuilder {
   private llmClient: LLMClient;
   private defaultModel: string;
 
-  constructor(llmClient: LLMClient, defaultModel: string = 'gemini-2.0-flash-exp') {
+  constructor(llmClient: LLMClient, defaultModel: string = 'gemini-2.0-flash') {
     this.llmClient = llmClient;
     this.defaultModel = defaultModel;
   }

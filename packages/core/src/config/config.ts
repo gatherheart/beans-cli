@@ -13,7 +13,7 @@ import type { LLMClient, LLMProvider, DebugEvent } from '../llm/types.js';
 const defaults: AppConfig = {
   llm: {
     provider: 'google',
-    model: 'gemini-2.0-flash-exp',
+    model: 'gemini-2.0-flash',
     temperature: 0.7,
     maxTokens: 4096,
   },

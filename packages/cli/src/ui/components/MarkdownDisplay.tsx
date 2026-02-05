@@ -118,12 +118,13 @@ interface InlineProps {
 }
 
 function RenderInline({ text }: InlineProps): React.ReactElement {
-  // Match: **bold**, *italic*, `code`, ~~strikethrough~~
+  // Match: **bold**, *italic*, `code`, ~~strikethrough~~, [link](url), $math$
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
 
-  // Combined regex for all inline styles
-  const inlineRegex = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|~~[^~]+~~)/g;
+  // Combined regex for all inline styles (order matters - ** before *)
+  // Also matches [text](url) links and $math$ expressions
+  const inlineRegex = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|~~[^~]+~~|\[[^\]]+\]\([^)]+\)|\$[^$]+\$)/g;
   let match: RegExpExecArray | null;
 
   while ((match = inlineRegex.exec(text)) !== null) {
@@ -141,7 +142,7 @@ function RenderInline({ text }: InlineProps): React.ReactElement {
       );
     }
     // *italic*
-    else if (fullMatch.startsWith('*') && fullMatch.endsWith('*')) {
+    else if (fullMatch.startsWith('*') && fullMatch.endsWith('*') && !fullMatch.startsWith('**')) {
       parts.push(
         <Text key={match.index} italic>{fullMatch.slice(1, -1)}</Text>
       );
@@ -158,6 +159,21 @@ function RenderInline({ text }: InlineProps): React.ReactElement {
         <Text key={match.index} strikethrough>{fullMatch.slice(2, -2)}</Text>
       );
     }
+    // [text](url) - links shown as underlined text
+    else if (fullMatch.startsWith('[') && fullMatch.includes('](')) {
+      const linkMatch = fullMatch.match(/\[([^\]]+)\]\(([^)]+)\)/);
+      if (linkMatch) {
+        parts.push(
+          <Text key={match.index} underline color={colors.primary}>{linkMatch[1]}</Text>
+        );
+      }
+    }
+    // $math$ - display math expressions with distinct styling
+    else if (fullMatch.startsWith('$') && fullMatch.endsWith('$')) {
+      parts.push(
+        <Text key={match.index} italic color="cyan">{fullMatch.slice(1, -1)}</Text>
+      );
+    }
 
     lastIndex = inlineRegex.lastIndex;
   }
@@ -170,6 +186,41 @@ function RenderInline({ text }: InlineProps): React.ReactElement {
   return <>{parts.length > 0 ? parts : text}</>;
 }
 
+interface TableProps {
+  rows: string[][];
+  hasHeader: boolean;
+}
+
+function Table({ rows, hasHeader }: TableProps): React.ReactElement {
+  if (rows.length === 0) return <></>;
+
+  // Calculate column widths
+  const colWidths: number[] = [];
+  for (const row of rows) {
+    row.forEach((cell, i) => {
+      colWidths[i] = Math.max(colWidths[i] || 0, cell.length);
+    });
+  }
+
+  return (
+    <Box flexDirection="column" marginY={1}>
+      {rows.map((row, rowIndex) => (
+        <Box key={rowIndex}>
+          <Text color={colors.muted}>│ </Text>
+          {row.map((cell, cellIndex) => (
+            <React.Fragment key={cellIndex}>
+              <Text bold={hasHeader && rowIndex === 0}>
+                {cell.padEnd(colWidths[cellIndex] || 0)}
+              </Text>
+              <Text color={colors.muted}> │ </Text>
+            </React.Fragment>
+          ))}
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
 export const MarkdownDisplay = React.memo(function MarkdownDisplay({ text, width }: MarkdownDisplayProps): React.ReactElement {
   const lines = text.split(/\r?\n/);
   const elements: React.ReactNode[] = [];
@@ -177,14 +228,27 @@ export const MarkdownDisplay = React.memo(function MarkdownDisplay({ text, width
   // Regex patterns
   const headerRegex = /^(#{1,6})\s+(.*)$/;
   const codeFenceRegex = /^```(\w*)$/;
-  const ulItemRegex = /^(\s*)([-*+])\s+(.*)$/;
+  // Support Unicode bullets (•, ◦, ▪, ▸, ➤, ○, ●) and standard markdown bullets
+  const ulItemRegex = /^(\s*)([-*+•◦▪▸➤○●])\s+(.*)$/;
   const olItemRegex = /^(\s*)(\d+)\.\s+(.*)$/;
   const blockquoteRegex = /^>\s?(.*)$/;
   const hrRegex = /^(---|\*\*\*|___)$/;
+  const tableRowRegex = /^\|(.+)\|$/;
+  const tableSepRegex = /^\|[-:| ]+\|$/;
 
   let inCodeBlock = false;
   let codeBlockLines: string[] = [];
   let codeBlockLang: string | null = null;
+  let tableRows: string[][] = [];
+  let tableHasHeader = false;
+
+  const flushTable = (key: string) => {
+    if (tableRows.length > 0) {
+      elements.push(<Table key={key} rows={tableRows} hasHeader={tableHasHeader} />);
+      tableRows = [];
+      tableHasHeader = false;
+    }
+  };
 
   lines.forEach((line, index) => {
     const key = `line-${index}`;
@@ -263,6 +327,22 @@ export const MarkdownDisplay = React.memo(function MarkdownDisplay({ text, width
       return;
     }
 
+    // Table handling
+    if (tableRowRegex.test(line)) {
+      if (tableSepRegex.test(line)) {
+        // This is a separator row, mark that we have a header
+        tableHasHeader = tableRows.length > 0;
+      } else {
+        // Parse table row
+        const cells = line.slice(1, -1).split('|').map(cell => cell.trim());
+        tableRows.push(cells);
+      }
+      return;
+    } else if (tableRows.length > 0) {
+      // Flush table when we hit a non-table line
+      flushTable(`table-${index}`);
+    }
+
     // Unordered list
     const ulMatch = line.match(ulItemRegex);
     if (ulMatch) {
@@ -292,6 +372,7 @@ export const MarkdownDisplay = React.memo(function MarkdownDisplay({ text, width
 
     // Empty line
     if (!line.trim()) {
+      flushTable(`table-${index}`);
       elements.push(<Box key={key} height={1} />);
       return;
     }
@@ -309,6 +390,11 @@ export const MarkdownDisplay = React.memo(function MarkdownDisplay({ text, width
     elements.push(
       <CodeBlock key="unclosed-code" code={codeBlockLines.join('\n')} language={codeBlockLang} />
     );
+  }
+
+  // Handle unclosed table
+  if (tableRows.length > 0) {
+    elements.push(<Table key="unclosed-table" rows={tableRows} hasHeader={tableHasHeader} />);
   }
 
   return <Box flexDirection="column" width={width}>{elements}</Box>;

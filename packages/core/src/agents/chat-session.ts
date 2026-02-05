@@ -31,6 +31,8 @@ export interface ChatSessionConfig {
   runConfig?: RunConfig;
   /** Tool configuration */
   toolConfig?: ToolConfig;
+  /** Working directory for tool execution (defaults to process.cwd()) */
+  cwd?: string;
 }
 
 /**
@@ -68,6 +70,7 @@ export class ChatSession {
   private readonly modelConfig: ModelConfig;
   private readonly runConfig: RunConfig;
   private readonly toolConfig?: ToolConfig;
+  private readonly cwd: string;
 
   /**
    * Creates a new ChatSession instance.
@@ -98,6 +101,7 @@ export class ChatSession {
     this.modelConfig = config.modelConfig;
     this.runConfig = config.runConfig ?? {};
     this.toolConfig = config.toolConfig;
+    this.cwd = config.cwd ?? process.cwd();
   }
 
   /**
@@ -445,7 +449,7 @@ export class ChatSession {
         }
 
         try {
-          const result = await tool.execute(toolCall.arguments);
+          const result = await tool.execute(toolCall.arguments, { cwd: this.cwd });
           onActivity?.({
             type: 'tool_call_end',
             toolCallId: toolCall.id,

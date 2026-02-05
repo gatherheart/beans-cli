@@ -50,7 +50,7 @@ Example settings:
 {
   "llm": {
     "provider": "google",
-    "model": "gemini-2.0-flash-exp",
+    "model": "gemini-2.0-flash",
     "temperature": 0.7,
     "maxTokens": 4096
   },
@@ -136,7 +136,7 @@ Options:
 
 | Provider | Models | API Key |
 |----------|--------|---------|
-| `google` | `gemini-2.0-flash-exp`, `gemini-2.5-pro` | `GOOGLE_API_KEY` |
+| `google` | `gemini-2.0-flash`, `gemini-2.5-pro` | `GOOGLE_API_KEY` |
 | `ollama` | Any local model | (none required) |
 
 ### Provider Examples
@@ -146,7 +146,7 @@ Options:
 {
   "llm": {
     "provider": "google",
-    "model": "gemini-2.0-flash-exp"
+    "model": "gemini-2.0-flash"
   }
 }
 ```

@@ -82,7 +82,7 @@ Loads and generates agent profiles:
 const profile = await loadAgentProfile('./agents/code-reviewer.md');
 
 // Generate via LLM
-const builder = new AgentProfileBuilder(llmClient, 'gemini-2.0-flash-exp');
+const builder = new AgentProfileBuilder(llmClient, 'gemini-2.0-flash');
 const profile = await builder.buildProfile({ description: '...' });
 
 // Save to Markdown
@@ -139,7 +139,7 @@ const llmConfig = config.getLLMConfig();
 
 **Default Configuration:**
 - Provider: `google`
-- Model: `gemini-2.0-flash-exp`
+- Model: `gemini-2.0-flash`
 - Supported providers: `google`, `ollama`
 
 ## Built-in Tools

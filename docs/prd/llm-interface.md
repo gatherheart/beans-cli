@@ -35,7 +35,7 @@ interface ChatRequest {
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `model` | `string` | **Yes** | Model identifier (e.g., `gemini-2.0-flash-exp`, `llama3.2`) |
+| `model` | `string` | **Yes** | Model identifier (e.g., `gemini-2.0-flash`, `llama3.2`) |
 | `messages` | `Message[]` | **Yes** | Conversation history |
 | `systemPrompt` | `string` | No | System-level instructions for the model |
 | `tools` | `ToolDefinition[]` | No | Available tools for function calling |
@@ -48,7 +48,7 @@ interface ChatRequest {
 
 ```typescript
 const request: ChatRequest = {
-  model: 'gemini-2.0-flash-exp',
+  model: 'gemini-2.0-flash',
   messages: [
     { role: 'user', content: 'What files are in the current directory?' }
   ],
@@ -117,7 +117,7 @@ type FinishReason =
 ```typescript
 const response: ChatResponse = {
   content: 'The current directory contains the following files:\n- package.json\n- README.md',
-  model: 'gemini-2.0-flash-exp',
+  model: 'gemini-2.0-flash',
   finishReason: 'stop',
   usage: {
     promptTokens: 150,
@@ -139,7 +139,7 @@ const response: ChatResponse = {
       arguments: { command: 'ls -la' }
     }
   ],
-  model: 'gemini-2.0-flash-exp',
+  model: 'gemini-2.0-flash',
   finishReason: 'tool_calls'
 };
 ```

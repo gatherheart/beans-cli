@@ -146,7 +146,7 @@ npm run dev "your prompt here"
 npm run dev -- -i "initial prompt"
 
 # With specific model
-npm run dev -- -m gemini-2.0-flash-exp "prompt"
+npm run dev -- -m gemini-2.0-flash "prompt"
 
 # Auto-approve tools
 npm run dev -- --yolo "prompt"

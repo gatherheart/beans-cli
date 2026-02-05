@@ -7,7 +7,7 @@ Provide the ability to list available models from each LLM provider. This helps 
 ## Motivation
 
 - Users often encounter 404 errors when using incorrect model names
-- Model names change frequently (e.g., `gemini-1.5-pro` vs `gemini-2.0-flash-exp`)
+- Model names change frequently (e.g., `gemini-1.5-pro` vs `gemini-2.0-flash`)
 - Different providers have different naming conventions
 - Users need to know what models are available before configuration
 
@@ -25,7 +25,7 @@ interface LLMClient {
 }
 
 interface ModelInfo {
-  id: string;           // Model identifier (e.g., "gpt-4o", "gemini-2.0-flash-exp")
+  id: string;           // Model identifier (e.g., "gpt-4o", "gemini-2.0-flash")
   name?: string;        // Display name
   description?: string; // Model description
   contextWindow?: number; // Max context length
@@ -66,7 +66,7 @@ beans --list-models --provider google
 
 # Output format
 Available models for google:
-  gemini-2.0-flash-exp     Gemini 2.0 Flash (experimental)
+  gemini-2.0-flash     Gemini 2.0 Flash (experimental)
   gemini-1.5-pro-latest    Gemini 1.5 Pro
   gemini-1.5-flash-latest  Gemini 1.5 Flash
 ```

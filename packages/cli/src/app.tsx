@@ -59,6 +59,11 @@ export async function runApp(args: CLIArgs): Promise<void> {
   if (args.debug) modeFlags |= Mode.DEBUG;
   setMode(modeFlags);
 
+  // Change to specified working directory if provided
+  if (args.cwd) {
+    process.chdir(args.cwd);
+  }
+
   // Initialize configuration
   const config = await Config.getInstance();
 

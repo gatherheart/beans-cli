@@ -3,9 +3,10 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { BaseTool } from '../base-tool.js';
 import type { ToolExecutionResult, ToolExecutionOptions } from '../types.js';
+import { expandTilde } from '../utils.js';
 
 const ReadFileSchema = z.object({
-  path: z.string().describe('Absolute path to the file to read'),
+  path: z.string().describe('Path to the file to read (absolute or relative to current working directory)'),
   offset: z
     .number()
     .optional()
@@ -29,7 +30,8 @@ export class ReadFileTool extends BaseTool<ReadFileParams> {
     options?: ToolExecutionOptions
   ): Promise<ToolExecutionResult> {
     try {
-      const filePath = path.resolve(options?.cwd ?? process.cwd(), params.path);
+      const expandedPath = expandTilde(params.path);
+      const filePath = path.resolve(options?.cwd ?? process.cwd(), expandedPath);
 
       const content = await fs.readFile(filePath, 'utf-8');
       const lines = content.split('\n');

@@ -7,6 +7,7 @@ import type {
   ToolExecutionOptions,
   ToolConfirmation,
 } from '../types.js';
+import { expandTilde } from '../utils.js';
 
 const WriteFileSchema = z.object({
   path: z.string().describe('Absolute path to the file to write'),
@@ -42,7 +43,8 @@ export class WriteFileTool extends BaseTool<WriteFileParams> {
     options?: ToolExecutionOptions
   ): Promise<ToolExecutionResult> {
     try {
-      const filePath = path.resolve(options?.cwd ?? process.cwd(), params.path);
+      const expandedPath = expandTilde(params.path);
+      const filePath = path.resolve(options?.cwd ?? process.cwd(), expandedPath);
 
       // Create parent directories if needed
       if (params.createDirectories) {

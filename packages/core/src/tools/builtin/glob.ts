@@ -3,6 +3,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { BaseTool } from '../base-tool.js';
 import type { ToolExecutionResult, ToolExecutionOptions } from '../types.js';
+import { expandTilde } from '../utils.js';
 
 const GlobSchema = z.object({
   pattern: z.string().describe('Glob pattern to match files (e.g., "**/*.ts")'),
@@ -29,7 +30,8 @@ export class GlobTool extends BaseTool<GlobParams> {
   ): Promise<ToolExecutionResult> {
     try {
       const cwd = options?.cwd ?? process.cwd();
-      const searchPath = params.path ? path.resolve(cwd, params.path) : cwd;
+      const expandedPath = params.path ? expandTilde(params.path) : undefined;
+      const searchPath = expandedPath ? path.resolve(cwd, expandedPath) : cwd;
 
       // Simple glob implementation - in production use fast-glob
       const matches = await this.simpleGlob(searchPath, params.pattern);

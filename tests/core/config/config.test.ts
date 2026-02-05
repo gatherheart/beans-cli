@@ -69,14 +69,14 @@ describe('Config', () => {
       expect(llmConfig.provider).toBe('google');
     });
 
-    it('should return default model as gemini-2.0-flash-exp when no settings', async () => {
+    it('should return default model as gemini-2.0-flash when no settings', async () => {
       vi.mocked(settings.loadSettings).mockResolvedValue({});
       Config.reset();
 
       const config = await Config.getInstance();
       const llmConfig = config.getLLMConfig();
 
-      expect(llmConfig.model).toBe('gemini-2.0-flash-exp');
+      expect(llmConfig.model).toBe('gemini-2.0-flash');
     });
 
     it('should use provider from settings when provided', async () => {

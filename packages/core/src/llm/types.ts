@@ -84,7 +84,7 @@ export interface ChatStreamChunk {
  * Model information
  */
 export interface ModelInfo {
-  /** Model identifier (e.g., "gpt-4o", "gemini-2.0-flash-exp") */
+  /** Model identifier (e.g., "gpt-4o", "gemini-2.0-flash") */
   id: string;
   /** Display name */
   name?: string;

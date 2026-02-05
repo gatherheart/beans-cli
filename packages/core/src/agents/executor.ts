@@ -18,6 +18,8 @@ export interface ExecuteOptions {
   signal?: AbortSignal;
   /** Callback for activity updates */
   onActivity?: (event: AgentActivityEvent) => void;
+  /** Working directory for tool execution */
+  cwd?: string;
 }
 
 /**
@@ -48,7 +50,7 @@ export class AgentExecutor {
     definition: AgentDefinition,
     options: ExecuteOptions = {}
   ): Promise<AgentResult<T>> {
-    const { inputs = {}, signal, onActivity } = options;
+    const { inputs = {}, signal, onActivity, cwd = process.cwd() } = options;
     const messages: Message[] = [];
     let turnCount = 0;
     let terminateReason: TerminateReason = 'complete';
@@ -124,7 +126,8 @@ export class AgentExecutor {
         if (response.toolCalls && response.toolCalls.length > 0) {
           const toolResults = await this.executeToolCalls(
             response.toolCalls,
-            onActivity
+            onActivity,
+            cwd
           );
 
           messages.push({
@@ -226,7 +229,8 @@ export class AgentExecutor {
    */
   private async executeToolCalls(
     toolCalls: ToolCall[],
-    onActivity?: (event: AgentActivityEvent) => void
+    onActivity: ((event: AgentActivityEvent) => void) | undefined,
+    cwd: string
   ) {
     const results = await Promise.all(
       toolCalls.map(async (toolCall) => {
@@ -248,7 +252,7 @@ export class AgentExecutor {
         }
 
         try {
-          const result = await tool.execute(toolCall.arguments);
+          const result = await tool.execute(toolCall.arguments, { cwd });
           onActivity?.({
             type: 'tool_call_end',
             toolCallId: toolCall.id,
