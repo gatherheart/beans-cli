@@ -1,7 +1,7 @@
 ```markdown
 # UI Test Report
 
-**Date:** 2026-02-07T10:17:58.861Z
+**Date:** 2026-02-07T10:22:16.984Z
 **Tester:** QA Engineer
 **Version:** 0.1.0
 
@@ -11,11 +11,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Total Tests | 132 |
-| Passed | 132 |
+| Total Tests | 0 |
+| Passed | 0 |
 | Failed | 0 |
 | Skipped | 0 |
-| Duration | 3.92s |
+| Duration |  |
 
 ## Test Results by Category
 
@@ -23,74 +23,74 @@
 
 | Test | Status | Notes |
 |------|--------|-------|
-| Renders input prompt | ✅ PASSED |  |
-| Shows placeholder text | ✅ PASSED |  |
-| Shows help hint | ✅ PASSED |  |
-| Renders with border | ✅ PASSED |  |
+| Renders input prompt | ⏭️ SKIPPED | No tests run |
+| Shows placeholder text | ⏭️ SKIPPED | No tests run |
+| Shows help hint | ⏭️ SKIPPED | No tests run |
+| Renders with border | ⏭️ SKIPPED | No tests run |
 
 ### Keyboard Input Tests
 
 | Test | Status | Notes |
 |------|--------|-------|
-| Displays typed characters | ✅ PASSED |  |
-| Handles backspace | ✅ PASSED |  |
-| Clears input with Ctrl+U | ✅ PASSED |  |
+| Displays typed characters | ⏭️ SKIPPED | No tests run |
+| Handles backspace | ⏭️ SKIPPED | No tests run |
+| Clears input with Ctrl+U | ⏭️ SKIPPED | No tests run |
 
 ### Message Submission Tests
 
 | Test | Status | Notes |
 |------|--------|-------|
-| Sends message on Enter | ✅ PASSED |  |
-| Clears input after submission | ✅ PASSED |  |
-| Does not send empty message | ✅ PASSED |  |
+| Sends message on Enter | ⏭️ SKIPPED | No tests run |
+| Clears input after submission | ⏭️ SKIPPED | No tests run |
+| Does not send empty message | ⏭️ SKIPPED | No tests run |
 
 ### Slash Commands Tests
 
 | Test | Status | Notes |
 |------|--------|-------|
-| /exit command | ✅ PASSED |  |
-| /help command | ✅ PASSED |  |
-| /clear command | ✅ PASSED |  |
-| Unknown command handling | ✅ PASSED |  |
+| /exit command | ⏭️ SKIPPED | No tests run |
+| /help command | ⏭️ SKIPPED | No tests run |
+| /clear command | ⏭️ SKIPPED | No tests run |
+| Unknown command handling | ⏭️ SKIPPED | No tests run |
 
 ### Long Text Handling Tests
 
 | Test | Status | Notes |
 |------|--------|-------|
-| Long single-line text | ✅ PASSED |  |
-| Very long text (500 chars) | ✅ PASSED |  |
-| Rapid typing | ✅ PASSED |  |
-| Unicode characters | ✅ PASSED |  |
-| Special characters | ✅ PASSED |  |
+| Long single-line text | ⏭️ SKIPPED | No tests run |
+| Very long text (500 chars) | ⏭️ SKIPPED | No tests run |
+| Rapid typing | ⏭️ SKIPPED | No tests run |
+| Unicode characters | ⏭️ SKIPPED | No tests run |
+| Special characters | ⏭️ SKIPPED | No tests run |
 
 ### Markdown Rendering Tests
 
 | Test | Status | Notes |
 |------|--------|-------|
-| Headers (h1, h2, h3) | ✅ PASSED |  |
-| Code blocks with border | ✅ PASSED |  |
-| Inline formatting | ✅ PASSED |  |
-| Lists (ordered/unordered) | ✅ PASSED |  |
-| Tables | ✅ PASSED |  |
+| Headers (h1, h2, h3) | ⏭️ SKIPPED | No tests run |
+| Code blocks with border | ⏭️ SKIPPED | No tests run |
+| Inline formatting | ⏭️ SKIPPED | No tests run |
+| Lists (ordered/unordered) | ⏭️ SKIPPED | No tests run |
+| Tables | ⏭️ SKIPPED | No tests run |
 
 ---
 
 ## UI Verification Checklist
 
 ### Flickering Detection
-- [x] No screen flashing during streaming
-- [x] Input area remains stable
-- [x] Cursor blink continues smoothly
+- [ ] No screen flashing during streaming
+- [ ] Input area remains stable
+- [ ] Cursor blink continues smoothly
 
 ### Input Visibility
-- [x] Input area visible during streaming
-- [x] Can type while response streams
-- [x] Cursor position updates correctly
+- [ ] Input area visible during streaming
+- [ ] Can type while response streams
+- [ ] Cursor position updates correctly
 
 ### Output Display
-- [x] All content visible (can scroll)
-- [x] No content truncation
-- [x] Code blocks render with borders
+- [ ] All content visible (can scroll)
+- [ ] No content truncation
+- [ ] Code blocks render with borders
 
 ---
 
@@ -98,13 +98,13 @@
 
 | Issue ID | Severity | Description | Steps to Reproduce |
 |----------|----------|-------------|-------------------|
-|  |  |  |  |
+| TEST-001 | Critical | No tests were executed. | Run the test suite. |
 
 ---
 
 ## Recommendations
 
-All tests passed successfully. No recommendations at this time.
+The test suite needs to be executed to provide meaningful results. Investigate why the tests are not running and address the underlying issue.
 
 ---
 
@@ -124,17 +124,17 @@ All tests passed successfully. No recommendations at this time.
 ```
 ──────────────────────────────────────────────────
       Tests  [2m [1m[32m132 passed[39m[22m[90m (132)[39m
-   Duration  [2m 3.92s[2m (transform 580ms, setup 0ms, collect 2.80s, tests 5.71s, environment 2ms, prepare 770ms)[22m
+   Duration  [2m 3.92s[2m (transform 538ms, setup 0ms, collect 2.85s, tests 5.71s, environment 2ms, prepare 760ms)[2m
 ```
 
 ---
 
 ## Sign-off
 
-- [x] All critical tests passed
-- [x] No blocking issues found
-- [x] Ready for release
+- [ ] All critical tests passed
+- [ ] No blocking issues found
+- [ ] Ready for release
 
-**Approved by:** Project Manager
-**Date:** 2026-02-07
+**Approved by:** N/A
+**Date:** N/A
 ```
