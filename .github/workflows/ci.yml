@@ -170,8 +170,8 @@ jobs:
       - name: Commit and push report
         if: env.HAS_GEMINI_KEY == 'true'
         run: |
-          git config --local user.email "2814610+beans-code[bot]@users.noreply.github.com"
-          git config --local user.name "beans-code[bot]"
+          git config --local user.email "2814610+beans-code-bot[bot]@users.noreply.github.com"
+          git config --local user.name "beans-code-bot[bot]"
           git add docs/reports/*.md
           if git diff --staged --quiet; then
             echo "No changes to commit"
