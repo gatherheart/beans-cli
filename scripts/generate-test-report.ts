@@ -65,6 +65,71 @@ function runTestsVerbose(): string {
   }
 }
 
+/**
+ * Clean and format raw test output for better readability
+ */
+function formatRawOutput(output: string): string {
+  const lines = output.split('\n');
+  const formattedLines: string[] = [];
+
+  let currentFile = '';
+  let testCount = 0;
+
+  for (const line of lines) {
+    // Skip npm command header and empty lines
+    if (line.includes('> @beans') || line.includes('> vitest') || line.trim() === '') {
+      continue;
+    }
+
+    // Skip the RUN header line
+    if (line.includes('RUN  v')) {
+      const versionMatch = line.match(/v(\d+\.\d+\.\d+)/);
+      if (versionMatch) {
+        formattedLines.push(`Vitest ${versionMatch[1]}`);
+        formattedLines.push('─'.repeat(50));
+      }
+      continue;
+    }
+
+    // Format file headers - extract just the file name
+    const fileMatch = line.match(/[✓✗]\s+(.+\.test\.tsx?)\s+(?:>|$)/);
+    if (fileMatch && !currentFile.includes(fileMatch[1])) {
+      currentFile = fileMatch[1];
+      const shortPath = currentFile.replace(/^(packages\/|tests\/)/, '');
+      if (testCount > 0) {
+        formattedLines.push('');
+      }
+      formattedLines.push(`📁 ${shortPath}`);
+      testCount = 0;
+    }
+
+    // Format individual test results
+    const testMatch = line.match(/^\s*([✓✗])\s+(.+?)\s+(\d+ms)?$/);
+    if (testMatch) {
+      const [, status, testName, duration] = testMatch;
+      const icon = status === '✓' ? '  ✅' : '  ❌';
+      const durationStr = duration ? ` (${duration})` : '';
+      // Extract just the test name (after last >)
+      const parts = testName.split(' > ');
+      const shortName = parts[parts.length - 1];
+      formattedLines.push(`${icon} ${shortName}${durationStr}`);
+      testCount++;
+    }
+
+    // Include summary lines
+    if (line.includes('Tests') && line.includes('passed')) {
+      formattedLines.push('');
+      formattedLines.push('─'.repeat(50));
+      formattedLines.push(line.trim());
+    }
+    if (line.includes('Duration')) {
+      formattedLines.push(line.trim());
+    }
+  }
+
+  return formattedLines.join('\n');
+}
+
 function parseTestOutput(output: string): Partial<TestReport> {
   const lines = output.split('\n');
   const suites: TestSuite[] = [];
@@ -141,7 +206,7 @@ function generateReport(): TestReport {
       duration: '0ms',
     },
     suites: parsed.suites || [],
-    rawOutput: verboseOutput,
+    rawOutput: formatRawOutput(verboseOutput),
   };
 
   return report;
