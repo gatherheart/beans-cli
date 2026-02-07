@@ -274,7 +274,7 @@ async function resolveAgentProfile(config: Config, args: CLIArgs): Promise<Agent
       console.log(`Loading agent profile from: ${args.agentProfile}`);
       const profile = await loadAgentProfile(args.agentProfile);
       return profile;
-    } catch (error) {
+    } catch {
       console.warn(`Failed to load profile from ${args.agentProfile}, falling back to generation`);
     }
   }

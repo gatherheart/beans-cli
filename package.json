@@ -24,14 +24,15 @@
     "test:report:json": "tsx scripts/generate-test-report.ts --json",
     "test:report:gemini": "tsx scripts/generate-test-report.ts --gemini",
     "test:report:save": "tsx scripts/generate-test-report.ts --gemini --save",
-    "lint": "eslint . --ext .ts,.tsx",
-    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "preflight": "npm run build && npm run test && npm run typecheck && npm run lint",
     "clean": "rm -rf packages/*/dist node_modules/.cache && find packages -name '*.js' -path '*/src/*' -delete && find packages -name '*.js.map' -path '*/src/*' -delete && find packages -name '*.d.ts' -path '*/src/*' -delete && find packages -name '*.d.ts.map' -path '*/src/*' -delete"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
@@ -41,6 +42,7 @@
     "prettier": "^3.0.0",
     "tsx": "^4.7.0",
     "typescript": "^5.4.0",
+    "typescript-eslint": "^8.54.0",
     "vitest": "^3.0.0"
   },
   "dependencies": {

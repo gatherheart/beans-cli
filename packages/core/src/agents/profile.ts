@@ -155,7 +155,7 @@ Respond ONLY with valid JSON, no additional text.`;
         version: '1.0.0',
         createdAt: new Date().toISOString(),
       };
-    } catch (error) {
+    } catch {
       // Fallback if parsing fails
       console.warn('Failed to parse LLM response, using fallback profile');
       return this.buildFallbackProfile(config);
