@@ -16,7 +16,8 @@
       "Bash(npm install:*)",
       "Bash(tree:*)",
       "Bash(npm test:*)",
-      "Bash(npm run preflight:*)"
+      "Bash(npm run preflight:*)",
+      "Bash(npm run dev:*)"
     ]
   }
 }

@@ -3,3 +3,4 @@
 
 export type { LLMProvider, ProviderConfig } from '../types.js';
 export { MockLLMClient } from './mock.js';
+export type { UITestScenario } from './mock.js';

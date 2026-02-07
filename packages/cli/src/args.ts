@@ -2,6 +2,19 @@
  * Command line argument parsing
  */
 
+/**
+ * Available UI test scenarios
+ */
+export type UITestScenarioArg =
+  | 'basic'
+  | 'long-content'
+  | 'rapid-stream'
+  | 'tool-calls'
+  | 'empty-response'
+  | 'multi-turn'
+  | 'slow-stream'
+  | 'error';
+
 export interface CLIArgs {
   /** Initial prompt */
   prompt?: string;
@@ -31,6 +44,8 @@ export interface CLIArgs {
   debug: boolean;
   /** UI test mode with mock LLM responses */
   uiTest: boolean;
+  /** UI test scenario to run (requires --ui-test) */
+  uiTestScenario?: UITestScenarioArg;
 }
 
 /**
@@ -100,6 +115,9 @@ export async function parseArgs(): Promise<CLIArgs> {
         break;
       case '--ui-test':
         result.uiTest = true;
+        break;
+      case '--ui-test-scenario':
+        result.uiTestScenario = args[++i] as UITestScenarioArg;
         break;
       default:
         if (!arg.startsWith('-')) {

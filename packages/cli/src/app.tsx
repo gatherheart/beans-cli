@@ -67,9 +67,11 @@ export async function runApp(args: CLIArgs): Promise<void> {
   // Initialize configuration
   const config = await Config.getInstance();
 
-  // UI test mode: use mock LLM client
+  // UI test mode: use mock LLM client with optional scenario
   if (args.uiTest) {
-    config.setLLMClient(new MockLLMClient());
+    const scenario = args.uiTestScenario ?? 'basic';
+    config.setLLMClient(new MockLLMClient(scenario));
+    console.log(`🧪 UI Test Mode: scenario="${scenario}"`);
   }
 
   // Override model if specified

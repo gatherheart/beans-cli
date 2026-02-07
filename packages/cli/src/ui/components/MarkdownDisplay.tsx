@@ -102,13 +102,20 @@ function CodeBlock({ code, language }: CodeBlockProps): React.ReactElement {
   const lines = code.split('\n');
 
   return (
-    <Box flexDirection="column" marginY={1} paddingLeft={4}>
-      {language && (
-        <Text color={colors.muted} dimColor>  {language}</Text>
-      )}
-      {lines.map((line, i) => (
-        <Text key={i}>{renderHighlightedCode(line, language)}</Text>
-      ))}
+    <Box flexDirection="column" marginY={1}>
+      <Box
+        flexDirection="column"
+        borderStyle="round"
+        borderColor={colors.muted}
+        paddingX={1}
+      >
+        {language && (
+          <Text color={colors.muted} dimColor>{language}</Text>
+        )}
+        {lines.map((line, i) => (
+          <Text key={i}>{renderHighlightedCode(line, language)}</Text>
+        ))}
+      </Box>
     </Box>
   );
 }

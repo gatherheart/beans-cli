@@ -54,6 +54,8 @@ packages/cli/src/
 | `--cwd` | - | Working directory |
 | `--list-models` | - | List available models |
 | `--debug` | - | Enable debug mode |
+| `--ui-test` | - | Enable UI test mode with mock LLM |
+| `--ui-test-scenario` | - | UI test scenario (see UI Testing section) |
 
 ### Application (`app.tsx`)
 
@@ -162,7 +164,42 @@ npm run dev -- --list-models
 
 # Enable debug mode
 npm run dev -- --debug
+
+# UI test mode with mock LLM
+npm run dev -- --ui-test
+
+# UI test with specific scenario
+npm run dev -- --ui-test --ui-test-scenario rapid-stream
 ```
+
+## UI Testing
+
+The CLI includes a comprehensive UI testing framework using mock LLM responses. Use `--ui-test` to enable mock mode, optionally with `--ui-test-scenario` to select a specific scenario.
+
+### Available Scenarios
+
+| Scenario | Purpose |
+|----------|---------|
+| `basic` | Default markdown rendering test |
+| `long-content` | Tests scrolling and large output |
+| `rapid-stream` | Tests for flickering (1ms delay) |
+| `tool-calls` | Tests tool call UI display |
+| `empty-response` | Tests empty response handling |
+| `multi-turn` | Tests conversation context |
+| `slow-stream` | Tests input visibility (200ms delay) |
+| `error` | Tests error handling display |
+
+### Verification Checklist
+
+When testing UI changes, verify:
+
+1. **No Flickering**: Run `rapid-stream` scenario, no screen flashing
+2. **Input Visibility**: Run `slow-stream`, can type during streaming
+3. **Output Display**: Run `long-content`, all content visible
+4. **Tool UI**: Run `tool-calls`, spinners and checkmarks work
+5. **Error Handling**: Run `error`, error displays gracefully
+
+See `docs/guides/ui-testing.md` for full verification procedures.
 
 ## Slash Commands (Interactive Mode)
 

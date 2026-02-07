@@ -181,7 +181,15 @@ beans --yolo "prompt"
 
 # List available models
 beans --list-models
+
+# UI test mode (mock LLM responses)
+beans --ui-test
+
+# UI test with specific scenario
+beans --ui-test --ui-test-scenario rapid-stream
 ```
+
+See `docs/guides/ui-testing.md` for complete UI testing documentation.
 
 ## Interactive Commands
 

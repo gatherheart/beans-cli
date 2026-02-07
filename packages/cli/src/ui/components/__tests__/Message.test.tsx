@@ -80,4 +80,37 @@ describe('Message', () => {
     const frame = lastFrame();
     expect(frame).toContain('read_file');
   });
+
+  it('renders code blocks with border', () => {
+    const message: MessageType = {
+      id: 'assistant-1',
+      role: 'assistant',
+      content: '```typescript\nconst x = 1;\n```',
+      isStreaming: false,
+    };
+
+    const { lastFrame } = render(<Message message={message} width={80} />);
+    const frame = lastFrame();
+    // Should have rounded border characters
+    expect(frame).toContain('╭');
+    expect(frame).toContain('╰');
+    // Should show language label
+    expect(frame).toContain('typescript');
+    // Should show code content
+    expect(frame).toContain('const');
+  });
+
+  it('renders code blocks without language', () => {
+    const message: MessageType = {
+      id: 'assistant-1',
+      role: 'assistant',
+      content: '```\nplain code\n```',
+      isStreaming: false,
+    };
+
+    const { lastFrame } = render(<Message message={message} width={80} />);
+    const frame = lastFrame();
+    expect(frame).toContain('╭');
+    expect(frame).toContain('plain code');
+  });
 });

@@ -103,4 +103,24 @@ describe('CLI Args Parser', () => {
     const args = await parseArgs();
     expect(args.debug).toBe(true);
   });
+
+  it('should parse --ui-test flag', async () => {
+    process.argv = ['node', 'beans', '--ui-test'];
+    const args = await parseArgs();
+    expect(args.uiTest).toBe(true);
+  });
+
+  it('should parse --ui-test-scenario flag with scenario name', async () => {
+    process.argv = ['node', 'beans', '--ui-test', '--ui-test-scenario', 'rapid-stream'];
+    const args = await parseArgs();
+    expect(args.uiTest).toBe(true);
+    expect(args.uiTestScenario).toBe('rapid-stream');
+  });
+
+  it('should default uiTest to false', async () => {
+    process.argv = ['node', 'beans'];
+    const args = await parseArgs();
+    expect(args.uiTest).toBe(false);
+    expect(args.uiTestScenario).toBeUndefined();
+  });
 });
