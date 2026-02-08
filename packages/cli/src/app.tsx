@@ -265,6 +265,8 @@ async function runInteractiveChat(
     {
       exitOnCtrlC: false,
       stdout: process.stdout,
+      // In UI test mode, use debug to force output in CI
+      debug: uiTestMode,
       ...stdinAdapter.renderOptions,
     }
   );
