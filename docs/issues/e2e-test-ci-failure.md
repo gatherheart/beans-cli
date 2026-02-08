@@ -76,7 +76,7 @@ The check for `process.env.CI` ensures clean output locally while still working 
 - [x] **Task 4**: Implement fix
   - Solution: Use `debug: true` in Ink render options for UI test mode
 
-- [ ] **Task 5**: Restore full test suite once issue is fixed
+- [x] **Task 5**: Restore full test suite once issue is fixed
 
 ## Current Test Status
 
@@ -117,13 +117,13 @@ The check for `process.env.CI` ensures clean output locally while still working 
 
 The fix was to pass `debug: uiTestMode` to Ink's render options. This bypasses `log-update` and writes directly to stdout, which works reliably through node-pty in CI.
 
-### Phase 4: Restore full test suite
+### Phase 4: Restore full test suite ✅
 
 1. Uncomment/restore all interactive tests
 2. Verify all tests pass in CI
 3. Update this document with final solution
 
-**Status**: Pending. Basic interactive test passes, full suite restoration is next.
+**Status**: Complete. Full test suite restored from backup.
 
 ## Related
 

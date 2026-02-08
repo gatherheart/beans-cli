@@ -245,7 +245,7 @@ async function runInteractiveChat(
   profile?: AgentProfile
 ): Promise<void> {
   const { uiTestMode } = config.getRuntimeConfig();
-  const shouldControlLineWrap = process.stdout.isTTY && !uiTestMode;
+  const shouldControlLineWrap = process.stdout.isTTY;
 
   if (shouldControlLineWrap) {
     // Disable terminal line wrapping so Ink can manage rendering
