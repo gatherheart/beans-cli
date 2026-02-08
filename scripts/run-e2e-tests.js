@@ -14,23 +14,38 @@ import path from 'node:path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 const reportDir = path.join(rootDir, '.e2e-reports');
-const reportPath = path.join(reportDir, 'test-report.json');
+const jsonReportPath = path.join(reportDir, 'test-report.json');
 
 // Ensure report directory exists
 if (!fs.existsSync(reportDir)) {
   fs.mkdirSync(reportDir, { recursive: true });
 }
 
+// Capture output for raw log
+let rawOutput = '';
+
 // Run vitest with JSON reporter
 const vitest = spawn(
   'npx',
-  ['vitest', 'run', '--config', 'vitest.e2e.config.ts', '--reporter=verbose', '--reporter=json', '--outputFile', reportPath],
+  ['vitest', 'run', '--config', 'vitest.e2e.config.ts', '--reporter=verbose', '--reporter=json', '--outputFile', jsonReportPath],
   {
     cwd: rootDir,
-    stdio: 'inherit',
+    stdio: ['inherit', 'pipe', 'pipe'],
     shell: true,
   }
 );
+
+vitest.stdout.on('data', (data) => {
+  const str = data.toString();
+  rawOutput += str;
+  process.stdout.write(str);
+});
+
+vitest.stderr.on('data', (data) => {
+  const str = data.toString();
+  rawOutput += str;
+  process.stderr.write(str);
+});
 
 vitest.on('close', (code) => {
   const testsPassed = code === 0;
@@ -52,34 +67,62 @@ vitest.on('close', (code) => {
     success: testsPassed,
     exitCode: code,
     summary: { total: 0, passed: 0, failed: 0, skipped: 0 },
-    tests: [],
+    testSuites: [],
+    failedTests: [],
+    duration: null,
   };
 
   // Try to read and parse the JSON report
   try {
-    if (fs.existsSync(reportPath)) {
-      const jsonReport = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    if (fs.existsSync(jsonReportPath)) {
+      const jsonReport = JSON.parse(fs.readFileSync(jsonReportPath, 'utf8'));
 
-      // Extract test results from vitest JSON format
-      if (jsonReport.testResults) {
-        for (const file of jsonReport.testResults) {
-          for (const test of file.assertionResults || []) {
-            report.tests.push({
-              name: test.fullName || test.title,
-              status: test.status,
-              duration: test.duration,
-            });
+      // Use vitest's top-level summary fields
+      report.summary.total = jsonReport.numTotalTests || 0;
+      report.summary.passed = jsonReport.numPassedTests || 0;
+      report.summary.failed = jsonReport.numFailedTests || 0;
+      report.summary.skipped = jsonReport.numPendingTests || 0;
 
-            report.summary.total++;
-            if (test.status === 'passed') report.summary.passed++;
-            else if (test.status === 'failed') report.summary.failed++;
-            else if (test.status === 'skipped') report.summary.skipped++;
+      // Calculate duration from testResults
+      if (jsonReport.testResults && jsonReport.testResults.length > 0) {
+        const startTime = jsonReport.startTime;
+        let endTime = startTime;
+        for (const suite of jsonReport.testResults) {
+          if (suite.endTime > endTime) endTime = suite.endTime;
+
+          // Collect test suite info
+          report.testSuites.push({
+            name: path.basename(suite.name),
+            status: suite.status,
+            tests: suite.assertionResults?.length || 0,
+          });
+
+          // Collect failed tests
+          for (const test of suite.assertionResults || []) {
+            if (test.status === 'failed') {
+              report.failedTests.push({
+                name: test.fullName || test.title,
+                suite: path.basename(suite.name),
+                message: test.failureMessages?.join('\n') || '',
+              });
+            }
           }
         }
+        report.duration = ((endTime - startTime) / 1000).toFixed(2) + 's';
       }
     }
   } catch (err) {
-    console.error('Warning: Could not parse test report:', err.message);
+    console.error('\nWarning: Could not parse JSON test report:', err.message);
+
+    // Try to extract summary from raw output as fallback
+    const passedMatch = rawOutput.match(/(\d+)\s+passed/);
+    const failedMatch = rawOutput.match(/(\d+)\s+failed/);
+    const skippedMatch = rawOutput.match(/(\d+)\s+skipped/);
+
+    if (passedMatch) report.summary.passed = parseInt(passedMatch[1], 10);
+    if (failedMatch) report.summary.failed = parseInt(failedMatch[1], 10);
+    if (skippedMatch) report.summary.skipped = parseInt(skippedMatch[1], 10);
+    report.summary.total = report.summary.passed + report.summary.failed + report.summary.skipped;
   }
 
   // Print summary
@@ -89,13 +132,17 @@ vitest.on('close', (code) => {
   console.log(`Status: ${report.success ? '✅ PASSED' : '❌ FAILED'}`);
   console.log(`Timestamp: ${report.timestamp}`);
   console.log(`Total: ${report.summary.total} | Passed: ${report.summary.passed} | Failed: ${report.summary.failed} | Skipped: ${report.summary.skipped}`);
+  if (report.duration) {
+    console.log(`Duration: ${report.duration}`);
+  }
   console.log('='.repeat(60));
 
-  if (!report.success && report.tests.length > 0) {
+  if (report.failedTests.length > 0) {
     console.log('\nFailed tests:');
-    for (const test of report.tests) {
-      if (test.status === 'failed') {
-        console.log(`  ❌ ${test.name}`);
+    for (const test of report.failedTests) {
+      console.log(`  ❌ ${test.name}`);
+      if (test.message) {
+        console.log(`     ${test.message.split('\n')[0]}`);
       }
     }
   }

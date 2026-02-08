@@ -1,20 +1,22 @@
 #!/usr/bin/env npx tsx
 /**
- * Generate UI Test Report
+ * Generate Comprehensive Test Report
  *
- * This script runs tests and generates a report using Gemini API.
+ * This script runs all tests (unit + e2e) and generates a combined report.
  *
  * Usage:
  *   npx tsx scripts/generate-test-report.ts              # Show test data
  *   npx tsx scripts/generate-test-report.ts --json       # Output JSON only
  *   npx tsx scripts/generate-test-report.ts --gemini     # Generate with Gemini API
  *   npx tsx scripts/generate-test-report.ts --save       # Save report to file
+ *   npx tsx scripts/generate-test-report.ts --unit-only  # Run only unit tests
+ *   npx tsx scripts/generate-test-report.ts --e2e-only   # Run only e2e tests
  *
  * Environment:
  *   GEMINI_API_KEY - Required for --gemini mode
  */
 
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,15 +34,15 @@ interface TestResult {
 
 interface TestSuite {
   name: string;
+  type: 'unit' | 'e2e';
   tests: TestResult[];
   duration: number;
+  status: 'passed' | 'failed';
 }
 
-interface TestReport {
-  date: string;
-  version: string;
-  nodeVersion: string;
-  os: string;
+interface TestCategory {
+  name: string;
+  type: 'unit' | 'e2e';
   summary: {
     total: number;
     passed: number;
@@ -52,22 +54,144 @@ interface TestReport {
   rawOutput: string;
 }
 
-function runTestsVerbose(): string {
-  try {
-    return execSync('npm test -- --reporter=verbose', {
-      cwd: ROOT_DIR,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-  } catch (error: unknown) {
-    const err = error as { stdout?: string; stderr?: string };
-    return err.stdout || err.stderr || 'Unknown error';
-  }
+interface TestReport {
+  date: string;
+  version: string;
+  nodeVersion: string;
+  os: string;
+  overallSuccess: boolean;
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+    skipped: number;
+  };
+  categories: TestCategory[];
 }
 
-/**
- * Clean and format raw test output for better readability
- */
+function runCommand(command: string, args: string[]): { output: string; exitCode: number } {
+  const result = spawnSync(command, args, {
+    cwd: ROOT_DIR,
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    shell: true,
+  });
+
+  const output = (result.stdout || '') + (result.stderr || '');
+  return { output, exitCode: result.status || 0 };
+}
+
+function runUnitTests(): { output: string; exitCode: number } {
+  console.error('Running unit tests...\n');
+  return runCommand('npm', ['test', '--', '--reporter=verbose']);
+}
+
+function runE2ETests(): { output: string; exitCode: number } {
+  console.error('Running e2e tests...\n');
+
+  // Run e2e tests - this generates .e2e-reports/summary.json
+  const result = runCommand('npm', ['run', 'test:e2e']);
+
+  return result;
+}
+
+function parseVitestOutput(output: string, type: 'unit' | 'e2e'): Partial<TestCategory> {
+  const lines = output.split('\n');
+  const suites: TestSuite[] = [];
+  let currentSuite: TestSuite | null = null;
+
+  let totalPassed = 0;
+  let totalFailed = 0;
+  const totalSkipped = 0;
+  let totalDuration = '';
+
+  for (const line of lines) {
+    // Match file headers: ✓ path/to/file.test.ts (N tests) Xms
+    const fileMatch = line.match(/[✓✗]\s+(.+\.test\.tsx?)\s+\((\d+)\s+tests?\)\s+(\d+)ms/);
+    if (fileMatch) {
+      if (currentSuite) {
+        suites.push(currentSuite);
+      }
+      currentSuite = {
+        name: fileMatch[1],
+        type,
+        tests: [],
+        duration: parseInt(fileMatch[3]),
+        status: line.includes('✓') ? 'passed' : 'failed',
+      };
+    }
+
+    // Match individual test results
+    const testMatch = line.match(/^\s*[✓✗]\s+(.+?)\s+(\d+)ms$/);
+    if (testMatch && currentSuite) {
+      currentSuite.tests.push({
+        name: testMatch[1],
+        status: line.includes('✓') ? 'passed' : 'failed',
+        duration: parseInt(testMatch[2]),
+      });
+    }
+
+    // Match summary line
+    const summaryMatch = line.match(/Tests\s+(\d+)\s+passed/);
+    if (summaryMatch) {
+      totalPassed = parseInt(summaryMatch[1]);
+    }
+
+    const failedMatch = line.match(/(\d+)\s+failed/);
+    if (failedMatch) {
+      totalFailed = parseInt(failedMatch[1]);
+    }
+
+    const durationMatch = line.match(/Duration\s+([0-9.]+[ms]+)/);
+    if (durationMatch) {
+      totalDuration = durationMatch[1];
+    }
+  }
+
+  if (currentSuite) {
+    suites.push(currentSuite);
+  }
+
+  return {
+    summary: {
+      total: totalPassed + totalFailed + totalSkipped,
+      passed: totalPassed,
+      failed: totalFailed,
+      skipped: totalSkipped,
+      duration: totalDuration,
+    },
+    suites,
+  };
+}
+
+function readE2EReport(): Partial<TestCategory> | null {
+  const reportPath = path.join(ROOT_DIR, '.e2e-reports', 'summary.json');
+  try {
+    if (fs.existsSync(reportPath)) {
+      const report = JSON.parse(fs.readFileSync(reportPath, 'utf-8'));
+      return {
+        summary: {
+          total: report.summary?.total || 0,
+          passed: report.summary?.passed || 0,
+          failed: report.summary?.failed || 0,
+          skipped: report.summary?.skipped || 0,
+          duration: report.duration || '0s',
+        },
+        suites: (report.testSuites || []).map((s: { name: string; status: string; tests: number }) => ({
+          name: s.name,
+          type: 'e2e' as const,
+          tests: [],
+          duration: 0,
+          status: s.status,
+        })),
+      };
+    }
+  } catch (err) {
+    console.error('Warning: Could not read e2e report:', (err as Error).message);
+  }
+  return null;
+}
+
 function formatRawOutput(output: string): string {
   const lines = output.split('\n');
   const formattedLines: string[] = [];
@@ -130,66 +254,77 @@ function formatRawOutput(output: string): string {
   return formattedLines.join('\n');
 }
 
-function parseTestOutput(output: string): Partial<TestReport> {
-  const lines = output.split('\n');
-  const suites: TestSuite[] = [];
-  let currentSuite: TestSuite | null = null;
-
-  let totalPassed = 0;
-  let totalFailed = 0;
-  const totalSkipped = 0;
-  let totalDuration = '';
-
-  for (const line of lines) {
-    const fileMatch = line.match(/[✓✗] (.+\.test\.tsx?) \((\d+) tests?\) (\d+)ms/);
-    if (fileMatch) {
-      if (currentSuite) {
-        suites.push(currentSuite);
-      }
-      currentSuite = {
-        name: fileMatch[1],
-        tests: [],
-        duration: parseInt(fileMatch[3]),
-      };
-    }
-
-    const summaryMatch = line.match(/Tests\s+(\d+) passed/);
-    if (summaryMatch) {
-      totalPassed = parseInt(summaryMatch[1]);
-    }
-
-    const failedMatch = line.match(/(\d+) failed/);
-    if (failedMatch) {
-      totalFailed = parseInt(failedMatch[1]);
-    }
-
-    const durationMatch = line.match(/Duration\s+([0-9.]+[ms]+)/);
-    if (durationMatch) {
-      totalDuration = durationMatch[1];
-    }
-  }
-
-  if (currentSuite) {
-    suites.push(currentSuite);
-  }
-
-  return {
-    summary: {
-      total: totalPassed + totalFailed + totalSkipped,
-      passed: totalPassed,
-      failed: totalFailed,
-      skipped: totalSkipped,
-      duration: totalDuration,
-    },
-    suites,
-  };
+interface RunOptions {
+  unitOnly: boolean;
+  e2eOnly: boolean;
 }
 
-function generateReport(): TestReport {
-  console.error('Running tests...\n');
+function generateReport(options: RunOptions): TestReport {
+  const categories: TestCategory[] = [];
+  let overallSuccess = true;
 
-  const verboseOutput = runTestsVerbose();
-  const parsed = parseTestOutput(verboseOutput);
+  // Run unit tests
+  if (!options.e2eOnly) {
+    const unitResult = runUnitTests();
+    const unitParsed = parseVitestOutput(unitResult.output, 'unit');
+
+    if (unitResult.exitCode !== 0) {
+      overallSuccess = false;
+    }
+
+    categories.push({
+      name: 'Unit Tests',
+      type: 'unit',
+      summary: unitParsed.summary || { total: 0, passed: 0, failed: 0, skipped: 0, duration: '0ms' },
+      suites: unitParsed.suites || [],
+      rawOutput: formatRawOutput(unitResult.output),
+    });
+  }
+
+  // Run e2e tests
+  if (!options.unitOnly) {
+    const e2eResult = runE2ETests();
+
+    // Read the generated e2e report for more accurate data
+    const e2eReport = readE2EReport();
+    const e2eParsed = e2eReport || parseVitestOutput(e2eResult.output, 'e2e');
+
+    // Check success from the e2e report
+    const e2eReportPath = path.join(ROOT_DIR, '.e2e-reports', 'summary.json');
+    if (fs.existsSync(e2eReportPath)) {
+      const report = JSON.parse(fs.readFileSync(e2eReportPath, 'utf-8'));
+      if (!report.success) {
+        overallSuccess = false;
+      }
+    }
+
+    categories.push({
+      name: 'E2E Tests',
+      type: 'e2e',
+      summary: e2eParsed.summary || { total: 0, passed: 0, failed: 0, skipped: 0, duration: '0s' },
+      suites: e2eParsed.suites || [],
+      rawOutput: formatRawOutput(e2eResult.output),
+    });
+  }
+
+  // Calculate overall summary
+  const overallSummary = {
+    total: 0,
+    passed: 0,
+    failed: 0,
+    skipped: 0,
+  };
+
+  for (const cat of categories) {
+    overallSummary.total += cat.summary.total;
+    overallSummary.passed += cat.summary.passed;
+    overallSummary.failed += cat.summary.failed;
+    overallSummary.skipped += cat.summary.skipped;
+  }
+
+  if (overallSummary.failed > 0) {
+    overallSuccess = false;
+  }
 
   const report: TestReport = {
     date: new Date().toISOString(),
@@ -198,25 +333,54 @@ function generateReport(): TestReport {
     ).version,
     nodeVersion: process.version,
     os: `${process.platform} ${process.arch}`,
-    summary: parsed.summary || {
-      total: 0,
-      passed: 0,
-      failed: 0,
-      skipped: 0,
-      duration: '0ms',
-    },
-    suites: parsed.suites || [],
-    rawOutput: formatRawOutput(verboseOutput),
+    overallSuccess,
+    summary: overallSummary,
+    categories,
   };
 
   return report;
 }
 
 function getGeminiPrompt(report: TestReport): string {
-  const template = fs.readFileSync(
-    path.join(ROOT_DIR, 'docs/templates/test-report.md'),
-    'utf-8'
-  );
+  const templatePath = path.join(ROOT_DIR, 'docs/templates/test-report.md');
+  let template = '';
+
+  if (fs.existsSync(templatePath)) {
+    template = fs.readFileSync(templatePath, 'utf-8');
+  } else {
+    template = `# Test Report
+
+**Date:** {{date}}
+**Version:** {{version}}
+
+## Summary
+
+| Metric | Value |
+|--------|-------|
+| Total Tests | {{total}} |
+| Passed | {{passed}} |
+| Failed | {{failed}} |
+| Skipped | {{skipped}} |
+
+## Categories
+
+{{#each categories}}
+### {{name}}
+- Total: {{summary.total}}
+- Passed: {{summary.passed}}
+- Failed: {{summary.failed}}
+- Duration: {{summary.duration}}
+{{/each}}
+
+## Status
+
+{{#if overallSuccess}}
+✅ All tests passed!
+{{else}}
+❌ Some tests failed.
+{{/if}}
+`;
+  }
 
   return `You are a QA engineer generating a test report.
 
@@ -300,14 +464,47 @@ function saveReport(content: string, filename?: string): string {
   return reportPath;
 }
 
+function printSummary(report: TestReport): void {
+  console.log('\n' + '='.repeat(60));
+  console.log('COMPREHENSIVE TEST REPORT');
+  console.log('='.repeat(60));
+  console.log(`Status: ${report.overallSuccess ? '✅ ALL PASSED' : '❌ SOME FAILED'}`);
+  console.log(`Date: ${report.date}`);
+  console.log(`Version: ${report.version}`);
+  console.log(`Node: ${report.nodeVersion}`);
+  console.log(`OS: ${report.os}`);
+  console.log('');
+  console.log('Overall Summary:');
+  console.log(`  Total: ${report.summary.total} | Passed: ${report.summary.passed} | Failed: ${report.summary.failed} | Skipped: ${report.summary.skipped}`);
+  console.log('');
+
+  for (const category of report.categories) {
+    const status = category.summary.failed > 0 ? '❌' : '✅';
+    console.log(`${status} ${category.name}:`);
+    console.log(`   Total: ${category.summary.total} | Passed: ${category.summary.passed} | Failed: ${category.summary.failed} | Duration: ${category.summary.duration}`);
+
+    if (category.suites.length > 0) {
+      for (const suite of category.suites) {
+        const suiteStatus = suite.status === 'passed' ? '✓' : '✗';
+        console.log(`   ${suiteStatus} ${suite.name}`);
+      }
+    }
+    console.log('');
+  }
+
+  console.log('='.repeat(60));
+}
+
 // Main execution
 async function main() {
   const args = process.argv.slice(2);
   const jsonOnly = args.includes('--json');
   const geminiMode = args.includes('--gemini');
   const saveMode = args.includes('--save');
+  const unitOnly = args.includes('--unit-only');
+  const e2eOnly = args.includes('--e2e-only');
 
-  const report = generateReport();
+  const report = generateReport({ unitOnly, e2eOnly });
 
   if (jsonOnly) {
     console.log(JSON.stringify(report, null, 2));
@@ -335,24 +532,14 @@ async function main() {
   }
 
   // Default: show summary
-  console.log('=== TEST REPORT DATA ===\n');
-  console.log(`Date: ${report.date}`);
-  console.log(`Version: ${report.version}`);
-  console.log(`Node: ${report.nodeVersion}`);
-  console.log(`OS: ${report.os}`);
-  console.log(`\nSummary:`);
-  console.log(`  Total: ${report.summary.total}`);
-  console.log(`  Passed: ${report.summary.passed}`);
-  console.log(`  Failed: ${report.summary.failed}`);
-  console.log(`  Duration: ${report.summary.duration}`);
-  console.log(`\nTest Suites:`);
-  for (const suite of report.suites) {
-    console.log(`  - ${suite.name} (${suite.duration}ms)`);
-  }
-  console.log('\nOptions:');
-  console.log('  --json    Output JSON data');
-  console.log('  --gemini  Generate report with Gemini API');
-  console.log('  --save    Save report to docs/reports/');
+  printSummary(report);
+
+  console.log('Options:');
+  console.log('  --json       Output JSON data');
+  console.log('  --gemini     Generate report with Gemini API');
+  console.log('  --save       Save report to docs/reports/');
+  console.log('  --unit-only  Run only unit tests');
+  console.log('  --e2e-only   Run only e2e tests');
 }
 
 main().catch(console.error);
