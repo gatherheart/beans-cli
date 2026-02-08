@@ -297,3 +297,67 @@ export const EscapeCodes = {
   CURSOR_UP: '\x1b[A',
   CURSOR_DOWN: '\x1b[B',
 };
+
+/**
+ * Debug spawn - captures output without waiting for specific text
+ * Used for debugging CI issues
+ */
+export async function spawnInteractiveDebug(
+  options: CLIOptions & { timeout?: number }
+): Promise<{ rawOutput: string; cleanOutput: string; exitCode?: number }> {
+  const {
+    args = [],
+    env = {},
+    cols = 120,
+    rows = 30,
+    cwd = process.cwd(),
+    timeout = 10000,
+  } = options;
+
+  const filteredEnv = Object.fromEntries(
+    Object.entries({ ...process.env, ...env, FORCE_COLOR: '0' })
+      .filter(([, v]) => v !== undefined)
+  ) as Record<string, string>;
+
+  console.log(`[DEBUG] Spawning CLI: ${CLI_PATH}`);
+  console.log(`[DEBUG] Args: ${args.join(' ')}`);
+  console.log(`[DEBUG] PTY cols=${cols}, rows=${rows}`);
+
+  let output = '';
+  let exitCode: number | undefined;
+
+  const ptyProcess = pty.spawn(process.execPath, [CLI_PATH, ...args], {
+    name: 'xterm-256color',
+    cols,
+    rows,
+    cwd,
+    env: filteredEnv,
+  });
+
+  ptyProcess.onData((data) => {
+    output += data;
+  });
+
+  ptyProcess.onExit(({ exitCode: code }) => {
+    exitCode = code;
+  });
+
+  // Wait for timeout or process exit
+  await new Promise<void>((resolve) => {
+    const timer = setTimeout(() => {
+      ptyProcess.kill();
+      resolve();
+    }, timeout);
+
+    ptyProcess.onExit(() => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+
+  return {
+    rawOutput: output,
+    cleanOutput: stripAnsi(output),
+    exitCode,
+  };
+}
