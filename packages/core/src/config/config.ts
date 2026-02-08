@@ -245,12 +245,14 @@ export class Config {
    * Convert config back to settings format
    */
   private configToSettings(): Settings {
+    // Exclude uiTestMode from saved settings - it's a runtime-only flag
+    const { uiTestMode: _, ...uiSettings } = this.config.ui;
     return {
       llm: this.config.llm,
       agent: this.config.agent,
       tools: this.config.tools,
       telemetry: this.config.telemetry,
-      ui: this.config.ui,
+      ui: uiSettings,
       debug: this.config.debug,
     };
   }

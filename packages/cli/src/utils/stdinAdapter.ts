@@ -28,7 +28,7 @@ export interface StdinAdapter {
 export function createStdinAdapter(config: Config): StdinAdapter {
   const uiTestMode = config.getUIConfig().uiTestMode ?? false;
 
-  // In normal mode, use standard options
+  // In normal mode, use standard options (let Ink handle stdin directly)
   if (!uiTestMode) {
     return {
       renderOptions: {},
@@ -36,9 +36,17 @@ export function createStdinAdapter(config: Config): StdinAdapter {
     };
   }
 
-  // Always use mock stdin in UI test mode to ensure consistent behavior
-  // PTY stdin in CI can block Ink's render loop even when isTTY is true
+  // UI test mode: use mock stdin for consistent e2e testing behavior
   const mockStdin = createMockStdin();
+
+  // Put process.stdin in raw mode so we get character-by-character input
+  // (instead of line-buffered input that waits for Enter)
+  const stdinIsTTY = process.stdin.isTTY === true;
+  const hasSetRawMode = typeof (process.stdin as NodeJS.ReadStream).setRawMode === 'function';
+
+  if (stdinIsTTY && hasSetRawMode) {
+    (process.stdin as NodeJS.ReadStream).setRawMode(true);
+  }
 
   // Forward actual stdin to mock stdin
   const onData = (data: Buffer) => mockStdin.write(data);
@@ -46,6 +54,7 @@ export function createStdinAdapter(config: Config): StdinAdapter {
 
   process.stdin.on('data', onData);
   process.stdin.on('end', onEnd);
+  process.stdin.resume(); // Ensure stdin is in flowing mode
 
   return {
     renderOptions: {
@@ -54,6 +63,12 @@ export function createStdinAdapter(config: Config): StdinAdapter {
     cleanup: () => {
       process.stdin.off('data', onData);
       process.stdin.off('end', onEnd);
+
+      // Restore stdin to normal mode
+      if (stdinIsTTY && hasSetRawMode) {
+        (process.stdin as NodeJS.ReadStream).setRawMode(false);
+      }
+
       mockStdin.end();
     },
   };
