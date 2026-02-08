@@ -1,8 +1,8 @@
 ```markdown
 # UI Test Report
 
-**Date:** 2026-02-08T08:39:37.817Z
-**Tester:** Automated
+**Date:** 2026-02-08T08:43:09.580Z
+**Tester:** Automated Test Runner
 **Version:** 0.1.0
 
 ---
@@ -15,7 +15,7 @@
 | Passed | 136 |
 | Failed | 0 |
 | Skipped | 0 |
-| Duration | 3.93s |
+| Duration | 4.07s |
 
 ## Test Results by Category
 
@@ -123,8 +123,8 @@ All tests passed successfully. No issues found.
 
 ```
 ──────────────────────────────────────────────────
-      Tests  [1m[32m136 passed[39m[22m[90m (136)[39m
-   Duration  3.93s[2m (transform 572ms, setup 0ms, collect 2.91s, tests 5.77s, environment 2ms, prepare 754ms)[22m
+      Tests  [2m [1m[32m136 passed[39m[22m[90m (136)[39m
+   Duration  [2m 4.07s[2m (transform 638ms, setup 0ms, collect 3.23s, tests 5.95s, environment 2ms, prepare 837ms)[22m
 ```
 
 ---
