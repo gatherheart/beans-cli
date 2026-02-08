@@ -255,6 +255,10 @@ async function runInteractiveChat(
   // Create stdin adapter (only uses mock stdin in UI test mode)
   const stdinAdapter = createStdinAdapter(config);
 
+  // In CI + UI test mode, use debug to force direct stdout output
+  // (log-update doesn't work through node-pty in CI environments)
+  const isCI = process.env.CI === 'true';
+
   const { waitUntilExit } = render(
     React.createElement(App, {
       config,
@@ -265,8 +269,7 @@ async function runInteractiveChat(
     {
       exitOnCtrlC: false,
       stdout: process.stdout,
-      // In UI test mode, use debug to force output in CI
-      debug: uiTestMode,
+      debug: uiTestMode && isCI,
       ...stdinAdapter.renderOptions,
     }
   );
