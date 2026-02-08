@@ -34,6 +34,8 @@ npm-debug.log*
 # Testing
 coverage/
 .vitest/
+.e2e-tests/
+.e2e-reports/
 
 # Cache
 .cache/

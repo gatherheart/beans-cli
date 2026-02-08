@@ -122,7 +122,8 @@ export class InteractiveRun {
    * Send keys without waiting for echo (for commands, enter, etc.)
    */
   async sendKeys(text: string): Promise<void> {
-    const delay = 5;
+    // 20ms delay between characters gives Ink time to process and render
+    const delay = 20;
     for (const char of text) {
       this.ptyProcess.write(char);
       await new Promise((resolve) => setTimeout(resolve, delay));

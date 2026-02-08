@@ -57,8 +57,10 @@ The check for `process.env.CI` ensures clean output locally while still working 
 ### Additional fixes applied
 
 1. **Separated RuntimeConfig from persistent settings** - `uiTestMode` is now a runtime-only flag that doesn't persist to settings.json
-2. **Simplified mock stdin** - Removed setTimeout delays that could cause timing issues
+2. **Simplified mock stdin** - Push characters individually for Ink keypress parsing
 3. **Added explicit stdout** - Pass `stdout: process.stdout` to Ink render options
+4. **Increased keystroke delay** - Changed from 5ms to 20ms in sendKeys() to give Ink time to process each character
+5. **Test report generation** - E2E tests now generate JSON reports instead of exiting with code 1 on failure
 
 ## Investigation Tasks
 
