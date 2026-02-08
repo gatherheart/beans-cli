@@ -244,9 +244,13 @@ async function runInteractiveChat(
   initialPrompt?: string,
   profile?: AgentProfile
 ): Promise<void> {
-  // Disable terminal line wrapping to prevent Ink rendering artifacts
-  // This lets Ink manage all line wrapping internally
-  process.stdout.write('\x1b[?7l');
+  const { uiTestMode } = config.getRuntimeConfig();
+  const shouldControlLineWrap = process.stdout.isTTY && !uiTestMode;
+
+  if (shouldControlLineWrap) {
+    // Disable terminal line wrapping so Ink can manage rendering
+    process.stdout.write('\x1b[?7l');
+  }
 
   // Create stdin adapter (only uses mock stdin in UI test mode)
   const stdinAdapter = createStdinAdapter(config);
@@ -260,6 +264,7 @@ async function runInteractiveChat(
     }),
     {
       exitOnCtrlC: false,
+      stdout: process.stdout,
       ...stdinAdapter.renderOptions,
     }
   );
@@ -269,8 +274,10 @@ async function runInteractiveChat(
   // Cleanup stdin adapter
   stdinAdapter.cleanup();
 
-  // Re-enable terminal line wrapping on exit
-  process.stdout.write('\x1b[?7h');
+  if (shouldControlLineWrap) {
+    // Re-enable terminal line wrapping on exit
+    process.stdout.write('\x1b[?7h');
+  }
   console.log('Goodbye!');
 }
 
