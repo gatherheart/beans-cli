@@ -36,6 +36,18 @@ export function createStdinAdapter(config: Config): StdinAdapter {
     };
   }
 
+  const stdinSupportsRawMode =
+    process.stdin.isTTY === true &&
+    typeof (process.stdin as NodeJS.ReadStream).setRawMode === 'function';
+
+  // If stdin already supports raw mode (PTY environments), let Ink handle it
+  if (stdinSupportsRawMode) {
+    return {
+      renderOptions: {},
+      cleanup: () => {},
+    };
+  }
+
   // UI test mode: use mock stdin for consistent e2e testing behavior
   // The mock stdin provides setRawMode support that Ink requires
   const mockStdin = createMockStdin();
@@ -46,6 +58,7 @@ export function createStdinAdapter(config: Config): StdinAdapter {
 
   process.stdin.on('data', onData);
   process.stdin.on('end', onEnd);
+  process.stdin.resume(); // ensure stdin flows in non-TTY environments
 
   return {
     renderOptions: {

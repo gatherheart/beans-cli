@@ -247,15 +247,6 @@ async function runInteractiveChat(
   const { uiTestMode } = config.getRuntimeConfig();
   const shouldControlLineWrap = process.stdout.isTTY && !uiTestMode;
 
-  if (uiTestMode) {
-    const stdoutInfo = `stdout isTTY=${process.stdout.isTTY ?? false} cols=${process.stdout.columns ?? 'n/a'} rows=${process.stdout.rows ?? 'n/a'}`;
-    const stdinInfo = `stdin isTTY=${process.stdin.isTTY ?? false} hasRawMode=${
-      typeof (process.stdin as NodeJS.ReadStream).setRawMode === 'function'
-    }`;
-    console.log(`[UI-TEST] ${stdoutInfo}`);
-    console.log(`[UI-TEST] ${stdinInfo}`);
-  }
-
   if (shouldControlLineWrap) {
     // Disable terminal line wrapping so Ink can manage rendering
     process.stdout.write('\x1b[?7l');
@@ -277,10 +268,6 @@ async function runInteractiveChat(
       ...stdinAdapter.renderOptions,
     }
   );
-
-  if (uiTestMode) {
-    console.log('[UI-TEST] Ink render mounted');
-  }
 
   await waitUntilExit();
 
