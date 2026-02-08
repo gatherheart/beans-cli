@@ -1,10 +1,14 @@
 /**
  * E2E Test Helper for CLI
  *
- * Utilities for spawning and interacting with the CLI process in tests.
+ * Uses @lydell/node-pty to create a pseudo-terminal for testing.
+ * This allows Ink to render properly in CI environments.
+ *
+ * Based on gemini-cli integration-tests/test-helper.ts pattern.
  */
 
-import { spawn, ChildProcess } from 'node:child_process';
+import * as pty from '@lydell/node-pty';
+import stripAnsi from 'strip-ansi';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,123 +16,250 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CLI_PATH = path.resolve(__dirname, '../../packages/cli/dist/index.js');
 
-export interface CLIProcess {
-  process: ChildProcess;
-  output: string[];
-  errors: string[];
-  write: (input: string) => void;
-  waitForOutput: (pattern: string | RegExp, timeout?: number) => Promise<string>;
-  waitForExit: (timeout?: number) => Promise<number>;
-  kill: () => void;
+// Get timeout based on environment
+function getDefaultTimeout(): number {
+  if (process.env['CI']) return 60000; // 1 minute in CI
+  return 15000; // 15s locally
+}
+
+/**
+ * Poll until predicate returns true or timeout
+ */
+export async function poll(
+  predicate: () => boolean,
+  timeout: number,
+  interval: number
+): Promise<boolean> {
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeout) {
+    if (predicate()) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, interval));
+  }
+  return false;
+}
+
+/**
+ * Interactive CLI run - wraps a PTY process
+ */
+export class InteractiveRun {
+  ptyProcess: pty.IPty;
+  public output = '';
+
+  constructor(ptyProcess: pty.IPty) {
+    this.ptyProcess = ptyProcess;
+    ptyProcess.onData((data) => {
+      this.output += data;
+      if (process.env['VERBOSE'] === 'true') {
+        process.stdout.write(data);
+      }
+    });
+  }
+
+  /**
+   * Wait for text to appear in output
+   */
+  async expectText(text: string, timeout?: number): Promise<void> {
+    if (!timeout) {
+      timeout = getDefaultTimeout();
+    }
+    const found = await poll(
+      () => stripAnsi(this.output).toLowerCase().includes(text.toLowerCase()),
+      timeout,
+      100
+    );
+    if (!found) {
+      throw new Error(
+        `Timeout waiting for text: "${text}"\nOutput:\n${stripAnsi(this.output)}`
+      );
+    }
+  }
+
+  /**
+   * Wait for pattern (regex) to appear in output
+   */
+  async expectPattern(pattern: RegExp, timeout?: number): Promise<void> {
+    if (!timeout) {
+      timeout = getDefaultTimeout();
+    }
+    const found = await poll(
+      () => pattern.test(stripAnsi(this.output)),
+      timeout,
+      100
+    );
+    if (!found) {
+      throw new Error(
+        `Timeout waiting for pattern: ${pattern}\nOutput:\n${stripAnsi(this.output)}`
+      );
+    }
+  }
+
+  /**
+   * Type text slowly (one char at a time with echo verification)
+   */
+  async type(text: string): Promise<void> {
+    let typedSoFar = '';
+    for (const char of text) {
+      this.ptyProcess.write(char);
+      typedSoFar += char;
+
+      const found = await poll(
+        () => stripAnsi(this.output).includes(typedSoFar),
+        5000,
+        10
+      );
+
+      if (!found) {
+        throw new Error(
+          `Timeout waiting for typed text: "${typedSoFar}"\nOutput:\n${stripAnsi(this.output)}`
+        );
+      }
+    }
+  }
+
+  /**
+   * Send keys without waiting for echo (for commands, enter, etc.)
+   */
+  async sendKeys(text: string): Promise<void> {
+    const delay = 5;
+    for (const char of text) {
+      this.ptyProcess.write(char);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  /**
+   * Send a line (text + Enter)
+   */
+  async sendLine(text: string): Promise<void> {
+    await this.sendKeys(text + '\r');
+  }
+
+  /**
+   * Get raw output including ANSI codes
+   */
+  getRawOutput(): string {
+    return this.output;
+  }
+
+  /**
+   * Get cleaned output (no ANSI codes)
+   */
+  getCleanOutput(): string {
+    return stripAnsi(this.output);
+  }
+
+  /**
+   * Kill the process
+   */
+  kill(): void {
+    try {
+      this.ptyProcess.kill();
+    } catch {
+      // Process may already be dead
+    }
+  }
+
+  /**
+   * Wait for process to exit
+   */
+  expectExit(timeout = 60000): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error('Timeout waiting for process exit'));
+      }, timeout);
+
+      this.ptyProcess.onExit(({ exitCode }) => {
+        clearTimeout(timer);
+        resolve(exitCode);
+      });
+    });
+  }
 }
 
 export interface CLIOptions {
   args?: string[];
   env?: Record<string, string>;
-  timeout?: number;
+  cols?: number;
+  rows?: number;
+  cwd?: string;
 }
 
 /**
- * Spawn the CLI process for testing
+ * Spawn CLI in interactive mode with PTY
  */
-export function spawnCLI(options: CLIOptions = {}): CLIProcess {
-  const { args = [], env = {}, timeout = 10000 } = options;
+export async function spawnInteractive(
+  options: CLIOptions = {}
+): Promise<InteractiveRun> {
+  const {
+    args = [],
+    env = {},
+    cols = 120,
+    rows = 30,
+    cwd = process.cwd(),
+  } = options;
 
-  const output: string[] = [];
-  const errors: string[] = [];
-
-  const proc = spawn('node', [CLI_PATH, ...args], {
-    env: { ...process.env, ...env, FORCE_COLOR: '0' },
-    stdio: ['pipe', 'pipe', 'pipe'],
+  const ptyProcess = pty.spawn(process.execPath, [CLI_PATH, ...args], {
+    name: 'xterm-256color',
+    cols,
+    rows,
+    cwd,
+    env: {
+      ...process.env,
+      ...env,
+      FORCE_COLOR: '0',
+    } as Record<string, string>,
   });
 
-  // Collect stdout
-  proc.stdout?.on('data', (data: Buffer) => {
-    const text = data.toString();
-    output.push(text);
-  });
+  const run = new InteractiveRun(ptyProcess);
 
-  // Collect stderr
-  proc.stderr?.on('data', (data: Buffer) => {
-    const text = data.toString();
-    errors.push(text);
-  });
+  // Wait for the app to be ready
+  await run.expectText('Type a message', 30000);
 
-  // Auto-kill after timeout
-  const killTimer = setTimeout(() => {
-    proc.kill('SIGTERM');
-  }, timeout);
-
-  proc.on('exit', () => {
-    clearTimeout(killTimer);
-  });
-
-  return {
-    process: proc,
-    output,
-    errors,
-
-    write(input: string) {
-      proc.stdin?.write(input);
-    },
-
-    async waitForOutput(pattern: string | RegExp, waitTimeout = 5000): Promise<string> {
-      const startTime = Date.now();
-      const regex = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
-
-      return new Promise((resolve, reject) => {
-        const check = () => {
-          const fullOutput = output.join('');
-          if (regex.test(fullOutput)) {
-            resolve(fullOutput);
-            return;
-          }
-
-          if (Date.now() - startTime > waitTimeout) {
-            reject(new Error(`Timeout waiting for pattern: ${pattern}\nOutput: ${fullOutput}`));
-            return;
-          }
-
-          setTimeout(check, 50);
-        };
-        check();
-      });
-    },
-
-    async waitForExit(exitTimeout = 5000): Promise<number> {
-      return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => {
-          proc.kill('SIGTERM');
-          reject(new Error('Timeout waiting for process exit'));
-        }, exitTimeout);
-
-        proc.on('exit', (code) => {
-          clearTimeout(timer);
-          resolve(code ?? 0);
-        });
-      });
-    },
-
-    kill() {
-      clearTimeout(killTimer);
-      if (!proc.killed) {
-        proc.kill('SIGTERM');
-        // Force kill after a short delay if still running
-        setTimeout(() => {
-          if (!proc.killed) {
-            proc.kill('SIGKILL');
-          }
-        }, 500);
-      }
-    },
-  };
+  return run;
 }
 
 /**
- * Get raw output including escape codes
+ * Spawn CLI for non-interactive commands (--help, --version)
  */
-export function getRawOutput(cli: CLIProcess): string {
-  return cli.output.join('');
+export async function spawnCommand(
+  args: string[],
+  options: Omit<CLIOptions, 'args'> = {}
+): Promise<{ output: string; exitCode: number }> {
+  const { env = {}, cols = 120, rows = 30, cwd = process.cwd() } = options;
+
+  let output = '';
+
+  const ptyProcess = pty.spawn(process.execPath, [CLI_PATH, ...args], {
+    name: 'xterm-256color',
+    cols,
+    rows,
+    cwd,
+    env: {
+      ...process.env,
+      ...env,
+      FORCE_COLOR: '0',
+    } as Record<string, string>,
+  });
+
+  ptyProcess.onData((data) => {
+    output += data;
+  });
+
+  const exitCode = await new Promise<number>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      ptyProcess.kill();
+      reject(new Error('Timeout waiting for command'));
+    }, 10000);
+
+    ptyProcess.onExit(({ exitCode }) => {
+      clearTimeout(timer);
+      resolve(exitCode);
+    });
+  });
+
+  return { output: stripAnsi(output), exitCode };
 }
 
 /**
