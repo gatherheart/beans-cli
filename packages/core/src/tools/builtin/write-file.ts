@@ -27,7 +27,7 @@ type WriteFileParams = z.infer<typeof WriteFileSchema>;
 export class WriteFileTool extends BaseTool<WriteFileParams> {
   readonly name = 'write_file';
   readonly description =
-    'Write content to a file. Creates the file if it does not exist.';
+    'Write or overwrite content to a file on the filesystem. Use this tool when you need to create a new file, save code, update configuration, or modify existing files. Creates parent directories automatically if they do not exist. Requires an absolute file path. Use read_file first to view existing content before overwriting.';
   readonly schema = WriteFileSchema;
 
   getConfirmation(params: WriteFileParams): ToolConfirmation {

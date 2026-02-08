@@ -40,7 +40,7 @@ interface GrepMatch {
 export class GrepTool extends BaseTool<GrepParams> {
   readonly name = 'grep';
   readonly description =
-    'Search for a pattern in files. Returns matching lines with file paths and line numbers.';
+    'Search for text or regex patterns inside file contents. Use this tool when you need to find code, function definitions, variable usage, error messages, or any text pattern within files. Returns matching lines with file paths and line numbers. Supports regex patterns and case-insensitive search. Use glob filter to limit search to specific file types. Unlike glob which searches file names, grep searches inside files.';
   readonly schema = GrepSchema;
 
   async execute(

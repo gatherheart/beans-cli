@@ -1,14 +1,11 @@
 import { z } from 'zod';
-import { exec, spawn } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 import { BaseTool } from '../base-tool.js';
 import type {
   ToolExecutionResult,
   ToolExecutionOptions,
   ToolConfirmation,
 } from '../types.js';
-
-const execAsync = promisify(exec);
 
 const ShellSchema = z.object({
   command: z.string().describe('The shell command to execute'),
@@ -27,7 +24,7 @@ type ShellParams = z.infer<typeof ShellSchema>;
 export class ShellTool extends BaseTool<ShellParams> {
   readonly name = 'shell';
   readonly description =
-    'Execute a shell command. Returns stdout and stderr output.';
+    'Execute shell commands in the terminal. Use this tool when you need to run system commands, install packages (npm, pip), run scripts (python, node), compile code, run tests, manage git, or perform any terminal operation. Returns stdout and stderr output. Commands run with stdin disabled, so interactive prompts will fail - pass all inputs via command arguments instead. Default timeout is 2 minutes.';
   readonly schema = ShellSchema;
 
   getConfirmation(params: ShellParams): ToolConfirmation {
@@ -50,23 +47,10 @@ export class ShellTool extends BaseTool<ShellParams> {
         return this.executeWithStreaming(params, cwd, options);
       }
 
-      const { stdout, stderr } = await execAsync(params.command, {
-        cwd,
-        timeout: params.timeout,
-        maxBuffer: 10 * 1024 * 1024, // 10MB
-      });
-
-      let output = '';
-      if (stdout) output += stdout;
-      if (stderr) output += (output ? '\n' : '') + `stderr: ${stderr}`;
-
-      return {
-        content: output || '(no output)',
-        metadata: {
-          command: params.command,
-          cwd,
-        },
-      };
+      // Use spawn instead of exec to support stdio configuration
+      // This prevents blocking when subprocess tries to read stdin
+      const result = await this.spawnCommand(params.command, cwd, params.timeout);
+      return result;
     } catch (error: unknown) {
       const execError = error as {
         message?: string;
@@ -89,6 +73,58 @@ export class ShellTool extends BaseTool<ShellParams> {
     }
   }
 
+  /**
+   * Spawn a command with stdin disabled to prevent blocking on input
+   */
+  private spawnCommand(
+    command: string,
+    cwd: string,
+    timeout?: number
+  ): Promise<ToolExecutionResult> {
+    return new Promise((resolve) => {
+      const child = spawn(command, [], {
+        cwd,
+        shell: true,
+        timeout,
+        // Prevent subprocess from blocking on stdin input
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      child.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      child.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      child.on('close', (code) => {
+        let output = stdout;
+        if (stderr) output += (output ? '\n' : '') + `stderr: ${stderr}`;
+
+        resolve({
+          content: output || '(no output)',
+          isError: code !== 0,
+          metadata: {
+            command,
+            cwd,
+            exitCode: code,
+          },
+        });
+      });
+
+      child.on('error', (error) => {
+        resolve({
+          content: `Command failed: ${error.message}`,
+          isError: true,
+        });
+      });
+    });
+  }
+
   private executeWithStreaming(
     params: ShellParams,
     cwd: string,
@@ -99,6 +135,9 @@ export class ShellTool extends BaseTool<ShellParams> {
         cwd,
         shell: true,
         timeout: params.timeout,
+        // Prevent subprocess from blocking on stdin input
+        // 'ignore' for stdin, 'pipe' for stdout/stderr to capture output
+        stdio: ['ignore', 'pipe', 'pipe'],
       });
 
       let stdout = '';

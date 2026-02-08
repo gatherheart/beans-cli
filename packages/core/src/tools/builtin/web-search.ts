@@ -37,7 +37,7 @@ interface SearchResult {
 export class WebSearchTool extends BaseTool<WebSearchParams> {
   readonly name = 'web_search';
   readonly description =
-    'Search the web for information using Google Search. Returns grounded results with sources.';
+    'Search the web for current information, documentation, or answers. Use this tool when you need up-to-date information, external documentation, API references, error solutions, or any knowledge not available in local files. Returns search results with titles, URLs, and snippets. Powered by Google Search with grounded citations. Use for researching libraries, debugging errors, or finding best practices.';
   readonly schema = WebSearchSchema;
 
   /**

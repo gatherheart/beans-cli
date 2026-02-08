@@ -21,7 +21,7 @@ type GlobParams = z.infer<typeof GlobSchema>;
 export class GlobTool extends BaseTool<GlobParams> {
   readonly name = 'glob';
   readonly description =
-    'Find files matching a glob pattern. Returns list of matching file paths.';
+    'Find files matching a glob pattern in the filesystem. Use this tool when you need to discover or list files by name, extension, or path pattern. Examples: "**/*.ts" finds all TypeScript files, "src/**/*.test.js" finds test files in src directory, "*.json" finds JSON files in current directory. Use before read_file to locate files. Does not search file contents - use grep for content search.';
   readonly schema = GlobSchema;
 
   async execute(

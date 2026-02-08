@@ -22,7 +22,7 @@ type ReadFileParams = z.infer<typeof ReadFileSchema>;
 export class ReadFileTool extends BaseTool<ReadFileParams> {
   readonly name = 'read_file';
   readonly description =
-    'Read the contents of a file. Returns the file content with line numbers.';
+    'Read the contents of a file from the filesystem. Use this tool when you need to view, analyze, or understand the content of a specific file. Returns the file content with line numbers. Supports reading partial files using offset and limit parameters for large files. Use glob tool first if you need to find files, then read_file to view their contents.';
   readonly schema = ReadFileSchema;
 
   async execute(
