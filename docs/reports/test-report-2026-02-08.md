@@ -1,7 +1,7 @@
 ```markdown
 # Test Report
 
-**Date:** 2026-02-08T11:44:18.094Z
+**Date:** 2026-02-08T11:51:24.511Z
 **Tester:** QA Engineer
 **Version:** 0.1.0
 
@@ -11,15 +11,19 @@
 
 | Metric | Value |
 |--------|-------|
-| Total Tests | 0 |
-| Passed | 0 |
+| Total Tests | 11 |
+| Passed | 11 |
 | Failed | 0 |
 | Skipped | 0 |
-| Duration |  |
+| Duration | 9.88s |
 
 ## Test Results by File
 
-No test suites found.
+### anti-flicker.test.ts
+
+| Test | Status | Duration |
+|------|--------|----------|
+
 
 ---
 
@@ -44,17 +48,18 @@ No failed tests.
 
 ```
 ──────────────────────────────────────────────────
-      Tests  [2m [1m[32m136 passed[39m[22m[90m (136)[39m
-   Duration  [2m 3.97s[2m (transform 506ms, setup 0ms, collect 2.88s, tests 5.82s, environment 2ms, prepare 790ms)[22m
+      Tests  [2m[1m[32m11 passed[39m[22m[90m (11)[39m
+   Duration  [2m 9.89s[2m (transform 63ms, setup 0ms, collect 63ms, tests 9.61s, environment 0ms, prepare 60ms)[2m
+Duration: 9.88s
 ```
 
 ---
 
 ## Sign-off
 
-- [ ] All critical tests passed
-- [ ] No blocking issues found
-- [ ] Ready for release
+- [x] All critical tests passed
+- [x] No blocking issues found
+- [x] Ready for release
 
 **Approved by:**
 **Date:**
