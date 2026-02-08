@@ -43,11 +43,13 @@ interface InputAreaProps {
 }
 
 export const InputArea = React.memo(function InputArea({ onExit, width }: InputAreaProps): React.ReactElement {
+  console.log('[InputArea] Rendering InputArea...');
   const [input, setInput] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
   const [cursorVisible, setCursorVisible] = useState(true);
   const { isLoading, profile } = useChatState();
   const { sendMessage, addSystemMessage, clearHistory, getLLMHistory, getSystemPrompt } = useChatActions();
+  console.log('[InputArea] isLoading:', isLoading);
 
   // Cursor blink effect
   useEffect(() => {

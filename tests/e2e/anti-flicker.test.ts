@@ -35,7 +35,7 @@ describe('Interactive CLI (Debug)', () => {
 
     const result = await spawnInteractiveDebug({
       args: ['--ui-test'],
-      timeout: 10000,
+      timeout: 15000,  // Increased timeout to see if more output appears
     });
 
     // Log output for CI debugging
