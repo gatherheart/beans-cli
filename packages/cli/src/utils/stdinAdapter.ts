@@ -11,7 +11,7 @@
 
 import { type RenderOptions } from 'ink';
 import type { Config } from '@beans/core';
-import { createMockStdin, isRawModeSupported } from './mockStdin.js';
+import { createMockStdin } from './mockStdin.js';
 
 export interface StdinAdapter {
   renderOptions: Partial<RenderOptions>;
@@ -21,22 +21,23 @@ export interface StdinAdapter {
 /**
  * Creates a stdin adapter for Ink rendering.
  *
- * @param config - Application configuration. If config.ui.uiTestMode is true
- *   and raw mode is not supported, creates a mock stdin that emits characters
- *   one at a time for e2e testing.
+ * @param config - Application configuration. If config.ui.uiTestMode is true,
+ *   creates a mock stdin that emits characters one at a time for e2e testing.
+ *   This is required because PTY stdin in CI environments can block Ink's render loop.
  */
 export function createStdinAdapter(config: Config): StdinAdapter {
   const uiTestMode = config.getUIConfig().uiTestMode ?? false;
 
-  // In normal mode or when raw mode is supported, use standard options
-  if (isRawModeSupported() || !uiTestMode) {
+  // In normal mode, use standard options
+  if (!uiTestMode) {
     return {
       renderOptions: {},
       cleanup: () => {},
     };
   }
 
-  // Only create mock stdin in UI test mode when raw mode is not supported
+  // Always use mock stdin in UI test mode to ensure consistent behavior
+  // PTY stdin in CI can block Ink's render loop even when isTTY is true
   const mockStdin = createMockStdin();
 
   // Forward actual stdin to mock stdin
