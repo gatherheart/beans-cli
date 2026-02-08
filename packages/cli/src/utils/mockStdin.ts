@@ -26,16 +26,8 @@ interface MockStdin extends Readable {
 /**
  * Creates a mock stdin stream that supports setRawMode for Ink compatibility.
  * In non-TTY environments, this allows Ink to render without throwing errors.
- *
- * This implementation emits each character separately to simulate TTY behavior,
- * allowing Ink's useInput hook to correctly detect key presses like Enter.
  */
 export function createMockStdin(): MockStdin {
-  // Queue for pending characters
-  const pendingChars: string[] = [];
-  let isRunning = false;
-  const CHAR_DELAY_MS = 25;
-
   const stream = new Readable({
     read() {
       // No-op: we push data via the write method
@@ -46,13 +38,13 @@ export function createMockStdin(): MockStdin {
   stream.isTTY = true;
   stream.isRaw = false;
 
-  // setRawMode is required by Ink but can be a no-op in test mode
+  // setRawMode is required by Ink
   stream.setRawMode = function (mode: boolean): MockStdin {
     this.isRaw = mode;
     return this;
   };
 
-  // ref/unref are called by Ink's useInput hook - no-op in mock
+  // ref/unref are called by Ink's useInput hook
   stream.ref = function (): MockStdin {
     return this;
   };
@@ -66,40 +58,13 @@ export function createMockStdin(): MockStdin {
     stream.push(null);
   };
 
-  // Process characters from queue one at a time
-  const processNextChar = () => {
-    if (pendingChars.length === 0) {
-      isRunning = false;
-      return;
-    }
-
-    const char = pendingChars.shift()!;
-    stream.push(char);
-
-    // Schedule next character
-    setTimeout(processNextChar, CHAR_DELAY_MS);
-  };
-
-  // Start the processing loop if not already running
-  const startProcessing = () => {
-    if (isRunning) return;
-    isRunning = true;
-    // Use setTimeout(0) to start on next tick
-    setTimeout(processNextChar, 0);
-  };
-
-  // write() accepts input data and queues characters for sequential emission
+  // write() accepts input data and pushes it to the stream
   stream.write = function (chunk: Buffer | string): boolean {
     const str = typeof chunk === 'string' ? chunk : chunk.toString();
-
-    // Add all characters to the queue
+    // Push each character separately for Ink's keypress parsing
     for (const char of str) {
-      pendingChars.push(char);
+      stream.push(char);
     }
-
-    // Start processing if not already running
-    startProcessing();
-
     return true;
   };
 
