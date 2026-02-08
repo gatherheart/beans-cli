@@ -29,7 +29,7 @@ describe('Anti-Flicker E2E', () => {
 
   describe('Terminal Line Wrapping Control', () => {
     it('should disable line wrapping on startup', async () => {
-      run = await spawnInteractive({ args: ['--ui-test'] });
+      run = await spawnInteractive({ args: ['--ui-test', '--yolo'] });
 
       const rawOutput = run.getRawOutput();
       expect(hasEscapeCode(rawOutput, EscapeCodes.DISABLE_LINE_WRAP)).toBe(true);

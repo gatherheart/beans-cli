@@ -200,22 +200,40 @@ export async function spawnInteractive(
     cwd = process.cwd(),
   } = options;
 
+  // Filter out undefined env values (required for node-pty)
+  const filteredEnv = Object.fromEntries(
+    Object.entries({ ...process.env, ...env, FORCE_COLOR: '0' })
+      .filter(([, v]) => v !== undefined)
+  ) as Record<string, string>;
+
+  // Log spawn info in CI for debugging
+  if (process.env['CI']) {
+    console.log(`[E2E] Spawning CLI with args: ${args.join(' ')}`);
+    console.log(`[E2E] CLI_PATH: ${CLI_PATH}`);
+  }
+
   const ptyProcess = pty.spawn(process.execPath, [CLI_PATH, ...args], {
     name: 'xterm-256color',
     cols,
     rows,
     cwd,
-    env: {
-      ...process.env,
-      ...env,
-      FORCE_COLOR: '0',
-    } as Record<string, string>,
+    env: filteredEnv,
   });
 
   const run = new InteractiveRun(ptyProcess);
 
-  // Wait for the app to be ready
-  await run.expectText('Type a message', 30000);
+  // Wait for the app to be ready with longer timeout for CI
+  const timeout = process.env['CI'] ? 60000 : 30000;
+
+  try {
+    await run.expectText('Type a message', timeout);
+  } catch (error) {
+    // Log full output for debugging
+    console.error('[E2E] Failed to find "Type a message"');
+    console.error('[E2E] Raw output:', run.getRawOutput());
+    console.error('[E2E] Clean output:', run.getCleanOutput());
+    throw error;
+  }
 
   return run;
 }
