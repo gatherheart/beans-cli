@@ -22,8 +22,8 @@ interface ToolCallsProps {
   tools: ToolCallInfo[];
 }
 
-// Memoized individual tool display to prevent unnecessary re-renders
-const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: ToolCallInfo }) {
+// Individual tool display - no memoization to ensure updates
+function ToolCallItem({ tool }: { tool: ToolCallInfo }) {
   return (
     <Box>
       {tool.isComplete ? (
@@ -34,10 +34,10 @@ const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: ToolCall
       <Text color={getToolColor(tool.name)}>{tool.name}</Text>
     </Box>
   );
-}, (prev, next) => prev.tool.id === next.tool.id && prev.tool.isComplete === next.tool.isComplete);
+}
 
-// Memoized tool calls display - single spinner for all in-progress tools
-const ToolCalls = React.memo(function ToolCalls({ tools, messageId }: ToolCallsProps & { messageId: string }): React.ReactElement {
+// Tool calls display - single spinner for all in-progress tools
+function ToolCalls({ tools, messageId }: ToolCallsProps & { messageId: string }): React.ReactElement {
   const hasInProgress = tools.some(t => !t.isComplete);
 
   return (
@@ -45,18 +45,12 @@ const ToolCalls = React.memo(function ToolCalls({ tools, messageId }: ToolCallsP
       {hasInProgress && (
         <Text color={colors.warning}><Spinner type="dots" /></Text>
       )}
-      {tools.map((tool, index) => (
-        <ToolCallItem key={`${messageId}-${index}`} tool={tool} />
+      {tools.map((tool) => (
+        <ToolCallItem key={`${messageId}-${tool.id}`} tool={tool} />
       ))}
     </Box>
   );
-}, (prev, next) => {
-  // Only re-render if tool count or any completion status changed
-  if (prev.tools.length !== next.tools.length) return false;
-  return prev.tools.every((t, i) =>
-    t.id === next.tools[i].id && t.isComplete === next.tools[i].isComplete
-  );
-});
+}
 
 export const Message = React.memo(function Message({ message, width }: MessageProps): React.ReactElement {
   const isUser = message.role === 'user';

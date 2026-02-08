@@ -9,6 +9,12 @@ export default defineConfig({
       'packages/*/src/**/*.test.ts',
       'packages/*/src/**/*.test.tsx',
     ],
+    // Exclude e2e tests from default run (they require built CLI)
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      'tests/e2e/**',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

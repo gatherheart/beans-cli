@@ -20,6 +20,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "node scripts/run-e2e-tests.js",
+    "test:e2e:watch": "vitest --config vitest.e2e.config.ts",
     "test:report": "tsx scripts/generate-test-report.ts",
     "test:report:json": "tsx scripts/generate-test-report.ts --json",
     "test:report:gemini": "tsx scripts/generate-test-report.ts --gemini",

@@ -37,6 +37,7 @@ const defaults: AppConfig = {
     showThinking: true,
     compact: false,
     maxOutputLines: 500,
+    uiTestMode: false,
   },
   debug: {
     enabled: false,

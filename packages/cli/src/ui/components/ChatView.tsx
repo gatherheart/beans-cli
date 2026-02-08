@@ -1,14 +1,14 @@
 /**
  * ChatView component - displays the chat history
  *
- * Following claude-code pattern (from docs/issues/terminal-resize-handling.md):
- * - Don't use Static (causes duplicate messages on resize)
- * - Use React.memo on child components for performance
- * - Pass width for proper text wrapping
+ * Following gemini-cli pattern for flicker prevention:
+ * - Use Static for completed messages (not re-rendered on updates)
+ * - Only pending/streaming messages are in dynamic Box
+ * - Remount Static on terminal resize via key
  */
 
-import React from 'react';
-import { Box, Text } from 'ink';
+import React, { useState, useEffect } from 'react';
+import { Box, Text, Static } from 'ink';
 import { Message } from './Message.js';
 import { useChatState } from '../contexts/ChatContext.js';
 import { colors } from '../theme/colors.js';
@@ -17,20 +17,40 @@ interface ChatViewProps {
   width?: number;
 }
 
-export function ChatView({ width }: ChatViewProps): React.ReactElement {
+export const ChatView = React.memo(function ChatView({ width }: ChatViewProps): React.ReactElement {
   const { messages, error } = useChatState();
   // Account for padding/borders (2 chars each side)
   const contentWidth = width ? width - 4 : undefined;
 
+  // Track terminal resize to remount Static component
+  const [remountKey, setRemountKey] = useState(0);
+  useEffect(() => {
+    const handleResize = () => setRemountKey(k => k + 1);
+    process.stdout.on('resize', handleResize);
+    return () => { process.stdout.off('resize', handleResize); };
+  }, []);
+
+  // Separate completed messages (for Static) from pending/streaming (for dynamic)
+  const completedMessages = messages.filter(m => !m.isStreaming);
+  const pendingMessages = messages.filter(m => m.isStreaming);
+
   return (
     <Box flexDirection="column" width={width}>
-      {messages.map(message => (
-        <Message key={message.id} message={message} width={contentWidth} />
-      ))}
-
       {messages.length === 0 && (
         <Text color={colors.muted}>Type a message to start...</Text>
       )}
+
+      {/* Static: completed messages - not re-rendered on updates */}
+      <Static key={remountKey} items={completedMessages}>
+        {(message) => (
+          <Message key={message.id} message={message} width={contentWidth} />
+        )}
+      </Static>
+
+      {/* Dynamic: pending/streaming messages */}
+      {pendingMessages.map(message => (
+        <Message key={message.id} message={message} width={contentWidth} />
+      ))}
 
       {error && (
         <Box>
@@ -39,4 +59,4 @@ export function ChatView({ width }: ChatViewProps): React.ReactElement {
       )}
     </Box>
   );
-}
+});

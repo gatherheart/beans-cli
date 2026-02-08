@@ -119,4 +119,6 @@ export interface UIConfig {
   compact: boolean;
   /** Max output lines before truncation */
   maxOutputLines: number;
+  /** UI test mode for e2e testing */
+  uiTestMode?: boolean;
 }

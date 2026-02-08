@@ -17,7 +17,8 @@
       "Bash(tree:*)",
       "Bash(npm test:*)",
       "Bash(npm run preflight:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(npm run test:e2e:*)"
     ]
   }
 }

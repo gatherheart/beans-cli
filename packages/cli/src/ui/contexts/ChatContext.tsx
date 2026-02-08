@@ -105,15 +105,20 @@ export function ChatProvider({ children, config, systemPrompt, profile }: ChatPr
               history.updateMessageContent(assistantMessageId, currentContent);
               break;
 
-            case 'tool_call_start':
-              toolCalls.push({
-                id: event.toolCall.id,
-                name: event.toolCall.name,
-                args: event.toolCall.arguments,
-                isComplete: false,
-              });
-              history.updateMessageToolCalls(assistantMessageId, toolCalls);
+            case 'tool_call_start': {
+              // Avoid duplicate tool calls
+              const existingIndex = toolCalls.findIndex(t => t.id === event.toolCall.id);
+              if (existingIndex === -1) {
+                toolCalls.push({
+                  id: event.toolCall.id,
+                  name: event.toolCall.name,
+                  args: event.toolCall.arguments,
+                  isComplete: false,
+                });
+                history.updateMessageToolCalls(assistantMessageId, toolCalls);
+              }
               break;
+            }
 
             case 'tool_call_end': {
               const toolIndex = toolCalls.findIndex(t => t.id === event.toolCallId);

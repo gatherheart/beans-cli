@@ -79,9 +79,11 @@ function renderHastNode(node: RootContent): React.ReactNode {
   return null;
 }
 
-function renderHighlightedCode(code: string, language: string | null): React.ReactNode {
+function renderHighlightedCode(code: string, language: string | null, resetCounter = false): React.ReactNode {
   try {
-    hastKeyCounter = 0; // Reset counter for each code block
+    if (resetCounter) {
+      hastKeyCounter = 0;
+    }
     const result: Root = language
       ? lowlight.highlight(language, code)
       : lowlight.highlightAuto(code);
@@ -113,7 +115,9 @@ function CodeBlock({ code, language }: CodeBlockProps): React.ReactElement {
           <Text color={colors.muted} dimColor>{language}</Text>
         )}
         {lines.map((line, i) => (
-          <Text key={i}>{renderHighlightedCode(line, language)}</Text>
+          <Box key={i} minHeight={1}>
+            <Text>{line === '' ? ' ' : renderHighlightedCode(line, language, i === 0)}</Text>
+          </Box>
         ))}
       </Box>
     </Box>

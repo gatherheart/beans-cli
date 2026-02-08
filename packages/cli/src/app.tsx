@@ -22,6 +22,7 @@ import {
 } from '@beans/core';
 import { App } from './ui/App.js';
 import { Mode, setMode, isDebug } from './mode.js';
+import { createStdinAdapter } from './utils/stdinAdapter.js';
 
 // Get the package root directory
 const __filename = fileURLToPath(import.meta.url);
@@ -70,6 +71,11 @@ export async function runApp(args: CLIArgs): Promise<void> {
   // UI test mode: use mock LLM client with optional scenario
   if (args.uiTest) {
     const scenario = args.uiTestScenario ?? 'basic';
+    // Set uiTestMode in config first (updateConfig resets LLM client)
+    await config.updateConfig({
+      ui: { ...config.getUIConfig(), uiTestMode: true },
+    });
+    // Then set the mock LLM client
     config.setLLMClient(new MockLLMClient(scenario));
     console.log(`🧪 UI Test Mode: scenario="${scenario}"`);
   }
@@ -240,16 +246,33 @@ async function runInteractiveChat(
   initialPrompt?: string,
   profile?: AgentProfile
 ): Promise<void> {
+  // Disable terminal line wrapping to prevent Ink rendering artifacts
+  // This lets Ink manage all line wrapping internally
+  process.stdout.write('\x1b[?7l');
+
+  // Create stdin adapter (only uses mock stdin in UI test mode)
+  const stdinAdapter = createStdinAdapter(config);
+
   const { waitUntilExit } = render(
     React.createElement(App, {
       config,
       systemPrompt,
       profile,
       initialPrompt,
-    })
+    }),
+    {
+      exitOnCtrlC: false,
+      ...stdinAdapter.renderOptions,
+    }
   );
 
   await waitUntilExit();
+
+  // Cleanup stdin adapter
+  stdinAdapter.cleanup();
+
+  // Re-enable terminal line wrapping on exit
+  process.stdout.write('\x1b[?7h');
   console.log('Goodbye!');
 }
 
