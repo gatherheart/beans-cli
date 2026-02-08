@@ -28,23 +28,21 @@ describe('CLI Commands (Non-Interactive)', () => {
   });
 });
 
-// Phase 2: Minimal interactive test with debugging
-describe('Interactive CLI (Debug)', () => {
-  it('should spawn and produce output', async () => {
+// Interactive test - verify Ink renders properly
+describe('Interactive CLI', () => {
+  it('should render Type a message prompt', async () => {
     const { spawnInteractiveDebug } = await import('./cli-helper.js');
 
     const result = await spawnInteractiveDebug({
       args: ['--ui-test'],
-      timeout: 15000,  // Increased timeout to see if more output appears
+      timeout: 10000,  // 10s should be enough
     });
 
-    // Log output for CI debugging
-    console.log('[DEBUG] Raw output length:', result.rawOutput.length);
-    console.log('[DEBUG] First 500 chars:', JSON.stringify(result.rawOutput.slice(0, 500)));
-    console.log('[DEBUG] Contains "Type a message":', result.rawOutput.includes('Type a message'));
-    console.log('[DEBUG] Clean output:', result.cleanOutput.slice(0, 500));
+    // Always log for CI debugging
+    console.log('[DEBUG] Output length:', result.rawOutput.length);
+    console.log('[DEBUG] Raw (escaped):', JSON.stringify(result.rawOutput));
+    console.log('[DEBUG] Clean output:', result.cleanOutput);
 
-    // Basic assertion - just check we got some output
-    expect(result.rawOutput.length).toBeGreaterThan(0);
-  });
+    expect(result.cleanOutput).toContain('Type a message');
+  }, 60000);  // 60s test timeout
 });

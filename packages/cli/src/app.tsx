@@ -246,14 +246,6 @@ async function runInteractiveChat(
   initialPrompt?: string,
   profile?: AgentProfile
 ): Promise<void> {
-  // Debug TTY status in e2e test mode
-  if (config.getUIConfig().uiTestMode) {
-    console.log('[TTY Debug] stdin.isTTY:', process.stdin.isTTY);
-    console.log('[TTY Debug] stdout.isTTY:', process.stdout.isTTY);
-    console.log('[TTY Debug] stderr.isTTY:', process.stderr.isTTY);
-    console.log('[TTY Debug] TERM:', process.env['TERM']);
-  }
-
   // Disable terminal line wrapping to prevent Ink rendering artifacts
   // This lets Ink manage all line wrapping internally
   process.stdout.write('\x1b[?7l');

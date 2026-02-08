@@ -49,13 +49,8 @@ interface AppProps {
 }
 
 function AppContent({ initialPrompt, onExit }: { initialPrompt?: string; onExit: () => void }): React.ReactElement {
-  console.log('[AppContent] Rendering AppContent...');
-
   const { sendMessage } = useChatActions();
-  console.log('[AppContent] Got sendMessage from context');
-
   const { columns } = useTerminalSize();
-  console.log('[AppContent] Terminal columns:', columns);
 
   // Send initial prompt if provided
   useEffect(() => {
@@ -64,7 +59,6 @@ function AppContent({ initialPrompt, onExit }: { initialPrompt?: string; onExit:
     }
   }, []); // Only run once on mount
 
-  console.log('[AppContent] Returning JSX...');
   return (
     <Box flexDirection="column" width={columns}>
       <ChatView width={columns} />
@@ -79,9 +73,6 @@ export function App({ config, systemPrompt, profile, initialPrompt }: AppProps):
   const handleExit = () => {
     exit();
   };
-
-  // Debug: log that App is rendering
-  console.log('[App] Rendering App component...');
 
   return (
     <ErrorBoundary>

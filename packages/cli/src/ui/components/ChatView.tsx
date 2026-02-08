@@ -18,9 +18,7 @@ interface ChatViewProps {
 }
 
 export const ChatView = React.memo(function ChatView({ width }: ChatViewProps): React.ReactElement {
-  console.log('[ChatView] Rendering ChatView...');
   const { messages, error } = useChatState();
-  console.log('[ChatView] messages.length:', messages.length, 'error:', error);
   // Account for padding/borders (2 chars each side)
   const contentWidth = width ? width - 4 : undefined;
 
