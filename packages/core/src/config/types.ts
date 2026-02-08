@@ -16,6 +16,8 @@ export interface AppConfig {
   ui: UIConfig;
   /** Debug settings */
   debug: DebugConfig;
+  /** Runtime-only settings (never persisted) */
+  runtime: RuntimeConfig;
 }
 
 /**
@@ -108,7 +110,7 @@ export interface TelemetryConfig {
 }
 
 /**
- * UI configuration
+ * UI configuration (persisted to settings file)
  */
 export interface UIConfig {
   /** Color theme */
@@ -119,6 +121,14 @@ export interface UIConfig {
   compact: boolean;
   /** Max output lines before truncation */
   maxOutputLines: number;
-  /** UI test mode for e2e testing */
-  uiTestMode?: boolean;
+}
+
+/**
+ * Runtime-only configuration (never persisted)
+ *
+ * These settings are set via CLI flags and only apply to the current session.
+ */
+export interface RuntimeConfig {
+  /** UI test mode for e2e testing (--ui-test flag) */
+  uiTestMode: boolean;
 }

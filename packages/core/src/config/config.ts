@@ -1,4 +1,4 @@
-import type { AppConfig, LLMConfig, AgentConfig, ToolsConfig, TelemetryConfig, UIConfig, DebugConfig } from './types.js';
+import type { AppConfig, LLMConfig, AgentConfig, ToolsConfig, TelemetryConfig, UIConfig, DebugConfig, RuntimeConfig } from './types.js';
 import { loadSettings, saveSettings, type Settings } from './settings.js';
 import { loadEnv } from './env.js';
 import { ToolRegistry } from '../tools/registry.js';
@@ -37,12 +37,14 @@ const defaults: AppConfig = {
     showThinking: true,
     compact: false,
     maxOutputLines: 500,
-    uiTestMode: false,
   },
   debug: {
     enabled: false,
     logRequests: true,
     logResponses: true,
+  },
+  runtime: {
+    uiTestMode: false,
   },
 };
 
@@ -134,6 +136,13 @@ export class Config {
   }
 
   /**
+   * Get runtime configuration (never persisted)
+   */
+  getRuntimeConfig(): RuntimeConfig {
+    return { ...this.config.runtime };
+  }
+
+  /**
    * Get the tool registry (lazy-loaded)
    */
   getToolRegistry(): ToolRegistry {
@@ -205,12 +214,13 @@ export class Config {
   }
 
   /**
-   * Update configuration
+   * Update configuration (persists to settings file)
+   *
+   * Note: Runtime config changes are not persisted. Use setRuntimeConfig() instead.
    */
-  async updateConfig(updates: Partial<AppConfig>): Promise<void> {
+  async updateConfig(updates: Partial<Omit<AppConfig, 'runtime'>>): Promise<void> {
     this.config = {
       ...this.config,
-      ...updates,
       llm: { ...this.config.llm, ...updates.llm },
       agent: { ...this.config.agent, ...updates.agent },
       tools: { ...this.config.tools, ...updates.tools },
@@ -223,8 +233,17 @@ export class Config {
     this._llmClient = null;
     this._toolRegistry = null;
 
-    // Save to settings file
+    // Save to settings file (runtime config is excluded)
     await saveSettings(this.configToSettings());
+  }
+
+  /**
+   * Update runtime configuration (never persisted)
+   *
+   * Use this for CLI flags like --ui-test that should only apply to the current session.
+   */
+  setRuntimeConfig(updates: Partial<RuntimeConfig>): void {
+    this.config.runtime = { ...this.config.runtime, ...updates };
   }
 
   /**
@@ -238,21 +257,21 @@ export class Config {
       telemetry: { ...defaults.telemetry, ...settings.telemetry },
       ui: { ...defaults.ui, ...settings.ui },
       debug: { ...defaults.debug, ...settings.debug },
+      // Runtime config is never loaded from settings - always use defaults
+      runtime: { ...defaults.runtime },
     };
   }
 
   /**
-   * Convert config back to settings format
+   * Convert config back to settings format (excludes runtime config)
    */
   private configToSettings(): Settings {
-    // Exclude uiTestMode from saved settings - it's a runtime-only flag
-    const { uiTestMode: _, ...uiSettings } = this.config.ui;
     return {
       llm: this.config.llm,
       agent: this.config.agent,
       tools: this.config.tools,
       telemetry: this.config.telemetry,
-      ui: uiSettings,
+      ui: this.config.ui,
       debug: this.config.debug,
     };
   }

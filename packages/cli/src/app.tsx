@@ -71,11 +71,9 @@ export async function runApp(args: CLIArgs): Promise<void> {
   // UI test mode: use mock LLM client with optional scenario
   if (args.uiTest) {
     const scenario = args.uiTestScenario ?? 'basic';
-    // Set uiTestMode in config first (updateConfig resets LLM client)
-    await config.updateConfig({
-      ui: { ...config.getUIConfig(), uiTestMode: true },
-    });
-    // Then set the mock LLM client
+    // Set runtime config (not persisted to settings)
+    config.setRuntimeConfig({ uiTestMode: true });
+    // Set the mock LLM client
     config.setLLMClient(new MockLLMClient(scenario));
     console.log(`🧪 UI Test Mode: scenario="${scenario}"`);
   }

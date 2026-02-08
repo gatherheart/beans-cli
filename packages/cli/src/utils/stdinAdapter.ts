@@ -26,7 +26,7 @@ export interface StdinAdapter {
  *   This is required because PTY stdin in CI environments can block Ink's render loop.
  */
 export function createStdinAdapter(config: Config): StdinAdapter {
-  const uiTestMode = config.getUIConfig().uiTestMode ?? false;
+  const uiTestMode = config.getRuntimeConfig().uiTestMode;
 
   // In normal mode, use standard options (let Ink handle stdin directly)
   if (!uiTestMode) {
