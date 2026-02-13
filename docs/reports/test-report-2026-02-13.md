@@ -1,7 +1,7 @@
 ```markdown
 # Test Report
 
-**Date:** 2026-02-13T10:04:57.790Z
+**Date:** 2026-02-13T16:51:45.813Z
 **Tester:** QA Engineer
 **Version:** 0.1.0
 
@@ -11,25 +11,53 @@
 
 | Metric | Value |
 |--------|-------|
-| Total Tests | 11 |
-| Passed | 11 |
-| Failed | 0 |
+| Total Tests | 52 |
+| Passed | 49 |
+| Failed | 3 |
 | Skipped | 0 |
-| Duration | 10.23s |
+| Duration | 31.07s |
 
 ## Test Results by File
+
+### agent-profile.test.ts
+
+| Test | Status | Duration |
+|------|--------|----------|
 
 ### anti-flicker.test.ts
 
 | Test | Status | Duration |
 |------|--------|----------|
 
+### input-handling.test.ts
+
+| Test | Status | Duration |
+|------|--------|----------|
+
+### markdown-rendering.test.ts
+
+| Test | Status | Duration |
+|------|--------|----------|
+
+### slash-commands.test.ts
+
+| Test | Status | Duration |
+|------|--------|----------|
+
+### streaming.test.ts
+
+| Test | Status | Duration |
+|------|--------|----------|
 
 ---
 
 ## Failed Tests
 
-No failed tests.
+| Test | Error |
+|------|-------|
+| agent-profile.test.ts |  |
+| anti-flicker.test.ts |  |
+| slash-commands.test.ts |  |
 
 ---
 
@@ -48,18 +76,21 @@ No failed tests.
 
 ```
 ──────────────────────────────────────────────────
-      Tests  [2m[1m[32m11 passed[39m[22m[90m (11)[39m
-   Duration  [2m 10.24s[2m (transform 62ms, setup 0ms, collect 63ms, tests 9.94s, environment 0ms, prepare 69ms)[2m
-Duration: 10.23s
+      Tests  [2m [1m[32m136 passed[39m[22m[90m (136)[39m
+   Duration  [2m 4.16s[2m (transform 639ms, setup 0ms, collect 3.45s, tests 5.94s, environment 2ms, prepare 913ms)[22m
+──────────────────────────────────────────────────
+      Tests  [2m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m49 passed[39m[22m[90m (52)[39m
+   Duration  [2m 31.08s[2m (transform 186ms, setup 0ms, collect 458ms, tests 84.40s, environment 2ms, prepare 605ms)[22m
+Duration: 31.07s
 ```
 
 ---
 
 ## Sign-off
 
-- [x] All critical tests passed
-- [x] No blocking issues found
-- [x] Ready for release
+- [ ] All critical tests passed
+- [ ] No blocking issues found
+- [ ] Ready for release
 
 **Approved by:**
 **Date:**
