@@ -63,8 +63,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Generate App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -74,6 +83,22 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Run ESLint with auto-fix
+        run: npm run lint -- --fix
+        continue-on-error: true
+
+      - name: Commit lint fixes
+        run: |
+          git config --local user.email "260040687+beans-code-bot[bot]@users.noreply.github.com"
+          git config --local user.name "beans-code-bot[bot]"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No lint fixes to commit"
+          else
+            git commit -m "fix(lint): Auto-fix lint errors [skip ci]"
+            git push
+          fi
 
       - name: Lint
         run: npm run lint
