@@ -15,6 +15,7 @@ export interface ToolCallInfo {
   args: Record<string, unknown>;
   result?: string;
   isComplete: boolean;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Message {

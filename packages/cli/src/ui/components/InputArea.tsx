@@ -1,5 +1,5 @@
 /**
- * Input area component with cursor navigation
+ * Input area component with cursor navigation and history
  * Following claude-code pattern for proper cursor handling
  *
  * Multi-line input:
@@ -8,6 +8,7 @@
  *
  * Cursor navigation:
  * - Left/Right arrows: move cursor
+ * - Up/Down arrows: navigate input history
  * - Ctrl+A: move to start
  * - Ctrl+E: move to end
  * - Ctrl+U: clear line
@@ -34,6 +35,7 @@ const HELP_TEXT = `## Available Commands
 
 **Cursor navigation:**
 - Left/Right arrows to move cursor
+- Up/Down arrows to navigate input history
 - Ctrl+A to move to start, Ctrl+E to move to end
 - Ctrl+U to clear line`;
 
@@ -46,6 +48,10 @@ export const InputArea = React.memo(function InputArea({ onExit, width }: InputA
   const [input, setInput] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
   const [cursorVisible, setCursorVisible] = useState(true);
+  // Input history for up/down arrow navigation
+  const [inputHistory, setInputHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1); // -1 means not browsing history
+  const [draftInput, setDraftInput] = useState(''); // Store current input when browsing history
   const { isLoading, profile } = useChatState();
   const { sendMessage, addSystemMessage, clearHistory, getLLMHistory, getSystemPrompt } = useChatActions();
 
@@ -67,6 +73,14 @@ export const InputArea = React.memo(function InputArea({ onExit, width }: InputA
   const handleSubmit = useCallback(async (value: string) => {
     const trimmed = value.trim();
     if (!trimmed) return;
+
+    // Add to input history (avoid duplicates of the last entry)
+    if (trimmed && (inputHistory.length === 0 || inputHistory[inputHistory.length - 1] !== trimmed)) {
+      setInputHistory(prev => [...prev, trimmed]);
+    }
+    // Reset history browsing state
+    setHistoryIndex(-1);
+    setDraftInput('');
 
     // Handle slash commands
     if (trimmed.startsWith('/')) {
@@ -135,7 +149,7 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
     setInput('');
     setCursorPos(0);
     await sendMessage(trimmed);
-  }, [sendMessage, addSystemMessage, clearHistory, onExit, profile, getLLMHistory, getSystemPrompt]);
+  }, [sendMessage, addSystemMessage, clearHistory, onExit, profile, getLLMHistory, getSystemPrompt, inputHistory]);
 
   // Handle keyboard input
   useInput((char, key) => {
@@ -185,6 +199,46 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
       return;
     }
 
+    // Up arrow: go back in history
+    if (key.upArrow) {
+      if (inputHistory.length === 0) return;
+
+      if (historyIndex === -1) {
+        // Starting to browse history - save current input as draft
+        setDraftInput(input);
+        const newIndex = inputHistory.length - 1;
+        setHistoryIndex(newIndex);
+        setInput(inputHistory[newIndex]);
+        setCursorPos(inputHistory[newIndex].length);
+      } else if (historyIndex > 0) {
+        // Go further back in history
+        const newIndex = historyIndex - 1;
+        setHistoryIndex(newIndex);
+        setInput(inputHistory[newIndex]);
+        setCursorPos(inputHistory[newIndex].length);
+      }
+      return;
+    }
+
+    // Down arrow: go forward in history
+    if (key.downArrow) {
+      if (historyIndex === -1) return; // Not browsing history
+
+      if (historyIndex < inputHistory.length - 1) {
+        // Go forward in history
+        const newIndex = historyIndex + 1;
+        setHistoryIndex(newIndex);
+        setInput(inputHistory[newIndex]);
+        setCursorPos(inputHistory[newIndex].length);
+      } else {
+        // Back to draft input
+        setHistoryIndex(-1);
+        setInput(draftInput);
+        setCursorPos(draftInput.length);
+      }
+      return;
+    }
+
     // Shift+Enter: insert newline
     if (key.return && key.shift) {
       setInput(prev => prev.slice(0, cursorPos) + '\n' + prev.slice(cursorPos));
@@ -223,6 +277,10 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
   // Render input with cursor
   const renderInputWithCursor = () => {
     if (!input && !isLoading) {
+      // Show hint about history when available
+      if (inputHistory.length > 0) {
+        return <Text color="gray">Press ↑ to edit previous messages</Text>;
+      }
       return <Text color="gray">Type a message...</Text>;
     }
 
@@ -237,6 +295,20 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
         {afterCursor}
       </Text>
     );
+  };
+
+  // Build hint text based on state
+  const getHintText = () => {
+    const hints: string[] = [];
+
+    if (inputHistory.length > 0 && !input) {
+      hints.push('↑ history');
+    }
+    hints.push('Enter submit');
+    hints.push('Ctrl+C exit');
+    hints.push('/help');
+
+    return hints.join(' • ');
   };
 
   return (
@@ -255,7 +327,7 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
       </Box>
       <Box>
         <Text color={colors.muted} dimColor>
-          Enter to submit • Ctrl+C to exit • /help
+          {getHintText()}
         </Text>
       </Box>
     </Box>

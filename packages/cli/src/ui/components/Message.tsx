@@ -10,6 +10,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import Spinner from 'ink-spinner';
 import { MarkdownDisplay } from './MarkdownDisplay.js';
+import { DiffDisplay } from './DiffDisplay.js';
 import { colors, getToolColor } from '../theme/colors.js';
 import type { Message as MessageType, ToolCallInfo } from '../contexts/ChatContext.js';
 
@@ -22,16 +23,36 @@ interface ToolCallsProps {
   tools: ToolCallInfo[];
 }
 
+// Check if tool call has diff metadata (from write_file)
+function hasDiffMetadata(tool: ToolCallInfo): boolean {
+  return tool.name === 'write_file' &&
+    tool.isComplete &&
+    tool.metadata !== undefined &&
+    typeof tool.metadata.newContent === 'string';
+}
+
 // Individual tool display - no memoization to ensure updates
 function ToolCallItem({ tool }: { tool: ToolCallInfo }) {
+  const showDiff = hasDiffMetadata(tool);
+
   return (
-    <Box>
-      {tool.isComplete ? (
-        <Text color={colors.success}>✓ </Text>
-      ) : (
-        <Text color={colors.warning}>⠋ </Text>
+    <Box flexDirection="column">
+      <Box>
+        {tool.isComplete ? (
+          <Text color={colors.success}>✓ </Text>
+        ) : (
+          <Text color={colors.warning}>⠋ </Text>
+        )}
+        <Text color={getToolColor(tool.name)}>{tool.name}</Text>
+      </Box>
+      {showDiff && (
+        <DiffDisplay
+          originalContent={tool.metadata?.originalContent as string | null}
+          newContent={tool.metadata?.newContent as string}
+          filePath={tool.metadata?.path as string}
+          isNewFile={tool.metadata?.isNewFile as boolean}
+        />
       )}
-      <Text color={getToolColor(tool.name)}>{tool.name}</Text>
     </Box>
   );
 }

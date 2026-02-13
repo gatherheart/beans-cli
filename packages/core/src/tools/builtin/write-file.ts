@@ -46,6 +46,16 @@ export class WriteFileTool extends BaseTool<WriteFileParams> {
       const expandedPath = expandTilde(params.path);
       const filePath = path.resolve(options?.cwd ?? process.cwd(), expandedPath);
 
+      // Read original content before writing (for diff display)
+      let originalContent: string | null = null;
+      let isNewFile = false;
+      try {
+        originalContent = await fs.readFile(filePath, 'utf-8');
+      } catch {
+        // File doesn't exist - this is a new file
+        isNewFile = true;
+      }
+
       // Create parent directories if needed
       if (params.createDirectories) {
         await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -61,6 +71,9 @@ export class WriteFileTool extends BaseTool<WriteFileParams> {
           path: filePath,
           lineCount,
           size: Buffer.byteLength(params.content, 'utf-8'),
+          isNewFile,
+          originalContent,
+          newContent: params.content,
         },
       };
     } catch (error) {

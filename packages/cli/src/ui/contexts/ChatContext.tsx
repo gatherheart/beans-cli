@@ -134,6 +134,7 @@ export function ChatProvider({ children, config, systemPrompt, profile }: ChatPr
                     ? event.result.slice(0, 200) + '...'
                     : event.result,
                   isComplete: true,
+                  metadata: event.metadata,
                 };
                 history.updateMessageToolCalls(assistantMessageId, toolCalls);
               }

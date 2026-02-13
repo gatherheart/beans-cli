@@ -29,7 +29,7 @@ export type AgentActivityEvent =
   | { type: 'turn_start'; turnNumber: number }
   | { type: 'thinking'; content: string }
   | { type: 'tool_call_start'; toolCall: ToolCall }
-  | { type: 'tool_call_end'; toolCallId: string; result: string }
+  | { type: 'tool_call_end'; toolCallId: string; result: string; metadata?: Record<string, unknown> }
   | { type: 'content_chunk'; content: string }
   | { type: 'turn_end'; turnNumber: number }
   | { type: 'error'; error: Error };
@@ -257,6 +257,7 @@ export class AgentExecutor {
             type: 'tool_call_end',
             toolCallId: toolCall.id,
             result: result.content,
+            metadata: result.metadata,
           });
           return {
             toolCallId: toolCall.id,

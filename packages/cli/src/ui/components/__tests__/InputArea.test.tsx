@@ -62,7 +62,7 @@ describe('InputArea', () => {
     it('shows submit instruction', () => {
       const { lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
       const frame = lastFrame()!;
-      expect(frame).toContain('Enter to submit');
+      expect(frame).toContain('Enter submit');
     });
 
     it('shows exit instruction', () => {
@@ -142,7 +142,8 @@ describe('InputArea', () => {
       stdin.write('\r'); // Enter
       await delay(50);
 
-      expect(lastFrame()).toContain('Type a message');
+      // After submission, input is cleared and history hint appears
+      expect(lastFrame()).toContain('Press ↑ to edit previous messages');
     });
 
     it('does not send empty message', async () => {

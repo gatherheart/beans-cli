@@ -465,6 +465,7 @@ export class ChatSession {
             type: 'tool_call_end',
             toolCallId: toolCall.id,
             result: result.content,
+            metadata: result.metadata,
           });
           return {
             toolCallId: toolCall.id,
