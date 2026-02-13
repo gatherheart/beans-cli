@@ -28,6 +28,7 @@
     "test:report:save": "tsx scripts/generate-test-report.ts --gemini --save",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "lint:fix:all": "tsx scripts/lint-fix.ts",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "preflight": "npm run build && npm run test && npm run typecheck && npm run lint",

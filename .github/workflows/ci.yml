@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     name: Build
@@ -84,8 +88,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run ESLint with auto-fix
-        run: npm run lint -- --fix
+      - name: Run advanced lint fix
+        run: npm run lint:fix:all
         continue-on-error: true
 
       - name: Commit lint fixes
@@ -97,6 +101,7 @@ jobs:
             echo "No lint fixes to commit"
           else
             git commit -m "fix(lint): Auto-fix lint errors [skip ci]"
+            git pull --rebase origin main || true
             git push
           fi
 
@@ -226,6 +231,7 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "docs: Update test report [skip ci]"
+            git pull --rebase origin main || true
             git push
           fi
 
