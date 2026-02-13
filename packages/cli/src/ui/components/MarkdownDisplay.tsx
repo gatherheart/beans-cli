@@ -171,7 +171,7 @@ function getPlainTextLength(text: string): number {
 
 const RenderInlineInternal: React.FC<InlineProps> = ({ text }) => {
   // Early return for plain text without markdown or URLs
-  if (!/[*_~`\[<]|https?:/.test(text)) {
+  if (!/[*_~`[<]|https?:/.test(text)) {
     return <Text color={theme.text.primary}>{text}</Text>;
   }
 
