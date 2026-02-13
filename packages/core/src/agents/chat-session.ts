@@ -167,6 +167,17 @@ export class ChatSession {
         // Call LLM with accumulated messages
         const tools = this.getToolDefinitions();
 
+        // Debug: Log message history being sent
+        if (this.runConfig.debug) {
+          console.log(`[ChatSession] Turn ${turnCount}: Sending ${this.messages.length} messages to LLM`);
+          this.messages.forEach((msg, i) => {
+            const preview = msg.content?.substring(0, 80) || '(empty)';
+            const suffix = msg.content && msg.content.length > 80 ? '...' : '';
+            console.log(`  [${i}] ${msg.role}: ${preview}${suffix}`);
+          });
+          console.log(`  Tools: ${tools?.map(t => t.name).join(', ') || 'none'}`);
+        }
+
         const chatRequest = {
           model: this.modelConfig.model,
           messages: this.messages,

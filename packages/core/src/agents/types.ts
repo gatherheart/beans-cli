@@ -39,6 +39,8 @@ export interface RunConfig {
   timeoutMs?: number;
   /** Whether to stream responses */
   streaming?: boolean;
+  /** Enable debug logging for message history */
+  debug?: boolean;
 }
 
 /**

@@ -19,6 +19,7 @@ import {
   DEFAULT_AGENT_PROFILE,
   MockLLMClient,
   type AgentProfile,
+  type WorkspaceContext,
 } from '@beans/core';
 import { App } from './ui/App.js';
 import { Mode, setMode, isDebug } from './mode.js';
@@ -115,7 +116,8 @@ export async function runApp(args: CLIArgs): Promise<void> {
   console.log(`📋 ${agentProfile.description}`);
   console.log('');
 
-  const systemPrompt = agentProfile.systemPrompt;
+  // Build system prompt with workspace context
+  const systemPrompt = buildSystemPrompt(agentProfile.systemPrompt, workspaceContext);
 
   // If we have an initial prompt and not interactive mode, run single shot
   if (args.prompt && !args.interactive) {
@@ -355,4 +357,46 @@ async function resolveAgentProfile(config: Config, args: CLIArgs): Promise<Agent
 
   // 5. Use hardcoded default profile as final fallback
   return DEFAULT_AGENT_PROFILE;
+}
+
+/**
+ * Builds the system prompt with workspace context.
+ *
+ * @remarks
+ * Injects workspace information into the system prompt so the LLM knows
+ * about the current working directory, project type, and environment.
+ * This enables the LLM to use tools proactively with proper context.
+ *
+ * @param basePrompt - The agent's system prompt
+ * @param workspace - The workspace context
+ * @returns The enhanced system prompt with workspace context
+ */
+function buildSystemPrompt(basePrompt: string, workspace: WorkspaceContext): string {
+  const contextLines: string[] = [
+    '',
+    '## Current Environment',
+    '',
+    `- **Working Directory**: ${workspace.rootPath}`,
+  ];
+
+  if (workspace.isGitRepo) {
+    contextLines.push(`- **Git Repository**: Yes (branch: ${workspace.gitBranch ?? 'unknown'})`);
+  }
+
+  if (workspace.projectType && workspace.projectType !== 'unknown') {
+    contextLines.push(`- **Project Type**: ${workspace.projectType}`);
+  }
+
+  if (workspace.primaryLanguage) {
+    contextLines.push(`- **Primary Language**: ${workspace.primaryLanguage}`);
+  }
+
+  if (workspace.packageManager) {
+    contextLines.push(`- **Package Manager**: ${workspace.packageManager}`);
+  }
+
+  contextLines.push('');
+  contextLines.push('When the user asks about files, directories, or the project structure, use your tools (glob, read_file) to explore the workspace at the path above.');
+
+  return basePrompt + contextLines.join('\n');
 }

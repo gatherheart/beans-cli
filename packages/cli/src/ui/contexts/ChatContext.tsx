@@ -64,13 +64,18 @@ export function ChatProvider({ children, config, systemPrompt, profile }: ChatPr
   // Initialize chat session lazily
   const getChatSession = useCallback(() => {
     if (!chatSessionRef.current) {
+      const agentConfig = config.getAgentConfig();
+      const debugConfig = config.getDebugConfig();
       chatSessionRef.current = new ChatSession(
         config.getLLMClient(),
         config.getToolRegistry(),
         {
           systemPrompt,
           modelConfig: config.getLLMConfig(),
-          runConfig: config.getAgentConfig(),
+          runConfig: {
+            ...agentConfig,
+            debug: debugConfig.enabled,
+          },
           toolConfig: {
             allowAllTools: true,
           },
