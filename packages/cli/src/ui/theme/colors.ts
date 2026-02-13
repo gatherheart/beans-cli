@@ -1,5 +1,5 @@
 /**
- * UI Color Theme - Pastel palette
+ * UI Color Theme - Semantic color tokens
  */
 
 export const colors = {
@@ -30,6 +30,36 @@ export const colors = {
     '#FFB6C1',  // Light Pink
     '#B0C4DE',  // Light Steel Blue
   ],
+} as const;
+
+/**
+ * Semantic color tokens for markdown rendering
+ */
+export const theme = {
+  text: {
+    primary: '#E0E0E0',     // Light gray for main text
+    secondary: 'gray',      // Dimmed text
+    link: '#87CEFA',        // Light Sky Blue for links
+    accent: '#DDA0DD',      // Plum for inline code
+    code: '#98FB98',        // Pale Green for code
+  },
+  border: {
+    default: 'gray',        // Default border color
+    code: '#4A4A4A',        // Darker border for code blocks
+  },
+  syntax: {
+    keyword: 'magenta',
+    builtin: 'cyan',
+    type: 'cyan',
+    literal: 'blue',
+    number: 'yellow',
+    string: 'green',
+    comment: 'gray',
+    function: 'yellow',
+    variable: 'red',
+    property: 'cyan',
+    punctuation: 'white',
+  },
 } as const;
 
 /**
