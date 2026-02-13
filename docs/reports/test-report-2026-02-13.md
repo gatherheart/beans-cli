@@ -1,7 +1,7 @@
 ```markdown
 # Test Report
 
-**Date:** 2026-02-13T16:51:45.813Z
+**Date:** 2026-02-13T17:03:03.898Z
 **Tester:** QA Engineer
 **Version:** 0.1.0
 
@@ -15,7 +15,7 @@
 | Passed | 49 |
 | Failed | 3 |
 | Skipped | 0 |
-| Duration | 31.07s |
+| Duration | 31.49s |
 
 ## Test Results by File
 
@@ -55,7 +55,6 @@
 
 | Test | Error |
 |------|-------|
-| agent-profile.test.ts |  |
 | anti-flicker.test.ts |  |
 | slash-commands.test.ts |  |
 
@@ -77,11 +76,11 @@
 ```
 ──────────────────────────────────────────────────
       Tests  [2m [1m[32m136 passed[39m[22m[90m (136)[39m
-   Duration  [2m 4.16s[2m (transform 639ms, setup 0ms, collect 3.45s, tests 5.94s, environment 2ms, prepare 913ms)[22m
+   Duration  [2m 4.20s[22m (transform 735ms, setup 0ms, collect 3.48s, tests 5.85s, environment 2ms, prepare 847ms)[22m
 ──────────────────────────────────────────────────
       Tests  [2m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m49 passed[39m[22m[90m (52)[39m
-   Duration  [2m 31.08s[2m (transform 186ms, setup 0ms, collect 458ms, tests 84.40s, environment 2ms, prepare 605ms)[22m
-Duration: 31.07s
+   Duration  [2m 31.51s[22m (transform 132ms, setup 0ms, collect 359ms, tests 87.46s, environment 1ms, prepare 537ms)[22m
+Duration: 31.49s
 ```
 
 ---
