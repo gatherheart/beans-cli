@@ -225,6 +225,9 @@ End of slow streaming test.`,
 export class MockLLMClient implements LLMClient {
   private scenario: UITestScenario;
   private turnCount = 0;
+  // Separate counter for streaming turns (used by multi-turn scenario)
+  // This avoids counting internal analysis calls that use chat() instead of chatStream()
+  private streamTurnCount = 0;
 
   constructor(scenario: UITestScenario = 'basic') {
     this.scenario = scenario;
@@ -269,6 +272,7 @@ export class MockLLMClient implements LLMClient {
 
   async *chatStream(request: ChatRequest): AsyncGenerator<ChatStreamChunk, void, unknown> {
     this.turnCount++;
+    this.streamTurnCount++;
     const config = SCENARIOS[this.scenario];
 
     if (config.shouldError) {
@@ -278,13 +282,14 @@ export class MockLLMClient implements LLMClient {
     let content = config.content;
 
     // Handle multi-turn scenario
+    // Use streamTurnCount to avoid counting internal analysis chat() calls
     if (this.scenario === 'multi-turn') {
       const historyPreview = request.messages
         .slice(-3)
         .map(m => `- ${m.role}: ${m.content?.slice(0, 50)}...`)
         .join('\n');
       content = content
-        .replace('{{turn}}', String(this.turnCount))
+        .replace('{{turn}}', String(this.streamTurnCount))
         .replace('{{history}}', historyPreview || '(no previous messages)');
     }
 
@@ -334,5 +339,6 @@ export class MockLLMClient implements LLMClient {
    */
   resetTurnCount(): void {
     this.turnCount = 0;
+    this.streamTurnCount = 0;
   }
 }

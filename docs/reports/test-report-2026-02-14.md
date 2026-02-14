@@ -1,4 +1,3 @@
-```markdown
 # Test Report
 
 **Date:** 2026-02-14T09:03:30.739Z
@@ -157,4 +156,3 @@ Duration: 67.34s
 - [ ] Ready for release
 
 **Status:** ❌ FAILED
-```
