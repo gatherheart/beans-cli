@@ -23,6 +23,7 @@ describe('ChatView', () => {
       isLoading: false,
       error: null,
       profile: null,
+      currentAgent: null,
     });
 
     const { lastFrame } = render(<ChatView width={80} />);
@@ -44,6 +45,7 @@ describe('ChatView', () => {
       isLoading: false,
       error: null,
       profile: null,
+      currentAgent: null,
     });
 
     const { lastFrame } = render(<ChatView width={80} />);
@@ -65,6 +67,7 @@ describe('ChatView', () => {
       isLoading: false,
       error: null,
       profile: null,
+      currentAgent: null,
     });
 
     const { lastFrame } = render(<ChatView width={80} />);
@@ -77,6 +80,7 @@ describe('ChatView', () => {
       isLoading: false,
       error: 'Something went wrong',
       profile: null,
+      currentAgent: null,
     });
 
     const { lastFrame } = render(<ChatView width={80} />);
@@ -104,6 +108,7 @@ describe('ChatView', () => {
       isLoading: false,
       error: null,
       profile: null,
+      currentAgent: null,
     });
 
     const { lastFrame } = render(<ChatView width={80} />);
@@ -146,6 +151,7 @@ describe('ChatView Anti-Flicker', () => {
       isLoading: false,
       error: null,
       profile: null,
+      currentAgent: null,
     });
 
     const { lastFrame } = render(<ChatView width={80} />);
@@ -166,6 +172,7 @@ describe('ChatView Anti-Flicker', () => {
       isLoading: false,
       error: null,
       profile: null,
+      currentAgent: null,
     });
 
     const { lastFrame } = render(<ChatView width={80} />);
@@ -185,6 +192,7 @@ describe('ChatView Anti-Flicker', () => {
       isLoading: false,
       error: null,
       profile: null,
+      currentAgent: null,
     });
 
     const { lastFrame } = render(<ChatView width={80} />);

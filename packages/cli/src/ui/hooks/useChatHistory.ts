@@ -24,15 +24,17 @@ export interface Message {
   content: string;
   isStreaming: boolean;
   toolCalls?: ToolCallInfo[];
+  agentType?: string;
 }
 
 export interface UseChatHistoryReturn {
   messages: Message[];
   addUserMessage: (content: string) => string;
-  addAssistantMessage: () => string;
+  addAssistantMessage: (agentType?: string) => string;
   addSystemMessage: (content: string) => string;
   updateMessageContent: (id: string, content: string) => void;
   updateMessageToolCalls: (id: string, toolCalls: ToolCallInfo[]) => void;
+  updateMessageAgentType: (id: string, agentType: string) => void;
   completeMessage: (id: string) => void;
   removeMessage: (id: string) => void;
   clearMessages: () => void;
@@ -58,7 +60,7 @@ export function useChatHistory(): UseChatHistoryReturn {
     return id;
   }, [generateId]);
 
-  const addAssistantMessage = useCallback((): string => {
+  const addAssistantMessage = useCallback((agentType?: string): string => {
     const id = generateId('assistant');
     setMessages(prev => [...prev, {
       id,
@@ -66,6 +68,7 @@ export function useChatHistory(): UseChatHistoryReturn {
       content: '',
       isStreaming: true,
       toolCalls: [],
+      agentType,
     }]);
     return id;
   }, [generateId]);
@@ -93,6 +96,12 @@ export function useChatHistory(): UseChatHistoryReturn {
     ));
   }, []);
 
+  const updateMessageAgentType = useCallback((id: string, agentType: string) => {
+    setMessages(prev => prev.map(msg =>
+      msg.id === id ? { ...msg, agentType } : msg
+    ));
+  }, []);
+
   const completeMessage = useCallback((id: string) => {
     setMessages(prev => prev.map(msg =>
       msg.id === id ? { ...msg, isStreaming: false } : msg
@@ -115,6 +124,7 @@ export function useChatHistory(): UseChatHistoryReturn {
     addSystemMessage,
     updateMessageContent,
     updateMessageToolCalls,
+    updateMessageAgentType,
     completeMessage,
     removeMessage,
     clearMessages,

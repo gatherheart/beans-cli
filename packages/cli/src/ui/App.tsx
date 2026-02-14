@@ -10,6 +10,7 @@
 import React, { useEffect, Component, type ReactNode } from 'react';
 import { Box, Text, useApp } from 'ink';
 import { ChatProvider, useChatActions } from './contexts/ChatContext.js';
+import { TaskProvider } from './contexts/TaskContext.js';
 import { ChatView } from './components/ChatView.js';
 import { InputArea } from './components/InputArea.js';
 import { useTerminalSize } from './hooks/useTerminalSize.js';
@@ -76,9 +77,11 @@ export function App({ config, systemPrompt, profile, initialPrompt }: AppProps):
 
   return (
     <ErrorBoundary>
-      <ChatProvider config={config} systemPrompt={systemPrompt} profile={profile}>
-        <AppContent initialPrompt={initialPrompt} onExit={handleExit} />
-      </ChatProvider>
+      <TaskProvider>
+        <ChatProvider config={config} systemPrompt={systemPrompt} profile={profile}>
+          <AppContent initialPrompt={initialPrompt} onExit={handleExit} />
+        </ChatProvider>
+      </TaskProvider>
     </ErrorBoundary>
   );
 }

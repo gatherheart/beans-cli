@@ -12,9 +12,17 @@
 
 import React, { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { ChatSession, Config } from '@beans/core';
-import type { AgentActivityEvent, Message as LLMMessage } from '@beans/core';
-import type { AgentProfile } from '@beans/core';
+import {
+  Config,
+  createAgentManager,
+  clearTasks,
+} from '@beans/core';
+import type {
+  AgentManager,
+  MultiAgentEvent,
+  Message as LLMMessage,
+  AgentProfile,
+} from '@beans/core';
 import { useChatHistory } from '../hooks/useChatHistory.js';
 import type { Message, ToolCallInfo } from '../hooks/useChatHistory.js';
 
@@ -29,6 +37,7 @@ interface ChatStateValue {
   isLoading: boolean;
   error: string | null;
   profile: AgentProfile | null;
+  currentAgent: string | null;
 }
 
 /**
@@ -55,35 +64,25 @@ export interface ChatProviderProps {
 export function ChatProvider({ children, config, systemPrompt, profile }: ChatProviderProps): React.ReactElement {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentAgent, setCurrentAgent] = useState<string | null>(null);
 
   // Use custom hook for message management
   const history = useChatHistory();
 
-  const chatSessionRef = useRef<ChatSession | null>(null);
+  // Track conversation history for getLLMHistory
+  const conversationHistoryRef = useRef<LLMMessage[]>([]);
 
-  // Initialize chat session lazily
-  const getChatSession = useCallback(() => {
-    if (!chatSessionRef.current) {
-      const agentConfig = config.getAgentConfig();
-      const debugConfig = config.getDebugConfig();
-      chatSessionRef.current = new ChatSession(
-        config.getLLMClient(),
-        config.getToolRegistry(),
-        {
-          systemPrompt,
-          modelConfig: config.getLLMConfig(),
-          runConfig: {
-            ...agentConfig,
-            debug: debugConfig.enabled,
-          },
-          toolConfig: {
-            allowAllTools: true,
-          },
-        }
-      );
+  const agentManagerRef = useRef<AgentManager | null>(null);
+
+  // Initialize agent manager lazily
+  const getAgentManager = useCallback(() => {
+    if (!agentManagerRef.current) {
+      agentManagerRef.current = createAgentManager(config, {
+        cwd: process.cwd(),
+      });
     }
-    return chatSessionRef.current;
-  }, [config, systemPrompt]);
+    return agentManagerRef.current;
+  }, [config]);
 
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;
@@ -91,42 +90,65 @@ export function ChatProvider({ children, config, systemPrompt, profile }: ChatPr
     // Add user message
     history.addUserMessage(content);
 
+    // Track in conversation history (before sending so agent has context)
+    const userMessage: LLMMessage = { role: 'user', content };
+    conversationHistoryRef.current.push(userMessage);
+
     // Add empty assistant message (will be filled via streaming)
     const assistantMessageId = history.addAssistantMessage();
 
     setIsLoading(true);
     setError(null);
+    setCurrentAgent(null);
 
     try {
-      const session = getChatSession();
+      const agentManager = getAgentManager();
       let currentContent = '';
       const toolCalls: ToolCallInfo[] = [];
 
-      await session.sendMessage(content.trim(), {
-        onActivity: (event: AgentActivityEvent) => {
+      // Pass conversation history for context (exclude the current message since it's the query)
+      const historyForContext = conversationHistoryRef.current.slice(0, -1);
+
+      const result = await agentManager.processInput(content.trim(), {
+        conversationHistory: historyForContext.length > 0 ? historyForContext : undefined,
+        onActivity: (event: MultiAgentEvent) => {
           switch (event.type) {
+            case 'input_analysis_complete':
+              // Show which agent is being used
+              if (event.analysis.suggestedAgent) {
+                setCurrentAgent(event.analysis.suggestedAgent);
+              }
+              break;
+
+            case 'agent_spawn_start':
+              setCurrentAgent(event.agentType);
+              // Update the assistant message with the agent type
+              history.updateMessageAgentType(assistantMessageId, event.agentType);
+              break;
+
             case 'content_chunk':
               currentContent += event.content;
               history.updateMessageContent(assistantMessageId, currentContent);
               break;
 
             case 'tool_call_start': {
-              // Avoid duplicate tool calls
-              const existingIndex = toolCalls.findIndex(t => t.id === event.toolCall.id);
-              if (existingIndex === -1) {
-                toolCalls.push({
-                  id: event.toolCall.id,
-                  name: event.toolCall.name,
-                  args: event.toolCall.arguments,
-                  isComplete: false,
-                });
-                history.updateMessageToolCalls(assistantMessageId, toolCalls);
-              }
+              // Create a unique ID for this tool call
+              const toolId = `${event.agentType}_${event.toolName}_${Date.now()}`;
+              toolCalls.push({
+                id: toolId,
+                name: event.toolName,
+                args: {},
+                isComplete: false,
+              });
+              history.updateMessageToolCalls(assistantMessageId, [...toolCalls]);
               break;
             }
 
             case 'tool_call_end': {
-              const toolIndex = toolCalls.findIndex(t => t.id === event.toolCallId);
+              // Find and update the most recent incomplete tool call with matching name
+              const toolIndex = toolCalls.findIndex(
+                t => !t.isComplete && t.name === event.toolName
+              );
               if (toolIndex !== -1) {
                 toolCalls[toolIndex] = {
                   ...toolCalls[toolIndex],
@@ -134,12 +156,19 @@ export function ChatProvider({ children, config, systemPrompt, profile }: ChatPr
                     ? event.result.slice(0, 200) + '...'
                     : event.result,
                   isComplete: true,
-                  metadata: event.metadata,
                 };
-                history.updateMessageToolCalls(assistantMessageId, toolCalls);
+                history.updateMessageToolCalls(assistantMessageId, [...toolCalls]);
               }
               break;
             }
+
+            case 'agent_spawn_complete':
+              // Update content with final result if different
+              if (event.result.content && event.result.content !== currentContent) {
+                currentContent = event.result.content;
+                history.updateMessageContent(assistantMessageId, currentContent);
+              }
+              break;
 
             case 'error':
               setError(event.error.message);
@@ -148,37 +177,48 @@ export function ChatProvider({ children, config, systemPrompt, profile }: ChatPr
         },
       });
 
+      // Track assistant response in conversation history
+      conversationHistoryRef.current.push({
+        role: 'assistant',
+        content: result.content,
+      });
+
       // Mark streaming as complete
       history.completeMessage(assistantMessageId);
+      setCurrentAgent(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       // Remove the empty assistant message on error
       history.removeMessage(assistantMessageId);
     } finally {
       setIsLoading(false);
+      setCurrentAgent(null);
     }
-  }, [getChatSession, history]);
+  }, [getAgentManager, history]);
 
   const addSystemMessage = useCallback((content: string) => {
     history.addSystemMessage(content);
   }, [history]);
 
   const clearHistory = useCallback(() => {
-    const session = getChatSession();
-    session.clearHistory();
+    // Clear UI messages
     history.clearMessages();
+    // Clear conversation history
+    conversationHistoryRef.current = [];
+    // Clear task store
+    clearTasks();
+    // Clear error
     setError(null);
-  }, [getChatSession, history]);
+    // Note: AgentManager doesn't maintain history, so no need to clear it
+  }, [history]);
 
   const getLLMHistory = useCallback((): LLMMessage[] => {
-    const session = getChatSession();
-    return session.getHistory();
-  }, [getChatSession]);
+    return [...conversationHistoryRef.current];
+  }, []);
 
   const getSystemPrompt = useCallback((): string => {
-    const session = getChatSession();
-    return session.getSystemPrompt();
-  }, [getChatSession]);
+    return systemPrompt;
+  }, [systemPrompt]);
 
   // Memoize state value to prevent unnecessary re-renders
   const stateValue = useMemo<ChatStateValue>(() => ({
@@ -186,7 +226,8 @@ export function ChatProvider({ children, config, systemPrompt, profile }: ChatPr
     isLoading,
     error,
     profile: profile || null,
-  }), [history.messages, isLoading, error, profile]);
+    currentAgent,
+  }), [history.messages, isLoading, error, profile, currentAgent]);
 
   // Memoize actions value to prevent unnecessary re-renders
   const actionsValue = useMemo<ChatActionsValue>(() => ({
