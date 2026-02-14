@@ -71,9 +71,9 @@ describe('Slash Commands E2E', () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       // After clearing, the UI should still be responsive
-      // Check that the input area is still there
+      // Check that the input area is still there (shows history hint if inputs were made)
       const output = run.getCleanOutput();
-      expect(output).toContain('Type a message');
+      expect(output).toMatch(/Type a message|Press.*to edit previous/);
     });
   });
 

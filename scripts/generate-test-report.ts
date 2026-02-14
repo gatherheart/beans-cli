@@ -164,6 +164,19 @@ function parseVitestOutput(output: string, type: 'unit' | 'e2e'): Partial<TestCa
   };
 }
 
+interface E2ETestResult {
+  name: string;
+  status: string;
+  duration: number;
+}
+
+interface E2ESuite {
+  name: string;
+  status: string;
+  testCount: number;
+  tests: E2ETestResult[];
+}
+
 function readE2EReport(): Partial<TestCategory> | null {
   const reportPath = path.join(ROOT_DIR, '.e2e-reports', 'summary.json');
   try {
@@ -177,12 +190,16 @@ function readE2EReport(): Partial<TestCategory> | null {
           skipped: report.summary?.skipped || 0,
           duration: report.duration || '0s',
         },
-        suites: (report.testSuites || []).map((s: { name: string; status: string; tests: number }) => ({
+        suites: (report.testSuites || []).map((s: E2ESuite) => ({
           name: s.name,
           type: 'e2e' as const,
-          tests: [],
-          duration: 0,
-          status: s.status,
+          tests: (s.tests || []).map((t: E2ETestResult) => ({
+            name: t.name,
+            status: t.status === 'passed' ? 'passed' : t.status === 'failed' ? 'failed' : 'skipped',
+            duration: t.duration || 0,
+          })),
+          duration: (s.tests || []).reduce((sum: number, t: E2ETestResult) => sum + (t.duration || 0), 0),
+          status: s.status === 'passed' ? 'passed' : 'failed',
         })),
       };
     }

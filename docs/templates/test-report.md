@@ -10,34 +10,44 @@
 
 | Metric | Value |
 |--------|-------|
-| Total Tests | {{total_tests}} |
-| Passed | {{passed}} |
-| Failed | {{failed}} |
-| Skipped | {{skipped}} |
-| Duration | {{duration}} |
+| Total Tests | {{summary.total}} |
+| Passed | {{summary.passed}} |
+| Failed | {{summary.failed}} |
+| Skipped | {{summary.skipped}} |
+| Duration | (see categories) |
 
 ## Test Results by File
 
-{{#each test_suites}}
-### {{suite_name}}
+{{#each categories}}
+### {{name}}
+
+{{#each suites}}
+#### {{name}}
 
 | Test | Status | Duration |
 |------|--------|----------|
 {{#each tests}}
-| {{test_name}} | {{status}} | {{duration}} |
+| {{name}} | {{status}} | {{duration}}ms |
 {{/each}}
 
+{{/each}}
 {{/each}}
 
 ---
 
 ## Failed Tests
 
-{{#if has_failures}}
-| Test | Error |
-|------|-------|
-{{#each failed_tests}}
-| {{test_name}} | {{error}} |
+{{#if summary.failed}}
+| Test | Suite | Error |
+|------|-------|-------|
+{{#each categories}}
+{{#each suites}}
+{{#each tests}}
+{{#if (eq status "failed")}}
+| {{name}} | {{../name}} | See raw output |
+{{/if}}
+{{/each}}
+{{/each}}
 {{/each}}
 {{else}}
 No failed tests.
@@ -49,26 +59,34 @@ No failed tests.
 
 | Property | Value |
 |----------|-------|
-| Node.js | {{node_version}} |
+| Node.js | {{nodeVersion}} |
 | OS | {{os}} |
-| Terminal | {{terminal}} |
+| Version | {{version}} |
 | Test Framework | Vitest |
 
 ---
 
 ## Raw Test Output
 
+{{#each categories}}
+### {{name}}
 ```
-{{raw_output}}
+{{rawOutput}}
 ```
+{{/each}}
 
 ---
 
 ## Sign-off
 
+{{#if overallSuccess}}
+- [x] All critical tests passed
+- [x] No blocking issues found
+- [x] Ready for release
+{{else}}
 - [ ] All critical tests passed
 - [ ] No blocking issues found
 - [ ] Ready for release
+{{/if}}
 
-**Approved by:** {{approver}}
-**Date:** {{approval_date}}
+**Status:** {{#if overallSuccess}}✅ PASSED{{else}}❌ FAILED{{/if}}

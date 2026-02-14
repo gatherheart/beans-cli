@@ -101,7 +101,13 @@ jobs:
             echo "No lint fixes to commit"
           else
             git commit -m "fix(lint): Auto-fix lint errors [skip ci]"
-            git pull --rebase origin main || true
+            # Pull with rebase, resolve conflicts by keeping our changes
+            if ! git pull --rebase origin main; then
+              # Accept our version for any conflicts and continue
+              git checkout --ours .
+              git add -A
+              git rebase --continue || git rebase --skip
+            fi
             git push
           fi
 
@@ -231,7 +237,13 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "docs: Update test report [skip ci]"
-            git pull --rebase origin main || true
+            # Pull with rebase, resolve conflicts by keeping our report
+            if ! git pull --rebase origin main; then
+              # Accept our version for report conflicts and continue
+              git checkout --ours docs/reports/
+              git add docs/reports/
+              git rebase --continue || git rebase --skip
+            fi
             git push
           fi
 

@@ -90,11 +90,16 @@ vitest.on('close', (code) => {
         for (const suite of jsonReport.testResults) {
           if (suite.endTime > endTime) endTime = suite.endTime;
 
-          // Collect test suite info
+          // Collect test suite info with individual test results
           report.testSuites.push({
             name: path.basename(suite.name),
             status: suite.status,
-            tests: suite.assertionResults?.length || 0,
+            testCount: suite.assertionResults?.length || 0,
+            tests: (suite.assertionResults || []).map(test => ({
+              name: test.fullName || test.title,
+              status: test.status,
+              duration: test.duration || 0,
+            })),
           });
 
           // Collect failed tests
