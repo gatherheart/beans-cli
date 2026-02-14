@@ -16,10 +16,25 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CLI_PATH = path.resolve(__dirname, '../../packages/cli/dist/index.js');
 
+// CI environment detection
+const isCI = process.env['CI'] === 'true';
+
 // Get timeout based on environment
 function getDefaultTimeout(): number {
-  if (process.env['CI']) return 60000; // 1 minute in CI
+  if (isCI) return 60000; // 1 minute in CI
   return 15000; // 15s locally
+}
+
+// Get poll interval based on environment (slower in CI to reduce flakiness)
+function getPollInterval(): number {
+  if (isCI) return 200; // 200ms in CI
+  return 100; // 100ms locally
+}
+
+// Get keystroke delay based on environment
+export function getKeystrokeDelay(): number {
+  if (isCI) return 50; // 50ms in CI (slower)
+  return 20; // 20ms locally
 }
 
 /**
@@ -67,7 +82,7 @@ export class InteractiveRun {
     const found = await poll(
       () => stripAnsi(this.output).toLowerCase().includes(text.toLowerCase()),
       timeout,
-      100
+      getPollInterval()
     );
     if (!found) {
       throw new Error(
@@ -86,7 +101,7 @@ export class InteractiveRun {
     const found = await poll(
       () => pattern.test(stripAnsi(this.output)),
       timeout,
-      100
+      getPollInterval()
     );
     if (!found) {
       throw new Error(
@@ -122,8 +137,8 @@ export class InteractiveRun {
    * Send keys without waiting for echo (for commands, enter, etc.)
    */
   async sendKeys(text: string): Promise<void> {
-    // 20ms delay between characters gives Ink time to process and render
-    const delay = 20;
+    // Use CI-aware delay between characters
+    const delay = getKeystrokeDelay();
     for (const char of text) {
       this.ptyProcess.write(char);
       await new Promise((resolve) => setTimeout(resolve, delay));

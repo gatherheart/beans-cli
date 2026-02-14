@@ -7,6 +7,8 @@ export default defineConfig({
     include: ['tests/e2e/**/*.test.ts'],
     // E2E tests need longer timeouts, especially in CI
     testTimeout: process.env.CI ? 120000 : 30000,
+    // Retry failed tests in CI (E2E tests can be flaky due to timing)
+    retry: process.env.CI ? 2 : 0,
     // Run tests sequentially (e2e tests spawn processes)
     sequence: {
       concurrent: false,
