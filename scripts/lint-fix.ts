@@ -47,26 +47,46 @@ function fixUnusedImport(filePath: string, message: LintMessage): boolean {
   const varName = match[1];
   const content = fs.readFileSync(filePath, 'utf-8');
   const lines = content.split('\n');
-  const line = lines[message.line - 1];
+  const errorLine = message.line - 1;
+
+  // Find the full import statement (may span multiple lines)
+  let importStart = errorLine;
+  let importEnd = errorLine;
+
+  // Search backward for 'import'
+  while (importStart > 0 && !lines[importStart].match(/^\s*import\s/)) {
+    importStart--;
+  }
+
+  // Search forward for the closing part with 'from'
+  while (importEnd < lines.length - 1 && !lines[importEnd].includes('from')) {
+    importEnd++;
+  }
+
+  // Get the full import statement
+  const importLines = lines.slice(importStart, importEnd + 1);
+  const fullImport = importLines.join('\n');
 
   // Handle import { a, b } from 'module' - remove just the unused one
-  const importMatch = line.match(/^import\s*\{([^}]+)\}\s*from/);
+  const importMatch = fullImport.match(/^import\s*\{([\s\S]+?)\}\s*from/);
   if (importMatch) {
-    const imports = importMatch[1].split(',').map(s => s.trim());
+    // Parse imports, handling multi-line
+    const importsStr = importMatch[1];
+    const imports = importsStr.split(',').map(s => s.trim()).filter(s => s);
     const filtered = imports.filter(imp => {
       const name = imp.includes(' as ') ? imp.split(' as ')[1].trim() : imp;
       return name !== varName;
     });
 
     if (filtered.length === 0) {
-      // Remove entire line
-      lines.splice(message.line - 1, 1);
+      // Remove entire import statement
+      lines.splice(importStart, importEnd - importStart + 1);
     } else {
-      // Replace with filtered imports
-      lines[message.line - 1] = line.replace(
-        /\{[^}]+\}/,
-        `{ ${filtered.join(', ')} }`
-      );
+      // Replace with filtered imports (single line format)
+      const fromMatch = fullImport.match(/from\s*(['"][^'"]+['"])/);
+      const fromPart = fromMatch ? fromMatch[1] : '';
+      const newImport = `import { ${filtered.join(', ')} } from ${fromPart};`;
+      lines.splice(importStart, importEnd - importStart + 1, newImport);
     }
 
     fs.writeFileSync(filePath, lines.join('\n'));
