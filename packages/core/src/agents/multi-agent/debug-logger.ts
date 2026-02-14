@@ -332,3 +332,70 @@ export function logOrchestrationSummary(
     formatLine('='),
   ].join('\n'));
 }
+
+/**
+ * Log RAG initialization
+ */
+export function logRAGInit(embeddingCount: number, toolCount: number): void {
+  writeLog([
+    formatLine('-'),
+    '  RAG INITIALIZED',
+    formatLine('-'),
+    '',
+    `Embeddings: ${embeddingCount}`,
+    `Tools: ${toolCount}`,
+    '',
+  ].join('\n'));
+}
+
+/**
+ * Log RAG embedding API fallback
+ */
+export function logRAGEmbeddingFallback(
+  reason: string,
+  details?: string
+): void {
+  const lines = [
+    '  RAG EMBEDDING FALLBACK',
+    '',
+    `Reason: ${reason}`,
+  ];
+
+  if (details) {
+    lines.push(`Details: ${details}`);
+  }
+
+  lines.push('Using: Simple hash-based embedding', '');
+  writeLog(lines.join('\n'));
+}
+
+/**
+ * Log RAG tool retrieval results
+ */
+export function logRAGRetrieval(
+  query: string,
+  results: Array<{ toolName: string; relevance: number }>
+): void {
+  const lines = [
+    formatLine('-'),
+    '  RAG TOOL RETRIEVAL',
+    formatLine('-'),
+    '',
+    `Query: "${query}"`,
+    '',
+    'Results:',
+  ];
+
+  if (results.length === 0) {
+    lines.push('  (no matches)');
+  } else {
+    for (const r of results) {
+      const bar = '█'.repeat(Math.round(r.relevance * 20));
+      const pct = (r.relevance * 100).toFixed(0).padStart(3);
+      lines.push(`  ${pct}% ${bar} ${r.toolName}`);
+    }
+  }
+
+  lines.push('');
+  writeLog(lines.join('\n'));
+}

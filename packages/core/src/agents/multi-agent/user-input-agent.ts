@@ -1,27 +1,49 @@
 /**
  * User Input Agent - Analyzes user input to determine intent and task breakdown
+ *
+ * Uses RAG (Retrieval-Augmented Generation) to intelligently match user
+ * queries to appropriate tools and agents based on semantic similarity.
  */
 
 import type { LLMClient } from '../../llm/types.js';
 import type { InputAnalysis, TaskSuggestion, UserIntent } from './types.js';
+import {
+  initializeToolRAG,
+  retrieveTools,
+  type ToolRecommendation,
+} from './tool-rag/index.js';
 
-const INPUT_ANALYSIS_PROMPT = `You are an AI assistant that analyzes user input to determine the best approach for handling it.
+/**
+ * Build the analysis prompt with RAG context
+ */
+function buildAnalysisPrompt(
+  input: string,
+  toolRecommendations: ToolRecommendation[]
+): string {
+  // Build tool context from RAG results
+  const toolContext = toolRecommendations.length > 0
+    ? `\n## Relevant Tools (from semantic search)\n${toolRecommendations
+        .map(r => `- ${r.toolName} (relevance: ${(r.relevance * 100).toFixed(0)}%): ${r.topMatches[0]?.text || 'N/A'}`)
+        .join('\n')}\n`
+    : '';
+
+  return `You are an AI assistant that analyzes user input to determine the best approach for handling it.
 
 Analyze the following user input and determine:
 1. The user's intent (classify as one of the categories below)
 2. Whether this requires task planning (complex multi-step work)
 3. The best agent type to handle this
 4. If complex, break it down into subtasks
-
+${toolContext}
 ## Intent Categories
-- simple_question: Quick question that can be answered directly
-- web_search: Requires searching the web for information (weather, news, facts, current events)
+- simple_question: Quick question that can be answered directly (use general agent)
+- web_search: Requires searching the web for information (weather, news, facts, current events) - use general agent with web_search tool
 - code_exploration: Finding/understanding code without modifying it
 - code_modification: Changes to existing code or creating new code
 - bash_execution: Running shell commands, git operations, builds
 - planning: Designing architecture or implementation strategy
 - multi_step_task: Complex work requiring multiple agents
-- unknown: Cannot classify
+- unknown: Cannot classify (default to general agent)
 
 ## Agent Types
 - bash: For shell commands, git, builds
@@ -29,7 +51,10 @@ Analyze the following user input and determine:
 - plan: For designing implementation approaches
 - general: For web search, complex tasks, or anything needing multiple tools
 
-IMPORTANT: If the user asks about weather, news, current events, or anything requiring up-to-date information from the internet, use intent "web_search" and suggestedAgent "general".
+## IMPORTANT
+- If semantic search suggests web_search tool, use intent "web_search" and agent "general"
+- If user asks about weather, news, current events, stocks, or needs real-time info, use web_search
+- Always consider the tool recommendations when choosing an agent
 
 ## Response Format
 Respond with valid JSON only, no other text:
@@ -37,26 +62,19 @@ Respond with valid JSON only, no other text:
   "intent": "<intent_category>",
   "requiresPlanning": <true|false>,
   "suggestedAgent": "<agent_type>",
-  "tasks": [
-    {
-      "subject": "Brief task title",
-      "description": "Detailed description",
-      "suggestedAgent": "<agent_type>",
-      "dependencies": ["task_index_numbers"]
-    }
-  ]
+  "suggestedTools": ["tool1", "tool2"],
+  "tasks": []
 }
 
-For simple requests, tasks array should be empty or omitted.
-For complex requests, break down into 2-5 subtasks with dependencies.
-
 User Input:
-`;
+${input}`;
+}
 
 interface AnalysisResponse {
   intent: UserIntent;
   requiresPlanning: boolean;
   suggestedAgent?: string;
+  suggestedTools?: string[];
   tasks?: Array<{
     subject: string;
     description: string;
@@ -67,6 +85,9 @@ interface AnalysisResponse {
 
 /**
  * Analyze user input to determine intent and task breakdown
+ *
+ * Uses RAG to find semantically similar tool patterns, then
+ * passes this context to the LLM for final classification.
  */
 export async function analyzeUserInput(
   input: string,
@@ -74,22 +95,32 @@ export async function analyzeUserInput(
   model: string
 ): Promise<InputAnalysis> {
   try {
+    // Initialize RAG if needed
+    await initializeToolRAG();
+
+    // Retrieve relevant tools using RAG
+    const toolRecommendations = await retrieveTools(input, 5);
+
+    // Build prompt with RAG context
+    const prompt = buildAnalysisPrompt(input, toolRecommendations);
+
     const response = await llmClient.chat({
       model,
       messages: [
         {
           role: 'user',
-          content: INPUT_ANALYSIS_PROMPT + input,
+          content: prompt,
         },
       ],
       temperature: 0.1, // Low temperature for consistent classification
     });
 
     if (!response.content) {
-      return createFallbackAnalysis(input);
+      return createRAGFallbackAnalysis(input, toolRecommendations);
     }
 
     const parsed = parseAnalysisResponse(response.content);
+
     return {
       intent: parsed.intent,
       requiresPlanning: parsed.requiresPlanning,
@@ -103,7 +134,8 @@ export async function analyzeUserInput(
       originalInput: input,
     };
   } catch {
-    return createFallbackAnalysis(input);
+    // Fallback to RAG-only analysis
+    return createRAGOnlyAnalysis(input);
   }
 }
 
@@ -143,81 +175,113 @@ function parseAnalysisResponse(content: string): AnalysisResponse {
 }
 
 /**
- * Create a fallback analysis when LLM parsing fails
+ * Create fallback analysis using RAG recommendations when LLM parsing fails
  */
-function createFallbackAnalysis(input: string): InputAnalysis {
-  // Simple heuristics for fallback
-  const lowerInput = input.toLowerCase();
+function createRAGFallbackAnalysis(
+  input: string,
+  recommendations: ToolRecommendation[]
+): InputAnalysis {
+  if (recommendations.length === 0) {
+    return {
+      intent: 'unknown',
+      requiresPlanning: false,
+      suggestedAgent: 'general',
+      originalInput: input,
+    };
+  }
 
+  const best = recommendations[0];
+
+  // Map tool to intent
   let intent: UserIntent = 'unknown';
-  let suggestedAgent = 'general';
-
-  // Web search patterns - check first to avoid confusion with code exploration
-  const webSearchPatterns = [
-    'weather', 'news', 'price', 'stock', 'current', 'today', 'latest',
-    'what is the', 'who is', 'search it', 'look up', 'google',
-  ];
-  const isWebSearch = webSearchPatterns.some(pattern => lowerInput.includes(pattern));
-
-  if (isWebSearch) {
+  if (best.toolName === 'web_search') {
     intent = 'web_search';
-    suggestedAgent = 'general';
-  } else if ((lowerInput.includes('find') || lowerInput.includes('search') || lowerInput.includes('where')) &&
-             (lowerInput.includes('file') || lowerInput.includes('code') || lowerInput.includes('function') || lowerInput.includes('class'))) {
-    // Only use explore for code-related searches
+  } else if (['glob', 'grep', 'read_file'].includes(best.toolName)) {
     intent = 'code_exploration';
-    suggestedAgent = 'explore';
-  } else if (lowerInput.includes('run') || lowerInput.includes('execute') || lowerInput.includes('git')) {
+  } else if (best.toolName === 'write_file') {
+    intent = 'code_modification';
+  } else if (best.toolName === 'shell') {
     intent = 'bash_execution';
-    suggestedAgent = 'bash';
-  } else if (lowerInput.includes('plan') || lowerInput.includes('design') || lowerInput.includes('how should')) {
-    intent = 'planning';
-    suggestedAgent = 'plan';
-  } else if (lowerInput.includes('?') && lowerInput.length < 100) {
-    intent = 'simple_question';
-    suggestedAgent = 'general';
   }
 
   return {
     intent,
     requiresPlanning: false,
-    suggestedAgent,
+    suggestedAgent: best.suggestedAgent || 'general',
     originalInput: input,
   };
 }
 
 /**
- * Quick intent classification without full analysis
- * Useful for simple routing decisions
+ * RAG-only analysis without LLM (fastest fallback)
  */
-export function quickClassifyIntent(input: string): UserIntent {
-  const lowerInput = input.toLowerCase().trim();
+async function createRAGOnlyAnalysis(input: string): Promise<InputAnalysis> {
+  try {
+    await initializeToolRAG();
+    const recommendations = await retrieveTools(input, 3);
 
-  // Command patterns
-  if (/^(run|execute|npm|yarn|git|make|docker)\s/.test(lowerInput)) {
-    return 'bash_execution';
+    return createRAGFallbackAnalysis(input, recommendations);
+  } catch {
+    // Ultimate fallback
+    return {
+      intent: 'unknown',
+      requiresPlanning: false,
+      suggestedAgent: 'general',
+      originalInput: input,
+    };
   }
+}
 
-  // Question patterns
-  if (/^(what|where|how|why|who|when|can|does|is)\s/i.test(lowerInput) && input.includes('?')) {
-    if (lowerInput.includes('find') || lowerInput.includes('code') || lowerInput.includes('file')) {
-      return 'code_exploration';
+/**
+ * Quick intent classification using RAG
+ *
+ * Uses semantic search to determine intent without LLM call.
+ * Faster than full analysis but less accurate.
+ */
+export async function quickClassifyIntent(input: string): Promise<UserIntent> {
+  try {
+    await initializeToolRAG();
+    const recommendations = await retrieveTools(input, 3);
+
+    if (recommendations.length === 0) {
+      return 'unknown';
     }
-    return 'simple_question';
-  }
 
-  // Action patterns
-  if (/^(find|search|locate|show|list)\s/.test(lowerInput)) {
-    return 'code_exploration';
-  }
+    const best = recommendations[0];
 
-  if (/^(create|add|implement|write|fix|update|modify|change|refactor)\s/.test(lowerInput)) {
-    return 'code_modification';
-  }
+    // Map tool to intent based on relevance
+    if (best.relevance < 0.3) {
+      return 'unknown';
+    }
 
-  if (/^(plan|design|architect|think about|consider)\s/.test(lowerInput)) {
-    return 'planning';
+    switch (best.toolName) {
+      case 'web_search':
+        return 'web_search';
+      case 'glob':
+      case 'grep':
+      case 'read_file':
+        return 'code_exploration';
+      case 'write_file':
+        return 'code_modification';
+      case 'shell':
+        return 'bash_execution';
+      case 'TaskCreate':
+      case 'TaskUpdate':
+        return 'planning';
+      default:
+        return 'simple_question';
+    }
+  } catch {
+    return 'unknown';
   }
+}
 
-  return 'unknown';
+/**
+ * Get tool recommendations for a query (exposed for debugging)
+ */
+export async function getToolRecommendations(
+  input: string
+): Promise<ToolRecommendation[]> {
+  await initializeToolRAG();
+  return retrieveTools(input, 5);
 }

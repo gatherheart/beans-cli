@@ -41,7 +41,22 @@ export {
 export {
   analyzeUserInput,
   quickClassifyIntent,
+  getToolRecommendations,
 } from './user-input-agent.js';
+
+// Tool RAG
+export {
+  initializeToolRAG,
+  retrieveTools,
+  suggestAgent,
+  isToolRAGInitialized,
+  clearRAG,
+  toolKnowledgeBase,
+  getToolKnowledge,
+  getAllToolKnowledge,
+  type ToolKnowledge,
+  type ToolRecommendation,
+} from './tool-rag/index.js';
 
 // Agent Manager
 export {
