@@ -3,11 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import {
-  toolKnowledgeBase,
-  getToolKnowledge,
-  getAllToolKnowledge,
-} from '../../../packages/core/src/agents/multi-agent/tool-rag/tool-knowledge.js';
+import { getToolKnowledge, getAllToolKnowledge } from '../../../packages/core/src/agents/multi-agent/tool-rag/tool-knowledge.js';
 import {
   generateEmbedding,
   cosineSimilarity,
