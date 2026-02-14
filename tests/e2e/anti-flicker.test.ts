@@ -42,7 +42,10 @@ describe('Anti-Flicker E2E', () => {
       await run.sendLine('/exit');
 
       // Wait for Goodbye message
-      await run.expectText('Goodbye', 8000);
+      await run.expectText('Goodbye', 10000);
+
+      // Give PTY time to capture all output including escape codes
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       const rawOutput = run.getRawOutput();
       expect(hasEscapeCode(rawOutput, EscapeCodes.ENABLE_LINE_WRAP)).toBe(true);

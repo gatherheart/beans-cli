@@ -99,8 +99,8 @@ describe('Slash Commands E2E', () => {
 
       await run.sendLine('/memory');
 
-      // Should display system prompt/memory
-      await run.expectPattern(/system|prompt|memory/i, 5000);
+      // Should display system prompt - increase timeout for CI
+      await run.expectPattern(/System Prompt|Working Directory|Environment/i, 10000);
     });
   });
 

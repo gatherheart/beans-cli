@@ -77,8 +77,8 @@ describe('Agent Profile E2E', () => {
 
       await run.sendLine('/memory');
 
-      // Should show the system prompt
-      await run.expectPattern(/system|prompt|guidelines/i, 5000);
+      // Should show the system prompt header - increase timeout for CI
+      await run.expectPattern(/System Prompt|Working Directory|Environment/i, 10000);
     });
   });
 
