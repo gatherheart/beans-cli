@@ -235,6 +235,12 @@ export class MockLLMClient implements LLMClient {
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
     this.turnCount++;
+    // Only count as a user-facing turn if tools are provided (agent execution)
+    // Analysis calls don't have tools and shouldn't affect turn numbering
+    const hasTools = request.tools && request.tools.length > 0;
+    if (hasTools) {
+      this.streamTurnCount++;
+    }
     const config = SCENARIOS[this.scenario];
 
     // Simulate network delay
@@ -247,13 +253,14 @@ export class MockLLMClient implements LLMClient {
     let content = config.content;
 
     // Handle multi-turn scenario
+    // Use streamTurnCount to avoid counting internal analysis calls
     if (this.scenario === 'multi-turn') {
       const historyPreview = request.messages
         .slice(-3)
         .map(m => `- ${m.role}: ${m.content?.slice(0, 50)}...`)
         .join('\n');
       content = content
-        .replace('{{turn}}', String(this.turnCount))
+        .replace('{{turn}}', String(this.streamTurnCount))
         .replace('{{history}}', historyPreview || '(no previous messages)');
     }
 

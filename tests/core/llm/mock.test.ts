@@ -8,6 +8,13 @@ describe('MockLLMClient', () => {
     messages: [{ role: 'user', content }],
   });
 
+  // Request with tools - simulates agent execution (counts as user-facing turn)
+  const createRequestWithTools = (content = 'test'): ChatRequest => ({
+    model: 'mock',
+    messages: [{ role: 'user', content }],
+    tools: [{ name: 'test_tool', description: 'A test tool', parameters: { type: 'object', properties: {} } }],
+  });
+
   describe('basic scenario', () => {
     it('should return markdown content', async () => {
       const client = new MockLLMClient('basic');
@@ -91,11 +98,23 @@ describe('MockLLMClient', () => {
     it('should track turn count', async () => {
       const client = new MockLLMClient('multi-turn');
 
-      const response1 = await client.chat(createRequest('hello'));
+      // Use requests with tools to simulate agent execution (user-facing turns)
+      const response1 = await client.chat(createRequestWithTools('hello'));
       expect(response1.content).toContain('turn 1');
 
-      const response2 = await client.chat(createRequest('world'));
+      const response2 = await client.chat(createRequestWithTools('world'));
       expect(response2.content).toContain('turn 2');
+    });
+
+    it('should not count analysis calls (no tools) as user-facing turns', async () => {
+      const client = new MockLLMClient('multi-turn');
+
+      // Analysis call (no tools) - should not increment user-facing turn
+      await client.chat(createRequest('analysis'));
+
+      // Agent execution (with tools) - should be turn 1
+      const response = await client.chat(createRequestWithTools('hello'));
+      expect(response.content).toContain('turn 1');
     });
 
     it('should include message history', async () => {
@@ -108,6 +127,7 @@ describe('MockLLMClient', () => {
           { role: 'assistant', content: 'response' },
           { role: 'user', content: 'second message' },
         ],
+        tools: [{ name: 'test_tool', description: 'A test tool', parameters: { type: 'object', properties: {} } }],
       };
 
       const response = await client.chat(request);
@@ -117,11 +137,11 @@ describe('MockLLMClient', () => {
     it('should reset turn count', async () => {
       const client = new MockLLMClient('multi-turn');
 
-      await client.chat(createRequest());
-      await client.chat(createRequest());
+      await client.chat(createRequestWithTools());
+      await client.chat(createRequestWithTools());
       client.resetTurnCount();
 
-      const response = await client.chat(createRequest());
+      const response = await client.chat(createRequestWithTools());
       expect(response.content).toContain('turn 1');
     });
   });
