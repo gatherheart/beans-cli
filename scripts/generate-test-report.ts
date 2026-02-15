@@ -533,7 +533,12 @@ async function main() {
 
     try {
       console.error('Calling Gemini API...\n');
-      const generatedReport = await callGeminiAPI(prompt);
+      let generatedReport = await callGeminiAPI(prompt);
+
+      // Strip markdown code block wrappers if present
+      generatedReport = generatedReport
+        .replace(/^```markdown\s*\n?/i, '')
+        .replace(/\n?```\s*$/i, '');
 
       if (saveMode) {
         const reportPath = saveReport(generatedReport);
