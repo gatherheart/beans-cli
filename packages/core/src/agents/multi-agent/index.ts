@@ -70,6 +70,8 @@ export {
   exploreAgent,
   planAgent,
   generalAgent,
+  coderAgent,
+  criticAgent,
   specializedAgents,
   getAgentDefinition,
   getAgentTypes,

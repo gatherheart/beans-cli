@@ -1,5 +1,5 @@
 /**
- * Agentic evaluation runner - allows iteration and tool usage
+ * Agentic evaluation runner - uses multi-agent system (Coder + Critic)
  */
 
 import type {
@@ -26,7 +26,8 @@ import {
 import { MBPPBenchmark } from '../benchmarks/mbpp/index.js';
 import { extractCode, cleanCode } from '../extraction/code-extractor.js';
 import { executeWithTests } from '../execution/python-runner.js';
-import type { ChatSession } from '@beans/core/agents';
+import { Config, createAgentManager } from '@beans/core';
+import type { AgentManager } from '@beans/core';
 
 const MAX_ITERATIONS = 5;
 
@@ -48,6 +49,16 @@ interface CriticAnalysis {
 }
 
 /**
+ * Failed test info with actual/expected values
+ */
+interface FailedTest {
+  assertion: string;
+  error?: string;
+  actual?: string;
+  expected?: string;
+}
+
+/**
  * Get benchmark instance by name
  */
 function getBenchmark(
@@ -63,7 +74,21 @@ function getBenchmark(
 }
 
 /**
- * Build prompt for the Critic Agent to analyze errors
+ * Build prompt for the Coder Agent
+ */
+function buildCoderPrompt(problem: AgenticProblem, tests: string[]): string {
+  return `Write a Python function to solve the following problem.
+
+Problem: ${problem.text}
+
+Your code will be tested with these assertions:
+${tests.map((t) => `  ${t}`).join('\n')}
+
+Write the Python function now. Output ONLY the code, no markdown blocks.`;
+}
+
+/**
+ * Build prompt for the Critic Agent
  */
 function buildCriticPrompt(
   problem: AgenticProblem,
@@ -81,9 +106,7 @@ function buildCriticPrompt(
     })
     .join('\n\n');
 
-  return `You are a code review expert. Analyze why this code is WRONG.
-
-PROBLEM: ${problem.text}
+  return `PROBLEM: ${problem.text}
 
 CODE:
 ${code}
@@ -100,48 +123,9 @@ Be concise. One line each.`;
 }
 
 /**
- * Parse critic response into structured analysis
+ * Build retry prompt with critic feedback
  */
-function parseCriticResponse(response: string): CriticAnalysis {
-  const wrongMatch = response.match(/WRONG:\s*(.+?)(?:\n|$)/i);
-  const keyMatch = response.match(/KEY:\s*(.+?)(?:\n|$)/i);
-  const hintMatch = response.match(/HINT:\s*(.+?)(?:\n|$)/i);
-
-  return {
-    whatWentWrong: wrongMatch?.[1]?.trim() || 'Unknown error',
-    keyRequirement: keyMatch?.[1]?.trim() || 'Check the problem requirements',
-    hint: hintMatch?.[1]?.trim() || 'Re-read the problem carefully',
-  };
-}
-
-/**
- * Build the initial prompt for agentic mode
- */
-function buildAgenticPrompt(problem: AgenticProblem, tests: string[]): string {
-  return `Write a Python function to solve the following problem.
-
-Problem: ${problem.text}
-
-Your code will be tested with these assertions:
-${tests.map((t) => `  ${t}`).join('\n')}
-
-Write the Python function now. Output ONLY the code, no markdown blocks.`;
-}
-
-/**
- * Failed test info with actual/expected values
- */
-interface FailedTest {
-  assertion: string;
-  error?: string;
-  actual?: string;
-  expected?: string;
-}
-
-/**
- * Build a retry prompt with critic analysis
- */
-function buildRetryPromptWithCritic(
+function buildRetryPrompt(
   problem: AgenticProblem,
   previousCode: string,
   criticAnalysis: CriticAnalysis,
@@ -165,14 +149,30 @@ Write the CORRECTED code. Apply the fix suggested above. Output ONLY Python code
 }
 
 /**
- * Agentic evaluation runner with iteration support
+ * Parse critic response into structured analysis
+ */
+function parseCriticResponse(response: string): CriticAnalysis {
+  const wrongMatch = response.match(/WRONG:\s*(.+?)(?:\n|$)/i);
+  const keyMatch = response.match(/KEY:\s*(.+?)(?:\n|$)/i);
+  const hintMatch = response.match(/HINT:\s*(.+?)(?:\n|$)/i);
+
+  return {
+    whatWentWrong: wrongMatch?.[1]?.trim() || 'Unknown error',
+    keyRequirement: keyMatch?.[1]?.trim() || 'Check the problem requirements',
+    hint: hintMatch?.[1]?.trim() || 'Re-read the problem carefully',
+  };
+}
+
+/**
+ * Agentic evaluation runner using multi-agent system
  */
 export class AgenticEvalRunner {
-  private session: ChatSession;
+  private agentManager: AgentManager;
   private verbose: boolean;
+  private lastFailedTests: FailedTest[] = [];
 
-  constructor(session: ChatSession, options?: { verbose?: boolean }) {
-    this.session = session;
+  constructor(config: Config, options?: { verbose?: boolean }) {
+    this.agentManager = createAgentManager(config);
     this.verbose = options?.verbose ?? false;
   }
 
@@ -245,9 +245,6 @@ export class AgenticEvalRunner {
         problemId: problem.id,
         result,
       });
-
-      // Clear session history for next problem
-      this.session.clearHistory();
     }
 
     // Generate report
@@ -266,7 +263,7 @@ export class AgenticEvalRunner {
   }
 
   /**
-   * Solve a single problem with iteration using Critic Agent
+   * Solve a single problem with Coder-Critic iteration
    */
   private async solveProblemWithIteration(
     problem: AgenticProblem,
@@ -285,8 +282,9 @@ export class AgenticEvalRunner {
       // Build prompt - use critic analysis for retries
       let prompt: string;
       let criticAnalysis: CriticAnalysis | undefined;
+
       if (iteration === 1) {
-        prompt = buildAgenticPrompt(problem, tests);
+        prompt = buildCoderPrompt(problem, tests);
         if (this.verbose) {
           console.log(`\n${'='.repeat(60)}`);
           console.log(`[Problem ${problem.id}] Iteration ${iteration}`);
@@ -298,25 +296,21 @@ export class AgenticEvalRunner {
         if (this.verbose) {
           console.log(`\n[CRITIC AGENT] Analyzing errors...`);
         }
-        criticAnalysis = await this.getCriticAnalysis(
-          problem,
-          lastCode,
-          this.lastFailedTests
-        );
+        criticAnalysis = await this.runCriticAgent(problem, lastCode);
         if (this.verbose) {
           console.log(`  WRONG: ${criticAnalysis.whatWentWrong}`);
           console.log(`  KEY: ${criticAnalysis.keyRequirement}`);
           console.log(`  HINT: ${criticAnalysis.hint}`);
           console.log(`\n[CODER AGENT] Generating fix based on critic feedback...`);
         }
-        prompt = buildRetryPromptWithCritic(problem, lastCode, criticAnalysis, tests);
+        prompt = buildRetryPrompt(problem, lastCode, criticAnalysis, tests);
       }
 
-      // Get code from LLM (Coder Agent)
+      // Run Coder Agent
       let generatedCode: string;
       try {
-        const response = await this.session.sendMessage(prompt);
-        generatedCode = response.content;
+        const result = await this.agentManager.spawn('coder', prompt);
+        generatedCode = result.content;
       } catch (error) {
         return {
           problemId: problem.id,
@@ -399,9 +393,6 @@ export class AgenticEvalRunner {
       if (this.verbose) {
         console.log(`\n🔄 [RETRY] Moving to iteration ${iteration + 1}...`);
       }
-
-      // Clear history for fresh retry with critic feedback
-      this.session.clearHistory();
     }
 
     // Should not reach here
@@ -417,19 +408,17 @@ export class AgenticEvalRunner {
   }
 
   /**
-   * Critic Agent: Analyzes the error and provides feedback
+   * Run Critic Agent to analyze errors
    */
-  private async getCriticAnalysis(
+  private async runCriticAgent(
     problem: AgenticProblem,
-    code: string,
-    failedTests: FailedTest[]
+    code: string
   ): Promise<CriticAnalysis> {
-    const criticPrompt = buildCriticPrompt(problem, code, failedTests);
+    const prompt = buildCriticPrompt(problem, code, this.lastFailedTests);
 
     try {
-      const response = await this.session.sendMessage(criticPrompt);
-      this.session.clearHistory(); // Clear after critic, before coder
-      return parseCriticResponse(response.content);
+      const result = await this.agentManager.spawn('critic', prompt);
+      return parseCriticResponse(result.content);
     } catch {
       // Fallback if critic fails
       return {
@@ -439,8 +428,6 @@ export class AgenticEvalRunner {
       };
     }
   }
-
-  private lastFailedTests: FailedTest[] = [];
 
   private createMetrics(
     startTime: number,

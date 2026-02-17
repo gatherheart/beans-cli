@@ -6,11 +6,15 @@ export { bashAgent } from './bash-agent.js';
 export { exploreAgent } from './explore-agent.js';
 export { planAgent } from './plan-agent.js';
 export { generalAgent } from './general-agent.js';
+export { coderAgent } from './coder-agent.js';
+export { criticAgent } from './critic-agent.js';
 
 import { bashAgent } from './bash-agent.js';
 import { exploreAgent } from './explore-agent.js';
 import { planAgent } from './plan-agent.js';
 import { generalAgent } from './general-agent.js';
+import { coderAgent } from './coder-agent.js';
+import { criticAgent } from './critic-agent.js';
 import type { SpecializedAgentDefinition } from '../types.js';
 
 /**
@@ -21,6 +25,8 @@ export const specializedAgents: SpecializedAgentDefinition[] = [
   exploreAgent,
   planAgent,
   generalAgent,
+  coderAgent,
+  criticAgent,
 ];
 
 /**
