@@ -27,6 +27,10 @@ export interface TestResult {
   passed: boolean;
   assertion: string;
   error?: string;
+  /** Actual value returned by the function */
+  actual?: string;
+  /** Expected value from the assertion */
+  expected?: string;
 }
 
 /**

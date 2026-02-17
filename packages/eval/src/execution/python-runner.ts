@@ -122,11 +122,29 @@ export async function executeWithTests(
       const line = lines[i];
       if (line) {
         const passed = line.includes(':PASS');
-        const errorMatch = line.match(/:FAIL:(.+)$/);
+
+        // Parse error and actual/expected values
+        // Format: TEST:0:FAIL:message|ACTUAL:value|EXPECTED:value
+        let error: string | undefined;
+        let actual: string | undefined;
+        let expected: string | undefined;
+
+        if (!passed) {
+          const failMatch = line.match(/:FAIL:([^|]+)/);
+          const actualMatch = line.match(/\|ACTUAL:([^|]+)/);
+          const expectedMatch = line.match(/\|EXPECTED:(.+)$/);
+
+          error = failMatch ? failMatch[1] : undefined;
+          actual = actualMatch ? actualMatch[1] : undefined;
+          expected = expectedMatch ? expectedMatch[1] : undefined;
+        }
+
         results.push({
           passed,
           assertion: tests[i],
-          error: errorMatch ? errorMatch[1] : undefined,
+          error,
+          actual,
+          expected,
         });
       } else {
         results.push({
@@ -163,23 +181,44 @@ export async function executeWithTests(
 
 /**
  * Build a Python script that runs tests and reports results
+ * Captures actual vs expected values for better feedback
  */
 function buildTestScript(code: string, tests: string[], setupCode?: string): string {
   const setupSection = setupCode ? `${setupCode}\n` : '';
 
+  // Helper function to evaluate and compare
+  const helperCode = `
+import re
+
+def _run_test(test_str, test_idx):
+    """Run a test and capture actual vs expected values."""
+    # Try to parse assertion: assert expr == expected or assert expr
+    match = re.match(r'assert\\s+(.+?)\\s*==\\s*(.+)$', test_str.strip())
+    if match:
+        expr, expected_str = match.groups()
+        try:
+            actual = eval(expr)
+            expected = eval(expected_str)
+            if actual == expected:
+                print(f"TEST:{test_idx}:PASS")
+            else:
+                print(f"TEST:{test_idx}:FAIL:Expected {repr(expected)}, got {repr(actual)}|ACTUAL:{repr(actual)}|EXPECTED:{repr(expected)}")
+        except Exception as e:
+            print(f"TEST:{test_idx}:FAIL:{type(e).__name__}: {e}")
+    else:
+        # Fallback for non-equality assertions
+        try:
+            exec(test_str)
+            print(f"TEST:{test_idx}:PASS")
+        except AssertionError as e:
+            print(f"TEST:{test_idx}:FAIL:{e}")
+        except Exception as e:
+            print(f"TEST:{test_idx}:FAIL:{type(e).__name__}: {e}")
+`;
+
   const testSection = tests
-    .map(
-      (test, i) => `
-try:
-    ${test}
-    print(f"TEST:{${i}}:PASS")
-except AssertionError as e:
-    print(f"TEST:{${i}}:FAIL:{e}")
-except Exception as e:
-    print(f"TEST:{${i}}:FAIL:{type(e).__name__}: {e}")
-`
-    )
+    .map((test, i) => `_run_test(${JSON.stringify(test)}, ${i})`)
     .join('\n');
 
-  return `${setupSection}${code}\n\n${testSection}`;
+  return `${setupSection}${code}\n\n${helperCode}\n${testSection}`;
 }

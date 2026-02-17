@@ -21,18 +21,27 @@ Rules:
 - Include the function definition
 - Do not include test cases or examples`;
 
-const AGENTIC_SYSTEM_PROMPT = `You are a Python code generator that writes correct code through iteration.
+const AGENTIC_SYSTEM_PROMPT = `You are a Python code generator that writes correct code through careful reasoning.
 
-When given a problem:
-1. Write a Python function to solve it
-2. If tests fail, analyze the error and fix your code
-3. Keep iterating until ALL tests pass
+IMPORTANT: When your code produces WRONG results, you MUST:
+1. STOP and carefully compare your output vs the expected output
+2. Look for patterns in the errors (e.g., "my output is 2x expected" means divide by 2)
+3. Trace through your logic step by step to find the bug
+4. Think about what mathematical or logical mistake you made
+5. Fix the root cause, not just the symptoms
+
+Common mistakes to check:
+- Wrong formula (e.g., rectangular vs triangular prism volume)
+- Off-by-one errors
+- Integer vs float division
+- Missing edge cases
+- Wrong operator (+, -, *, /)
 
 Rules:
 - Output ONLY the Python code (no markdown, no explanations)
 - The function name and signature must match what the tests expect
-- Pay attention to edge cases
-- Learn from test failures to fix your code`;
+- When you see "Expected X, Got Y", analyze WHY your answer differs
+- If your output is consistently N times the expected, adjust your formula accordingly`;
 
 /**
  * Run benchmark evaluation
@@ -88,7 +97,7 @@ export async function runEval(args: CLIArgs): Promise<void> {
 
   // Create appropriate runner
   const runner = isAgentic
-    ? new AgenticEvalRunner(session)
+    ? new AgenticEvalRunner(session, { verbose: args.verbose })
     : new EvalRunner(session);
 
   const startTime = Date.now();
