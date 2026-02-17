@@ -36,16 +36,11 @@ export GOOGLE_API_KEY="your-api-key"
 
 ## Building
 
-The eval package is separate from the default build. Use `build:all` to include it:
-
 ```bash
-# Build everything including eval
-npm run build:all
-
-# Or build separately
-npm run build:eval   # Just eval package
-npm run build        # Core + CLI (no eval)
+npm run build
 ```
+
+This builds core, eval, and CLI packages together.
 
 ## Usage
 
