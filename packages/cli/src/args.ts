@@ -46,6 +46,24 @@ export interface CLIArgs {
   uiTest: boolean;
   /** UI test scenario to run (requires --ui-test) */
   uiTestScenario?: UITestScenarioArg;
+  /** Run benchmark evaluation */
+  eval: boolean;
+  /** Benchmark name for evaluation (e.g., 'mbpp') */
+  benchmark?: string;
+  /** Limit number of problems to evaluate */
+  limit?: number;
+  /** Skip first N problems */
+  offset?: number;
+  /** Output file path for evaluation report */
+  output?: string;
+  /** Resume evaluation from a previous run */
+  resume?: string;
+  /** Timeout per problem in ms */
+  timeout?: number;
+  /** Enable agentic mode with iteration */
+  agentic: boolean;
+  /** Max iterations per problem in agentic mode */
+  maxIterations?: number;
 }
 
 /**
@@ -63,6 +81,8 @@ export async function parseArgs(): Promise<CLIArgs> {
     interactive: false,
     debug: false,
     uiTest: false,
+    eval: false,
+    agentic: false,
   };
 
   const positional: string[] = [];
@@ -118,6 +138,33 @@ export async function parseArgs(): Promise<CLIArgs> {
         break;
       case '--ui-test-scenario':
         result.uiTestScenario = args[++i] as UITestScenarioArg;
+        break;
+      case '--eval':
+        result.eval = true;
+        break;
+      case '--benchmark':
+        result.benchmark = args[++i];
+        break;
+      case '--limit':
+        result.limit = parseInt(args[++i], 10);
+        break;
+      case '--offset':
+        result.offset = parseInt(args[++i], 10);
+        break;
+      case '--output':
+        result.output = args[++i];
+        break;
+      case '--resume':
+        result.resume = args[++i];
+        break;
+      case '--timeout':
+        result.timeout = parseInt(args[++i], 10);
+        break;
+      case '--agentic':
+        result.agentic = true;
+        break;
+      case '--max-iterations':
+        result.maxIterations = parseInt(args[++i], 10);
         break;
       default:
         if (!arg.startsWith('-')) {

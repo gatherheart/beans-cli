@@ -264,7 +264,7 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
     systemInstruction: request.systemPrompt
       ? { parts: [{ text: request.systemPrompt }] }
       : undefined,
-    tools: request.tools
+    tools: request.tools && request.tools.length > 0
       ? [{ functionDeclarations: request.tools.map(formatToolForGoogle) }]
       : undefined,
     generationConfig: {

@@ -16,6 +16,7 @@
     "dev:watch": "tsx watch packages/cli/src/index.ts",
     "build": "npm run build:core && npm run build:cli",
     "build:core": "npm run build --workspace @beans/core",
+    "build:eval": "npm run build --workspace @beans/eval",
     "build:cli": "npm run build --workspace @beans/cli",
     "test": "vitest run",
     "test:watch": "vitest",

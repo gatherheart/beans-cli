@@ -7,6 +7,7 @@
 
 import { parseArgs } from './args.js';
 import { runApp } from './app.js';
+import { runEval } from './eval.js';
 import { Config } from '@beans/core';
 
 async function main() {
@@ -37,12 +38,25 @@ Options:
   --yolo                  Auto-approve all tool calls
   --debug                 Show LLM requests and responses for debugging
 
+Evaluation:
+  --eval                  Run benchmark evaluation
+  --benchmark <name>      Benchmark to run (e.g., mbpp)
+  --limit <n>             Limit to first N problems
+  --offset <n>            Skip first N problems
+  --output <path>         Output report file (.json or .md)
+  --resume <run-id>       Resume from previous run
+  --timeout <ms>          Timeout per problem (default: 30000)
+  --agentic               Enable agentic mode (iterate on failures)
+  --max-iterations <n>    Max iterations per problem (default: 5)
+
 Examples:
   beans "help me refactor this code"
   beans -a "A helpful coding assistant" "review my code"
   beans --agent-profile ./my-agent.json
   beans --sop "Always explain step by step"
   beans --list-models
+  beans --eval --benchmark mbpp --limit 10
+  beans --eval --benchmark mbpp --agentic --limit 10
 `);
     process.exit(0);
   }
@@ -68,6 +82,12 @@ Examples:
       console.log('  Model listing not supported for this provider');
     }
 
+    process.exit(0);
+  }
+
+  // Route to evaluation mode
+  if (args.eval) {
+    await runEval(args);
     process.exit(0);
   }
 

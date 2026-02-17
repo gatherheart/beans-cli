@@ -1,0 +1,35 @@
+{
+  "name": "@beans/eval",
+  "version": "0.1.0",
+  "description": "Evaluation framework for benchmarking code generation",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./benchmarks": {
+      "import": "./dist/benchmarks/index.js",
+      "types": "./dist/benchmarks/index.d.ts"
+    },
+    "./runner": {
+      "import": "./dist/runner/index.js",
+      "types": "./dist/runner/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@beans/core": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^3.0.0"
+  }
+}
