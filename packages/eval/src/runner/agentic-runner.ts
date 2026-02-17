@@ -277,7 +277,7 @@ export class AgenticEvalRunner {
     const problemStartTime = Date.now();
     let iteration = 0;
     let lastCode = '';
-    let totalTokens = 0;
+    const totalTokens = 0;
 
     while (iteration < maxIterations) {
       iteration++;
