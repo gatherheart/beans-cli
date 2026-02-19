@@ -39,6 +39,15 @@ const HELP_TEXT = `## Available Commands
 - Ctrl+A to move to start, Ctrl+E to move to end
 - Ctrl+U to clear line`;
 
+// Paste token marker format: §PASTE:id§
+const PASTE_MARKER_REGEX = /§PASTE:(\d+)§/g;
+
+interface PasteToken {
+  original: string;
+  lineCount: number;
+  charCount: number;
+}
+
 interface InputAreaProps {
   onExit: () => void;
   width?: number;
@@ -51,9 +60,30 @@ export const InputArea = React.memo(function InputArea({ onExit, width }: InputA
   // Input history for up/down arrow navigation
   const [inputHistory, setInputHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1); // -1 means not browsing history
-  const [draftInput, setDraftInput] = useState(''); // Store current input when browsing history
+  const [pasteTokens, setPasteTokens] = useState<Map<number, PasteToken>>(new Map());
+  const pasteCounterRef = React.useRef(0);
   const { isLoading, profile } = useChatState();
   const { sendMessage, addSystemMessage, clearHistory, getLLMHistory, getSystemPrompt } = useChatActions();
+
+  // Expand paste tokens to original text
+  const expandPasteTokens = useCallback((text: string, tokens: Map<number, PasteToken>): string => {
+    return text.replace(PASTE_MARKER_REGEX, (_, id) => {
+      const token = tokens.get(Number(id));
+      return token ? token.original : '';
+    });
+  }, []);
+
+  // Get display text with paste tokens shown as chips
+  const getDisplayText = useCallback((text: string, tokens: Map<number, PasteToken>): string => {
+    return text.replace(PASTE_MARKER_REGEX, (_, id) => {
+      const token = tokens.get(Number(id));
+      if (!token) return '';
+      if (token.lineCount > 0) {
+        return `[Pasted #${id} +${token.lineCount} lines]`;
+      }
+      return `[Pasted #${id} ${token.charCount} chars]`;
+    });
+  }, []);
 
   // Cursor blink effect
   useEffect(() => {
@@ -80,7 +110,6 @@ export const InputArea = React.memo(function InputArea({ onExit, width }: InputA
     }
     // Reset history browsing state
     setHistoryIndex(-1);
-    setDraftInput('');
 
     // Handle slash commands
     if (trimmed.startsWith('/')) {
@@ -95,6 +124,7 @@ export const InputArea = React.memo(function InputArea({ onExit, width }: InputA
         clearHistory();
         setInput('');
         setCursorPos(0);
+        setPasteTokens(new Map());
         return;
       }
 
@@ -146,10 +176,15 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
       return;
     }
 
+    // Expand paste tokens to original text
+    const expanded = expandPasteTokens(trimmed, pasteTokens);
+
     setInput('');
     setCursorPos(0);
-    await sendMessage(trimmed);
-  }, [sendMessage, addSystemMessage, clearHistory, onExit, profile, getLLMHistory, getSystemPrompt, inputHistory]);
+    setPasteTokens(new Map());
+
+    await sendMessage(expanded);
+  }, [sendMessage, addSystemMessage, clearHistory, onExit, profile, getLLMHistory, getSystemPrompt, inputHistory, expandPasteTokens, pasteTokens]);
 
   // Handle keyboard input
   useInput((char, key) => {
@@ -177,72 +212,145 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
     if (key.ctrl && char === 'u') {
       setInput('');
       setCursorPos(0);
+      setPasteTokens(new Map());
       return;
     }
 
-    // Ctrl+J: insert newline
-    if (key.ctrl && char === 'j') {
-      setInput(prev => prev.slice(0, cursorPos) + '\n' + prev.slice(cursorPos));
-      setCursorPos(pos => pos + 1);
+    // Ctrl+J: insert newline (char can be 'j' or '\n' depending on terminal)
+    if (key.ctrl && (char === 'j' || char === '\n')) {
+      // Check if cursor is inside a paste marker - if so, move to end
+      let insertPos = cursorPos;
+      const markerRegex = /§PASTE:\d+§/g;
+      let match;
+      while ((match = markerRegex.exec(input)) !== null) {
+        const start = match.index;
+        const end = start + match[0].length;
+        if (cursorPos > start && cursorPos < end) {
+          insertPos = end;
+          break;
+        }
+      }
+      setInput(prev => prev.slice(0, insertPos) + '\n' + prev.slice(insertPos));
+      setCursorPos(insertPos + 1);
       return;
     }
 
-    // Left arrow: move cursor left
+    // Left arrow: move cursor left (skip over paste markers)
     if (key.leftArrow) {
-      setCursorPos(pos => Math.max(0, pos - 1));
+      let newPos = Math.max(0, cursorPos - 1);
+      // Check if we landed inside a paste marker, skip to its start
+      const beforeCursor = input.slice(0, newPos);
+      const markerMatch = beforeCursor.match(/§PASTE:\d+§?$/);
+      if (markerMatch && !markerMatch[0].endsWith('§')) {
+        // We're inside a marker, find its start
+        const fullMatch = input.slice(0, cursorPos).match(/(§PASTE:\d+§)$/);
+        if (fullMatch) {
+          newPos = cursorPos - fullMatch[0].length;
+        }
+      }
+      setCursorPos(newPos);
       return;
     }
 
-    // Right arrow: move cursor right
+    // Right arrow: move cursor right (skip over paste markers)
     if (key.rightArrow) {
-      setCursorPos(pos => Math.min(input.length, pos + 1));
+      let newPos = Math.min(input.length, cursorPos + 1);
+      // Check if we're at the start of a paste marker, skip to its end
+      const afterCursor = input.slice(cursorPos);
+      const markerMatch = afterCursor.match(/^§PASTE:\d+§/);
+      if (markerMatch) {
+        newPos = cursorPos + markerMatch[0].length;
+      }
+      setCursorPos(newPos);
       return;
     }
 
-    // Up arrow: go back in history
+    // Up arrow: history when empty, move up line when has input
     if (key.upArrow) {
-      if (inputHistory.length === 0) return;
+      if (input.length === 0) {
+        // History navigation when empty
+        if (inputHistory.length === 0) return;
 
-      if (historyIndex === -1) {
-        // Starting to browse history - save current input as draft
-        setDraftInput(input);
-        const newIndex = inputHistory.length - 1;
-        setHistoryIndex(newIndex);
-        setInput(inputHistory[newIndex]);
-        setCursorPos(inputHistory[newIndex].length);
-      } else if (historyIndex > 0) {
-        // Go further back in history
-        const newIndex = historyIndex - 1;
-        setHistoryIndex(newIndex);
-        setInput(inputHistory[newIndex]);
-        setCursorPos(inputHistory[newIndex].length);
+        if (historyIndex === -1) {
+          const newIndex = inputHistory.length - 1;
+          setHistoryIndex(newIndex);
+          setInput(inputHistory[newIndex]);
+          setCursorPos(inputHistory[newIndex].length);
+        } else if (historyIndex > 0) {
+          const newIndex = historyIndex - 1;
+          setHistoryIndex(newIndex);
+          setInput(inputHistory[newIndex]);
+          setCursorPos(inputHistory[newIndex].length);
+        }
+      } else {
+        // Move cursor to previous line
+        const beforeCursor = input.slice(0, cursorPos);
+        const lastNewline = beforeCursor.lastIndexOf('\n');
+        if (lastNewline === -1) {
+          // Already on first line, move to start
+          setCursorPos(0);
+        } else {
+          const currentCol = cursorPos - lastNewline - 1;
+          const prevLineStart = beforeCursor.lastIndexOf('\n', lastNewline - 1) + 1;
+          const prevLineLen = lastNewline - prevLineStart;
+          const newCol = Math.min(currentCol, prevLineLen);
+          setCursorPos(prevLineStart + newCol);
+        }
       }
       return;
     }
 
-    // Down arrow: go forward in history
+    // Down arrow: history when browsing, move down line when has input
     if (key.downArrow) {
-      if (historyIndex === -1) return; // Not browsing history
-
-      if (historyIndex < inputHistory.length - 1) {
-        // Go forward in history
-        const newIndex = historyIndex + 1;
-        setHistoryIndex(newIndex);
-        setInput(inputHistory[newIndex]);
-        setCursorPos(inputHistory[newIndex].length);
-      } else {
-        // Back to draft input
-        setHistoryIndex(-1);
-        setInput(draftInput);
-        setCursorPos(draftInput.length);
+      if (historyIndex !== -1) {
+        // Continue history navigation
+        if (historyIndex < inputHistory.length - 1) {
+          const newIndex = historyIndex + 1;
+          setHistoryIndex(newIndex);
+          setInput(inputHistory[newIndex]);
+          setCursorPos(inputHistory[newIndex].length);
+        } else {
+          setHistoryIndex(-1);
+          setInput('');
+          setCursorPos(0);
+        }
+      } else if (input.length > 0) {
+        // Move cursor to next line
+        const beforeCursor = input.slice(0, cursorPos);
+        const afterCursor = input.slice(cursorPos);
+        const lineStart = beforeCursor.lastIndexOf('\n') + 1;
+        const currentCol = cursorPos - lineStart;
+        const nextNewline = afterCursor.indexOf('\n');
+        if (nextNewline === -1) {
+          // Already on last line, move to end
+          setCursorPos(input.length);
+        } else {
+          const nextLineStart = cursorPos + nextNewline + 1;
+          const nextLineEnd = input.indexOf('\n', nextLineStart);
+          const nextLineLen = nextLineEnd === -1 ? input.length - nextLineStart : nextLineEnd - nextLineStart;
+          const newCol = Math.min(currentCol, nextLineLen);
+          setCursorPos(nextLineStart + newCol);
+        }
       }
       return;
     }
 
     // Shift+Enter: insert newline
     if (key.return && key.shift) {
-      setInput(prev => prev.slice(0, cursorPos) + '\n' + prev.slice(cursorPos));
-      setCursorPos(pos => pos + 1);
+      // Check if cursor is inside a paste marker - if so, move to end
+      let insertPos = cursorPos;
+      const markerRegex = /§PASTE:\d+§/g;
+      let match;
+      while ((match = markerRegex.exec(input)) !== null) {
+        const start = match.index;
+        const end = start + match[0].length;
+        if (cursorPos > start && cursorPos < end) {
+          insertPos = end;
+          break;
+        }
+      }
+      setInput(prev => prev.slice(0, insertPos) + '\n' + prev.slice(insertPos));
+      setCursorPos(insertPos + 1);
       return;
     }
 
@@ -258,41 +366,122 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
       return;
     }
 
-    // Backspace: delete character before cursor
+    // Backspace: delete character before cursor (or entire paste token)
     if (key.backspace || key.delete) {
       if (cursorPos > 0) {
-        setInput(prev => prev.slice(0, cursorPos - 1) + prev.slice(cursorPos));
-        setCursorPos(pos => pos - 1);
+        const markerMatch = input.slice(0, cursorPos).match(/§PASTE:(\d+)§$/);
+        if (markerMatch) {
+          const markerId = Number(markerMatch[1]);
+          const markerStart = cursorPos - markerMatch[0].length;
+          setInput(prev => prev.slice(0, markerStart) + prev.slice(cursorPos));
+          setCursorPos(markerStart);
+          setPasteTokens(prev => {
+            const next = new Map(prev);
+            next.delete(markerId);
+            return next;
+          });
+        } else {
+          setInput(prev => prev.slice(0, cursorPos - 1) + prev.slice(cursorPos));
+          setCursorPos(pos => pos - 1);
+        }
       }
+      return;
+    }
+
+    // Detect paste: multiple characters at once (threshold > 3 to avoid fast typing false positives)
+    // Also detect shorter pastes if they contain newlines or tabs (but length must be > 1)
+    if (char && (char.length > 3 || (char.length > 1 && (char.includes('\n') || char.includes('\t'))))) {
+      const lines = char.split(/\r?\n|\r/);
+      const lineCount = lines.length - 1;
+
+      pasteCounterRef.current += 1;
+      const newId = pasteCounterRef.current;
+      const marker = `§PASTE:${newId}§`;
+
+      setPasteTokens(tokens => {
+        const next = new Map(tokens);
+        next.set(newId, { original: char, lineCount, charCount: char.length });
+        return next;
+      });
+
+      setInput(prev => prev.slice(0, cursorPos) + marker + prev.slice(cursorPos));
+      setCursorPos(cursorPos + marker.length);
       return;
     }
 
     // Regular character input: insert at cursor position
     if (char && !key.ctrl && !key.meta) {
-      setInput(prev => prev.slice(0, cursorPos) + char + prev.slice(cursorPos));
-      setCursorPos(pos => pos + char.length);
+      // Check if cursor is inside a paste marker - if so, move to end of marker
+      let insertPos = cursorPos;
+      const markerRegex = /§PASTE:\d+§/g;
+      let match;
+      while ((match = markerRegex.exec(input)) !== null) {
+        const start = match.index;
+        const end = start + match[0].length;
+        if (cursorPos > start && cursorPos < end) {
+          insertPos = end;
+          break;
+        }
+      }
+
+      setInput(prev => prev.slice(0, insertPos) + char + prev.slice(insertPos));
+      setCursorPos(insertPos + char.length);
     }
   });
+
+  // Map raw cursor position to display cursor position
+  const getDisplayCursorPos = useCallback((rawCursor: number, rawInput: string, tokens: Map<number, PasteToken>): number => {
+    let displayPos = 0;
+    let i = 0;
+    while (i < rawCursor && i < rawInput.length) {
+      const remaining = rawInput.slice(i);
+      const markerMatch = remaining.match(/^§PASTE:(\d+)§/);
+      if (markerMatch) {
+        const token = tokens.get(Number(markerMatch[1]));
+        if (token) {
+          const chipText = token.lineCount > 0
+            ? `[Pasted #${markerMatch[1]} +${token.lineCount} lines]`
+            : `[Pasted #${markerMatch[1]} ${token.charCount} chars]`;
+          // If cursor is past or at the end of this marker, add full chip length
+          if (i + markerMatch[0].length <= rawCursor) {
+            displayPos += chipText.length;
+            i += markerMatch[0].length;
+            continue;
+          }
+        }
+      }
+      displayPos++;
+      i++;
+    }
+    return displayPos;
+  }, []);
 
   // Render input with cursor
   const renderInputWithCursor = () => {
     if (!input && !isLoading) {
-      // Show hint about history when available
       if (inputHistory.length > 0) {
         return <Text color="gray">Press ↑ to edit previous messages</Text>;
       }
       return <Text color="gray">Type a message...</Text>;
     }
 
-    const beforeCursor = input.slice(0, cursorPos);
-    const atCursor = input[cursorPos] || ' ';
-    const afterCursor = input.slice(cursorPos + 1);
+    const displayText = getDisplayText(input, pasteTokens);
+    const displayCursor = getDisplayCursorPos(cursorPos, input, pasteTokens);
+
+    const beforeCursor = displayText.slice(0, displayCursor);
+    const charAtCursor = displayText[displayCursor];
+    const afterCursor = displayText.slice(displayCursor + 1);
+
+    // Handle cursor on newline or at end - show visible cursor block
+    const isOnNewline = charAtCursor === '\n';
+    const atCursor = isOnNewline ? ' ' : (charAtCursor || ' ');
+    const afterCursorWithNewline = isOnNewline ? '\n' + afterCursor : afterCursor;
 
     return (
       <Text>
         {beforeCursor}
         <Text inverse={cursorVisible}>{atCursor}</Text>
-        {afterCursor}
+        {afterCursorWithNewline}
       </Text>
     );
   };
