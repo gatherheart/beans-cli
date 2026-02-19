@@ -69,7 +69,7 @@ export class AgentExecutor {
       ? this.substituteInputs(definition.promptConfig.query, inputs)
       : undefined;
 
-    // Add initial messages
+    // Add initial messages (conversation history)
     if (definition.promptConfig.initialMessages) {
       messages.push(...definition.promptConfig.initialMessages);
     }
@@ -78,6 +78,9 @@ export class AgentExecutor {
     if (query) {
       messages.push({ role: 'user', content: query });
     }
+
+    // Track where new messages start (after initial messages + query)
+    const newMessagesStartIndex = messages.length;
 
     const startTime = Date.now();
 
@@ -154,8 +157,9 @@ export class AgentExecutor {
         terminateReason = 'max_turns';
       }
 
-      // Extract and validate output
-      const lastAssistantMessage = [...messages]
+      // Extract and validate output - only look at NEW messages (not conversation history)
+      const newMessages = messages.slice(newMessagesStartIndex);
+      const lastAssistantMessage = [...newMessages]
         .reverse()
         .find((m) => m.role === 'assistant');
       const rawContent = lastAssistantMessage?.content ?? '';
