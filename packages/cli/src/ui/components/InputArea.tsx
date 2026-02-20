@@ -14,11 +14,17 @@
  * - Ctrl+U: clear line
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useChatState, useChatActions } from '../contexts/ChatContext.js';
 import { formatHistoryForDisplay } from '../utils/formatHistory.js';
 import { colors } from '../theme/colors.js';
+
+// Bracketed paste mode escape sequences
+const PASTE_START = '\x1b[200~';
+const PASTE_END = '\x1b[201~';
+const ENABLE_BRACKETED_PASTE = '\x1b[?2004h';
+const DISABLE_BRACKETED_PASTE = '\x1b[?2004l';
 
 const HELP_TEXT = `## Available Commands
 
@@ -61,7 +67,12 @@ export const InputArea = React.memo(function InputArea({ onExit, width }: InputA
   const [inputHistory, setInputHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1); // -1 means not browsing history
   const [pasteTokens, setPasteTokens] = useState<Map<number, PasteToken>>(new Map());
-  const pasteCounterRef = React.useRef(0);
+  const pasteCounterRef = useRef(0);
+
+  // Bracketed paste mode state
+  const isPastingRef = useRef(false);
+  const pasteBufferRef = useRef('');
+
   const { isLoading, profile } = useChatState();
   const { sendMessage, addSystemMessage, clearHistory, getLLMHistory, getSystemPrompt } = useChatActions();
 
@@ -85,6 +96,64 @@ export const InputArea = React.memo(function InputArea({ onExit, width }: InputA
     });
   }, []);
 
+  // Handle pasted content from bracketed paste mode
+  const handlePasteContent = useCallback((content: string) => {
+    if (!content || isLoading) return;
+
+    // Normalize line endings: \r\n -> \n, \r -> \n
+    const normalizedContent = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    const lines = normalizedContent.split('\n');
+    const lineCount = lines.length - 1;
+
+    pasteCounterRef.current += 1;
+    const newId = pasteCounterRef.current;
+    const marker = `§PASTE:${newId}§`;
+
+    setPasteTokens(tokens => {
+      const next = new Map(tokens);
+      next.set(newId, { original: normalizedContent, lineCount, charCount: normalizedContent.length });
+      return next;
+    });
+
+    setInput(prev => {
+      const newInput = prev.slice(0, cursorPos) + marker + prev.slice(cursorPos);
+      setCursorPos(cursorPos + marker.length);
+      return newInput;
+    });
+  }, [cursorPos, isLoading]);
+
+  // Enable bracketed paste mode
+  useEffect(() => {
+    // Skip escape sequence output in test environment
+    const isTestEnv = process.env['NODE_ENV'] === 'test' || process.env['VITEST'];
+    if (!isTestEnv) {
+      process.stdout.write(ENABLE_BRACKETED_PASTE);
+    }
+
+    const cleanup = () => {
+      if (!isTestEnv) {
+        process.stdout.write(DISABLE_BRACKETED_PASTE);
+      }
+    };
+
+    // Only add process listeners in non-test environment
+    if (!isTestEnv) {
+      process.on('exit', cleanup);
+      process.on('SIGINT', cleanup);
+      process.on('SIGTERM', cleanup);
+    }
+
+    return () => {
+      cleanup();
+      if (!isTestEnv) {
+        process.removeListener('exit', cleanup);
+        process.removeListener('SIGINT', cleanup);
+        process.removeListener('SIGTERM', cleanup);
+      }
+    };
+  }, []);
+
   // Cursor blink effect
   useEffect(() => {
     const interval = setInterval(() => {
@@ -92,6 +161,7 @@ export const InputArea = React.memo(function InputArea({ onExit, width }: InputA
     }, 530);
     return () => clearInterval(interval);
   }, []);
+
 
   // Keep cursor position in sync with input length
   useEffect(() => {
@@ -187,8 +257,67 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
   }, [sendMessage, addSystemMessage, clearHistory, onExit, profile, getLLMHistory, getSystemPrompt, inputHistory, expandPasteTokens, pasteTokens]);
 
   // Handle keyboard input
-  useInput((char, key) => {
+  useInput((inputChar, key) => {
+    // Skip if loading
     if (isLoading) return;
+
+    let char = inputChar;
+    // Check both char and key.sequence for paste markers
+    const sequence = (key as { sequence?: string }).sequence || '';
+    const combined = char + sequence;
+
+    // Detect paste markers (ESC may be stripped by readline, leaving [200~ or [201~)
+    // Full markers: \x1b[200~ (start) and \x1b[201~ (end)
+    // Stripped markers: [200~ and [201~
+
+    // Check for paste start marker
+    // PASTE_START = '\x1b[200~' (6 chars), stripped version '[200~' (5 chars)
+    // PASTE_END = '\x1b[201~' (6 chars), stripped version '[201~' (5 chars)
+    const hasStartMarker = combined.includes(PASTE_START) || combined.includes('[200~');
+    const hasEndMarker = combined.includes(PASTE_END) || combined.includes('[201~');
+
+    if (hasStartMarker) {
+      isPastingRef.current = true;
+      pasteBufferRef.current = '';
+      // Extract any content after the start marker
+      const startIdx = char.indexOf(PASTE_START);
+      const startIdxStripped = char.indexOf('[200~');
+      if (startIdx !== -1) {
+        char = char.slice(startIdx + PASTE_START.length); // 6 chars with ESC
+      } else if (startIdxStripped !== -1) {
+        char = char.slice(startIdxStripped + 5); // 5 chars without ESC: '[200~'
+      }
+      // If no end marker in this event, buffer remaining content
+      if (!hasEndMarker && char) {
+        pasteBufferRef.current += char;
+      }
+    }
+
+    if (hasEndMarker) {
+      const endIdx = char.indexOf(PASTE_END);
+      const endIdxStripped = char.indexOf('[201~');
+      let contentBeforeEnd = '';
+      if (endIdx !== -1) {
+        contentBeforeEnd = char.slice(0, endIdx);
+      } else if (endIdxStripped !== -1) {
+        contentBeforeEnd = char.slice(0, endIdxStripped);
+      }
+      pasteBufferRef.current += contentBeforeEnd;
+
+      // Create paste token with buffered content
+      if (pasteBufferRef.current) {
+        handlePasteContent(pasteBufferRef.current);
+      }
+      pasteBufferRef.current = '';
+      isPastingRef.current = false;
+      return;
+    }
+
+    // If we're in paste mode, buffer the content
+    if (isPastingRef.current) {
+      pasteBufferRef.current += char;
+      return;
+    }
 
     // Ctrl+C: exit
     if (key.ctrl && char === 'c') {
@@ -388,28 +517,8 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
       return;
     }
 
-    // Detect paste: multiple characters at once (threshold > 3 to avoid fast typing false positives)
-    // Also detect shorter pastes if they contain newlines or tabs (but length must be > 1)
-    if (char && (char.length > 3 || (char.length > 1 && (char.includes('\n') || char.includes('\t'))))) {
-      const lines = char.split(/\r?\n|\r/);
-      const lineCount = lines.length - 1;
-
-      pasteCounterRef.current += 1;
-      const newId = pasteCounterRef.current;
-      const marker = `§PASTE:${newId}§`;
-
-      setPasteTokens(tokens => {
-        const next = new Map(tokens);
-        next.set(newId, { original: char, lineCount, charCount: char.length });
-        return next;
-      });
-
-      setInput(prev => prev.slice(0, cursorPos) + marker + prev.slice(cursorPos));
-      setCursorPos(cursorPos + marker.length);
-      return;
-    }
-
     // Regular character input: insert at cursor position
+    // Note: Paste detection is now handled via bracketed paste mode (raw stdin listener)
     if (char && !key.ctrl && !key.meta) {
       // Check if cursor is inside a paste marker - if so, move to end of marker
       let insertPos = cursorPos;

@@ -377,8 +377,11 @@ describe('InputArea', () => {
       await delay(50);
 
       // Move cursor to beginning (26 left arrows)
+      // Note: delays needed because rapid-fire escape sequences in tests
+      // don't simulate real terminal behavior properly
       for (let i = 0; i < 26; i++) {
         stdin.write('\x1B[D');
+        await delay(10);
       }
       await delay(50);
 
