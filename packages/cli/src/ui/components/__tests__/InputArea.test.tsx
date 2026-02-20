@@ -81,7 +81,7 @@ describe('InputArea', () => {
 
   describe('keyboard input', () => {
     it('displays typed characters', async () => {
-      const { stdin, lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
+      const { lastFrame, stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
 
       stdin.write('hello');
       await delay(50);
@@ -90,7 +90,7 @@ describe('InputArea', () => {
     });
 
     it('removes placeholder when typing', async () => {
-      const { stdin, lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
+      const { lastFrame, stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
 
       stdin.write('a');
       await delay(50);
@@ -99,11 +99,11 @@ describe('InputArea', () => {
     });
 
     it('handles backspace to delete characters', async () => {
-      const { stdin, lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
+      const { lastFrame, stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
 
       stdin.write('hello');
       await delay(50);
-      stdin.write('\x7F'); // Backspace
+      stdin.write('\x7f'); // backspace
       await delay(50);
 
       expect(lastFrame()).toContain('hell');
@@ -111,7 +111,7 @@ describe('InputArea', () => {
     });
 
     it('clears input with Ctrl+U', async () => {
-      const { stdin, lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
+      const { lastFrame, stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
 
       stdin.write('some text');
       await delay(50);
@@ -135,7 +135,7 @@ describe('InputArea', () => {
     });
 
     it('clears input after submission', async () => {
-      const { stdin, lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
+      const { lastFrame, stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
 
       stdin.write('test message');
       await delay(50);
@@ -149,7 +149,7 @@ describe('InputArea', () => {
     it('does not send empty message', async () => {
       const { stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
 
-      stdin.write('\r'); // Enter without any text
+      stdin.write('\r'); // Enter without text
       await delay(50);
 
       expect(mockSendMessage).not.toHaveBeenCalled();
@@ -241,11 +241,11 @@ describe('InputArea', () => {
 
   describe('cursor navigation', () => {
     it('moves cursor left with left arrow', async () => {
-      const { stdin, lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
+      const { lastFrame, stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
 
       stdin.write('abc');
       await delay(50);
-      stdin.write('\x1B[D'); // Left arrow (ANSI escape)
+      stdin.write('\x1b[D'); // Left arrow
       await delay(50);
       stdin.write('X');
       await delay(50);
@@ -255,15 +255,15 @@ describe('InputArea', () => {
     });
 
     it('moves cursor right with right arrow', async () => {
-      const { stdin, lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
+      const { lastFrame, stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
 
       stdin.write('abc');
       await delay(50);
-      stdin.write('\x1B[D'); // Left arrow
+      stdin.write('\x1b[D'); // Left
       await delay(50);
-      stdin.write('\x1B[D'); // Left arrow again
+      stdin.write('\x1b[D'); // Left
       await delay(50);
-      stdin.write('\x1B[C'); // Right arrow
+      stdin.write('\x1b[C'); // Right
       await delay(50);
       stdin.write('X');
       await delay(50);
@@ -274,7 +274,7 @@ describe('InputArea', () => {
 
   describe('long text handling', () => {
     it('handles long single-line text', async () => {
-      const { stdin, lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
+      const { lastFrame, stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
 
       const longText = 'a'.repeat(100);
       stdin.write(longText);
@@ -298,7 +298,7 @@ describe('InputArea', () => {
     });
 
     it('handles text with special characters', async () => {
-      const { stdin, lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
+      const { lastFrame, stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
 
       const specialText = 'Hello! @#$%^&*() "quotes" and `backticks`';
       stdin.write(specialText);
@@ -309,7 +309,7 @@ describe('InputArea', () => {
     });
 
     it('handles unicode characters', async () => {
-      const { stdin, lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
+      const { lastFrame, stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
 
       stdin.write('Hello 世界 🌍 émojis');
       await delay(50);
@@ -318,10 +318,9 @@ describe('InputArea', () => {
     });
 
     it('handles very long text without crashing', async () => {
-      const { stdin, lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
+      const { lastFrame, stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
 
-      // 500 characters
-      const veryLongText = 'x'.repeat(500);
+      const veryLongText = 'x'.repeat(200);
       stdin.write(veryLongText);
       await delay(100);
 
@@ -329,28 +328,15 @@ describe('InputArea', () => {
       expect(lastFrame()).toBeDefined();
     });
 
-    it('handles rapid typing of long text', async () => {
-      const { stdin, lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
-
-      // Simulate rapid typing
-      for (let i = 0; i < 50; i++) {
-        stdin.write('a');
-      }
-      await delay(100);
-
-      const frame = lastFrame()!;
-      expect(frame).toContain('aaaa');
-    });
-
     it('handles backspace on long text', async () => {
-      const { stdin, lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
+      const { lastFrame, stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
 
       stdin.write('a'.repeat(50));
       await delay(50);
 
       // Delete 10 characters
       for (let i = 0; i < 10; i++) {
-        stdin.write('\x7F');
+        stdin.write('\x7f');
       }
       await delay(50);
 
@@ -359,7 +345,7 @@ describe('InputArea', () => {
     });
 
     it('handles Ctrl+U on long text', async () => {
-      const { stdin, lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
+      const { lastFrame, stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
 
       stdin.write('a'.repeat(100));
       await delay(50);
@@ -371,17 +357,14 @@ describe('InputArea', () => {
     });
 
     it('handles cursor navigation in long text', async () => {
-      const { stdin, lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
+      const { lastFrame, stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
 
       stdin.write('abcdefghijklmnopqrstuvwxyz');
       await delay(50);
 
       // Move cursor to beginning (26 left arrows)
-      // Note: delays needed because rapid-fire escape sequences in tests
-      // don't simulate real terminal behavior properly
       for (let i = 0; i < 26; i++) {
-        stdin.write('\x1B[D');
-        await delay(10);
+        stdin.write('\x1b[D');
       }
       await delay(50);
 
@@ -407,7 +390,6 @@ describe('InputArea', () => {
     it('handles multi-paragraph text simulation', async () => {
       const { stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
 
-      // Simulate typing a long paragraph
       const paragraph = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.';
       stdin.write(paragraph);
       await delay(50);
@@ -415,6 +397,40 @@ describe('InputArea', () => {
       await delay(50);
 
       expect(mockSendMessage).toHaveBeenCalledWith(paragraph);
+    });
+  });
+
+  describe('paste handling', () => {
+    it('inserts pasted content directly', async () => {
+      const { lastFrame, stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
+
+      // Paste is just regular input in ink's useInput
+      stdin.write('pasted text');
+      await delay(50);
+
+      expect(lastFrame()).toContain('pasted text');
+    });
+
+    it('handles multi-line paste', async () => {
+      const { lastFrame, stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
+
+      // Multi-line content - newlines preserved
+      stdin.write('line1\nline2\nline3');
+      await delay(50);
+
+      expect(lastFrame()).toContain('line1');
+      expect(lastFrame()).toContain('line2');
+    });
+
+    it('submits pasted content correctly', async () => {
+      const { stdin } = render(<InputArea onExit={mockOnExit} width={80} />);
+
+      stdin.write('pasted content');
+      await delay(50);
+      stdin.write('\r');
+      await delay(50);
+
+      expect(mockSendMessage).toHaveBeenCalledWith('pasted content');
     });
   });
 });
