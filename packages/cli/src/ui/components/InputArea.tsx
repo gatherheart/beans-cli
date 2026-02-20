@@ -334,7 +334,7 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
     if (char && !key.ctrl && !key.meta) {
       // Filter out bracketed paste mode escape sequences and control characters
       // Terminal sends \x1b[200~ at start and \x1b[201~ at end of paste
-      let cleanedChar = char
+      const cleanedChar = char
         .replace(/\x1b\[200~/g, '')  // Remove paste start marker
         .replace(/\x1b\[201~/g, '')  // Remove paste end marker
         .replace(/\x1b\[\d+~/g, '')  // Remove any escape sequences like \x1b[200~
