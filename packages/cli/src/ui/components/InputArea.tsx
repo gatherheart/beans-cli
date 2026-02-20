@@ -314,7 +314,8 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
 
     // Enter: submit or backslash continuation
     // Check both key.return and char === '\r' for PTY compatibility
-    if (key.return || char === '\r') {
+    // Only treat single '\r' as Enter (not '\r' within pasted content)
+    if (key.return || (char === '\r' && char.length === 1)) {
       if (input.endsWith('\\')) {
         dispatch({ type: 'set_text', payload: { text: input.slice(0, -1) + '\n' } });
         return;
@@ -329,9 +330,24 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
       return;
     }
 
-    // Regular character input
+    // Regular character input (including paste)
     if (char && !key.ctrl && !key.meta) {
-      dispatch({ type: 'insert', payload: char });
+      // Filter out bracketed paste mode escape sequences and control characters
+      // Terminal sends \x1b[200~ at start and \x1b[201~ at end of paste
+      let cleanedChar = char
+        .replace(/\x1b\[200~/g, '')  // Remove paste start marker
+        .replace(/\x1b\[201~/g, '')  // Remove paste end marker
+        .replace(/\x1b\[\d+~/g, '')  // Remove any escape sequences like \x1b[200~
+        .replace(/\x1b\[[\d;]*[A-Za-z]/g, '') // Remove ANSI escape sequences
+        .replace(/\x1b/g, '')        // Remove standalone ESC characters
+        .replace(/\[200~/g, '')      // Remove marker without ESC (readline may consume it)
+        .replace(/\[201~/g, '')      // Remove marker without ESC
+        .replace(/\r\n/g, '\n')      // Normalize Windows line endings
+        .replace(/\r/g, '\n');       // Normalize Mac line endings (but not Enter key)
+
+      if (cleanedChar) {
+        dispatch({ type: 'insert', payload: cleanedChar });
+      }
     }
   }, { isActive: !isLoading });
 

@@ -113,6 +113,35 @@ useInput((char, key) => {
 | `ui/hooks/useBracketedPaste.ts` | **Deleted** |
 | `ui/utils/platformConstants.ts` | **Deleted** |
 
+## Manual Testing
+
+### Paste Test Commands
+
+```bash
+# Test single-line paste with bracketed paste markers
+printf '\x1b[200~pasted content\x1b[201~' | timeout 3 npm run dev -- --ui-test
+
+# Test multi-line paste
+printf '\x1b[200~line1\nline2\nline3\x1b[201~' | timeout 3 npm run dev -- --ui-test
+
+# Test Windows line endings
+printf '\x1b[200~line1\r\nline2\r\nline3\x1b[201~' | timeout 3 npm run dev -- --ui-test
+
+# Test paste without escape sequences (simple pipe)
+echo 'hello world' | timeout 3 npm run dev -- --ui-test
+```
+
+### Manual Paste Test
+
+1. Run `npm run dev`
+2. Copy some text to clipboard
+3. Paste into the input area (Cmd+V or Ctrl+V)
+4. Verify:
+   - Text appears correctly in input area
+   - No escape characters visible (like `[200~`)
+   - Multi-line content preserves newlines
+   - Enter key still submits the message
+
 ## Test Results
 
 All tests passing.
