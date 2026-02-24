@@ -388,21 +388,60 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
     return hints.join(' • ');
   };
 
+  const borderColor = isLoading ? colors.muted : colors.border;
+
   return (
-    <Box
-      flexDirection="column"
-      borderStyle="round"
-      borderColor={isLoading ? colors.muted : colors.border}
-      width={width}
-      paddingX={1}
-    >
-      <Box>
+    <Box flexDirection="column">
+      {/* Top border line only (gemini-cli style) */}
+      <Box
+        borderStyle="round"
+        borderTop={true}
+        borderBottom={false}
+        borderLeft={false}
+        borderRight={false}
+        borderColor={borderColor}
+        width={width}
+        height={0}
+      />
+
+      {/* Input content with side borders */}
+      <Box
+        borderStyle="round"
+        borderTop={false}
+        borderBottom={false}
+        borderLeft={true}
+        borderRight={true}
+        borderColor={borderColor}
+        paddingX={1}
+        width={width}
+        flexDirection="row"
+        alignItems="flex-start"
+      >
+        {/* Prompt indicator */}
         <Text color={isLoading ? colors.warning : colors.primary}>
-          {isLoading ? '● Processing...' : '>'}{' '}
+          {isLoading ? '●' : '>'}{' '}
         </Text>
-        {renderInputWithCursor()}
+
+        {/* Input content area */}
+        <Box flexGrow={1} flexDirection="column">
+          {renderInputWithCursor()}
+        </Box>
       </Box>
-      <Box>
+
+      {/* Bottom border line only */}
+      <Box
+        borderStyle="round"
+        borderTop={false}
+        borderBottom={true}
+        borderLeft={false}
+        borderRight={false}
+        borderColor={borderColor}
+        width={width}
+        height={0}
+      />
+
+      {/* Hints below the box */}
+      <Box paddingX={2}>
         <Text color={colors.muted} dimColor>
           {getHintText()}
         </Text>

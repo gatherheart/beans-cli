@@ -49,9 +49,29 @@ interface AppProps {
   initialPrompt?: string;
 }
 
+/**
+ * Calculate main content area width (following gemini-cli pattern)
+ * Uses 90-98% of terminal width to leave margin and avoid edge artifacts
+ */
+function calculateMainAreaWidth(terminalWidth: number): number {
+  if (terminalWidth <= 80) {
+    return Math.round(0.98 * terminalWidth);
+  }
+  if (terminalWidth >= 132) {
+    return Math.round(0.9 * terminalWidth);
+  }
+  // Linearly interpolate between 80 columns (98%) and 132 columns (90%)
+  const t = (terminalWidth - 80) / (132 - 80);
+  const percentage = 98 - (t * 8); // lerp from 98 to 90
+  return Math.round(percentage * terminalWidth * 0.01);
+}
+
 function AppContent({ initialPrompt, onExit }: { initialPrompt?: string; onExit: () => void }): React.ReactElement {
   const { sendMessage } = useChatActions();
   const { columns } = useTerminalSize();
+
+  // Calculate main area width with margin (gemini-cli pattern)
+  const mainAreaWidth = calculateMainAreaWidth(columns);
 
   // Send initial prompt if provided
   useEffect(() => {
@@ -61,9 +81,9 @@ function AppContent({ initialPrompt, onExit }: { initialPrompt?: string; onExit:
   }, []); // Only run once on mount
 
   return (
-    <Box flexDirection="column" width={columns}>
-      <ChatView width={columns} />
-      <InputArea onExit={onExit} width={columns} />
+    <Box flexDirection="column" width={mainAreaWidth}>
+      <ChatView width={mainAreaWidth} />
+      <InputArea onExit={onExit} width={mainAreaWidth} />
     </Box>
   );
 }
