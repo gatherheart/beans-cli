@@ -12,6 +12,25 @@ import type {
   DebugResponseData,
 } from './types.js';
 
+/**
+ * Infers the LLM provider from a model name.
+ *
+ * @remarks
+ * Uses naming conventions to determine the provider:
+ * - Models starting with 'gemini-' are Google models
+ * - All other models are assumed to be Ollama (local) models
+ *
+ * @param model - The model name to infer provider from
+ * @returns The inferred LLMProvider
+ */
+export function inferProviderFromModel(model: string): LLMProvider {
+  if (model.startsWith('gemini-')) {
+    return 'google';
+  }
+  // Assume Ollama for all other models (tinyllama, llama3, mistral, etc.)
+  return 'ollama';
+}
+
 // Debug log file path
 const DEBUG_LOG_DIR = join(homedir(), '.beans', 'logs');
 const DEBUG_LOG_FILE = join(DEBUG_LOG_DIR, 'debug.log');
@@ -488,7 +507,8 @@ function createOllamaClient(config: ProviderConfig): LLMClient {
       });
 
       if (!response.ok) {
-        throw new Error(`Ollama API error: ${response.status}`);
+        const errorBody = await response.text();
+        throw new Error(`Ollama API error: ${response.status} - ${errorBody}`);
       }
 
       const data = await response.json() as Parameters<typeof parseOllamaResponse>[0];
@@ -618,7 +638,7 @@ function formatMessagesForOllama(request: ChatRequest) {
         tool_calls: msg.toolCalls?.map((tc) => ({
           id: tc.id,
           type: 'function',
-          function: { name: tc.name, arguments: JSON.stringify(tc.arguments) },
+          function: { name: tc.name, arguments: tc.arguments },
         })),
       });
     } else {
@@ -753,21 +773,39 @@ function parseGoogleResponse(
  * Parses an Ollama chat response into the unified format.
  *
  * @remarks
- * Extracts content from Ollama's simple response structure. Ollama responses
- * are straightforward with a message object containing the content. Usage
- * statistics are not currently provided by Ollama's API.
+ * Extracts content and tool calls from Ollama's response structure.
+ * Handles both simple text responses and tool call responses.
  *
  * @param data - The raw response from Ollama's chat API.
  * @param model - The model identifier to include in the response.
  * @returns A ChatResponse object in the unified format.
  */
 function parseOllamaResponse(
-  data: { message: { content: string }; done: boolean },
+  data: {
+    message: {
+      content: string;
+      tool_calls?: Array<{
+        id?: string;
+        function: {
+          name: string;
+          arguments: Record<string, unknown>;
+        };
+      }>;
+    };
+    done: boolean;
+  },
   model: string
 ): ChatResponse {
+  const toolCalls = data.message.tool_calls?.map((tc, index) => ({
+    id: tc.id ?? `call_${index}`,
+    name: tc.function.name,
+    arguments: tc.function.arguments,
+  }));
+
   return {
-    content: data.message.content,
+    content: data.message.content || null,
+    toolCalls,
     model,
-    finishReason: 'stop',
+    finishReason: toolCalls && toolCalls.length > 0 ? 'tool_calls' : 'stop',
   };
 }

@@ -18,6 +18,7 @@ import {
   saveAgentProfile,
   DEFAULT_AGENT_PROFILE,
   MockLLMClient,
+  inferProviderFromModel,
   type AgentProfile,
   type WorkspaceContext,
 } from '@beans/core';
@@ -79,10 +80,11 @@ export async function runApp(args: CLIArgs): Promise<void> {
     console.log(`🧪 UI Test Mode: scenario="${scenario}"`);
   }
 
-  // Override model if specified
+  // Override model if specified (also infers provider from model name)
   if (args.model) {
+    const provider = inferProviderFromModel(args.model);
     await config.updateConfig({
-      llm: { ...config.getLLMConfig(), model: args.model },
+      llm: { ...config.getLLMConfig(), model: args.model, provider },
     });
   }
 
