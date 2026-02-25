@@ -50,32 +50,14 @@ describe('InputArea', () => {
     it('shows placeholder text when empty', () => {
       const { lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
       const frame = lastFrame()!;
-      expect(frame).toContain('Type a message');
+      expect(frame).toContain('Type your message');
     });
 
-    it('shows help hint', () => {
+    it('renders with horizontal line separator', () => {
       const { lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
       const frame = lastFrame()!;
-      expect(frame).toContain('/help');
-    });
-
-    it('shows submit instruction', () => {
-      const { lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
-      const frame = lastFrame()!;
-      expect(frame).toContain('Enter submit');
-    });
-
-    it('shows exit instruction', () => {
-      const { lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
-      const frame = lastFrame()!;
-      expect(frame).toContain('Ctrl+C');
-    });
-
-    it('renders with border', () => {
-      const { lastFrame } = render(<InputArea onExit={mockOnExit} width={80} />);
-      const frame = lastFrame()!;
-      expect(frame).toContain('╭');
-      expect(frame).toContain('╰');
+      // Gemini-cli style: horizontal line separator, no box
+      expect(frame).toContain('─');
     });
   });
 
@@ -95,7 +77,7 @@ describe('InputArea', () => {
       stdin.write('a');
       await delay(50);
 
-      expect(lastFrame()).not.toContain('Type a message');
+      expect(lastFrame()).not.toContain('Type your message');
     });
 
     it('handles backspace to delete characters', async () => {
@@ -118,7 +100,7 @@ describe('InputArea', () => {
       stdin.write('\x15'); // Ctrl+U
       await delay(50);
 
-      expect(lastFrame()).toContain('Type a message');
+      expect(lastFrame()).toContain('Type your message');
     });
   });
 
@@ -143,7 +125,7 @@ describe('InputArea', () => {
       await delay(50);
 
       // After submission, input is cleared and history hint appears
-      expect(lastFrame()).toContain('Press ↑ to edit previous messages');
+      expect(lastFrame()).toContain('↑ for history');
     });
 
     it('does not send empty message', async () => {
@@ -353,7 +335,7 @@ describe('InputArea', () => {
       await delay(50);
 
       // Should show placeholder again
-      expect(lastFrame()).toContain('Type a message');
+      expect(lastFrame()).toContain('Type your message');
     });
 
     it('handles cursor navigation in long text', async () => {

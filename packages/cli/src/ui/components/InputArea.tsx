@@ -1,13 +1,14 @@
 /**
  * Input area component with cursor navigation and history
- * Following gemini-cli patterns - uses reducer for atomic state updates
+ * Following gemini-cli patterns for cleaner input UI
  */
 
-import React, { useCallback, useEffect, useReducer, useState } from 'react';
+import React, { useCallback, useReducer, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
+import chalk from 'chalk';
 import { useChatState, useChatActions } from '../contexts/ChatContext.js';
 import { formatHistoryForDisplay } from '../utils/formatHistory.js';
-import { colors } from '../theme/colors.js';
+import { colors, theme } from '../theme/colors.js';
 
 const HELP_TEXT = `## Available Commands
 
@@ -116,20 +117,11 @@ export const InputArea = React.memo(function InputArea({ onExit, width }: InputA
   const [state, dispatch] = useReducer(inputReducer, { text: '', cursorPos: 0 });
   const { text: input, cursorPos } = state;
 
-  const [cursorVisible, setCursorVisible] = useState(true);
   const [inputHistory, setInputHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
   const { isLoading, profile } = useChatState();
   const { sendMessage, addSystemMessage, clearHistory, getLLMHistory, getSystemPrompt } = useChatActions();
-
-  // Cursor blink effect
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCursorVisible(v => !v);
-    }, 530);
-    return () => clearInterval(interval);
-  }, []);
 
   const handleSubmit = useCallback(async (value: string) => {
     const trimmed = value.trim();
@@ -351,74 +343,80 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
     }
   }, { isActive: !isLoading });
 
-  // Render input with cursor
+  // Render input with cursor (gemini-cli style)
   const renderInputWithCursor = () => {
-    if (!input && !isLoading) {
-      if (inputHistory.length > 0) {
-        return <Text color="gray">Press ↑ to edit previous messages</Text>;
+    const placeholder = inputHistory.length > 0
+      ? '  Type your message or ↑ for history'
+      : '  Type your message';
+
+    // Show placeholder when empty
+    if (!input) {
+      if (isLoading) {
+        return <Text color={theme.text.secondary}>{placeholder}</Text>;
       }
-      return <Text color="gray">Type a message...</Text>;
+      // Cursor on first character of placeholder when focused
+      return (
+        <Text>
+          {chalk.inverse(placeholder[0] || ' ')}
+          <Text color={theme.text.secondary}>{placeholder.slice(1)}</Text>
+        </Text>
+      );
     }
 
-    const beforeCursor = input.slice(0, cursorPos);
-    const charAtCursor = input[cursorPos];
-    const afterCursor = input.slice(cursorPos + 1);
-
-    const isOnNewline = charAtCursor === '\n';
-    const atCursor = isOnNewline ? ' ' : (charAtCursor || ' ');
-    const afterCursorWithNewline = isOnNewline ? '\n' + afterCursor : afterCursor;
+    // Render text with cursor
+    const lines = input.split('\n');
+    let charCount = 0;
 
     return (
-      <Text>
-        {beforeCursor}
-        <Text inverse={cursorVisible}>{atCursor}</Text>
-        {afterCursorWithNewline}
-      </Text>
+      <Box flexDirection="column">
+        {lines.map((line, lineIdx) => {
+          const lineStart = charCount;
+          const lineEnd = lineStart + line.length;
+          charCount = lineEnd + 1; // +1 for newline
+
+          const isCursorOnLine = cursorPos >= lineStart && cursorPos <= lineEnd;
+          const cursorCol = cursorPos - lineStart;
+
+          if (isCursorOnLine) {
+            const beforeCursor = line.slice(0, cursorCol);
+            const charAtCursor = line[cursorCol] || ' ';
+            const afterCursor = line.slice(cursorCol + 1);
+
+            return (
+              <Text key={lineIdx}>
+                {beforeCursor}
+                {chalk.inverse(charAtCursor)}
+                {afterCursor}
+              </Text>
+            );
+          }
+
+          return <Text key={lineIdx}>{line || ' '}</Text>;
+        })}
+      </Box>
     );
   };
 
-  const getHintText = () => {
-    const hints: string[] = [];
-    if (inputHistory.length > 0 && !input) {
-      hints.push('↑ history');
-    }
-    hints.push('Enter submit');
-    hints.push('Ctrl+C exit');
-    hints.push('/help');
-    return hints.join(' • ');
-  };
-
-  const borderColor = isLoading ? colors.muted : colors.border;
+  const lineColor = isLoading ? theme.border.default : colors.border;
+  const promptColor = isLoading ? colors.warning : colors.primary;
 
   return (
-    <Box flexDirection="column">
-      {/* Top border line only (gemini-cli style) */}
+    <Box flexDirection="column" width={width}>
+      {/* Horizontal line separator (gemini-cli style) */}
       <Box
-        borderStyle="round"
+        width="100%"
+        borderStyle="single"
         borderTop={true}
         borderBottom={false}
         borderLeft={false}
         borderRight={false}
-        borderColor={borderColor}
-        width={width}
-        height={0}
+        borderColor={lineColor}
       />
 
-      {/* Input content with side borders */}
-      <Box
-        borderStyle="round"
-        borderTop={false}
-        borderBottom={false}
-        borderLeft={true}
-        borderRight={true}
-        borderColor={borderColor}
-        paddingX={1}
-        width={width}
-        flexDirection="row"
-        alignItems="flex-start"
-      >
+      {/* Input content - no box, just prompt and text */}
+      <Box paddingX={1} flexDirection="row" alignItems="flex-start">
         {/* Prompt indicator */}
-        <Text color={isLoading ? colors.warning : colors.primary}>
+        <Text color={promptColor}>
           {isLoading ? '●' : '>'}{' '}
         </Text>
 
@@ -426,25 +424,6 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ''}`;
         <Box flexGrow={1} flexDirection="column">
           {renderInputWithCursor()}
         </Box>
-      </Box>
-
-      {/* Bottom border line only */}
-      <Box
-        borderStyle="round"
-        borderTop={false}
-        borderBottom={true}
-        borderLeft={false}
-        borderRight={false}
-        borderColor={borderColor}
-        width={width}
-        height={0}
-      />
-
-      {/* Hints below the box */}
-      <Box paddingX={2}>
-        <Text color={colors.muted} dimColor>
-          {getHintText()}
-        </Text>
       </Box>
     </Box>
   );
