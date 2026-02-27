@@ -219,18 +219,35 @@ function wrapWithDebugLogging(
 
       let accumulatedContent = '';
       const accumulatedToolCalls: import('../agents/types.js').ToolCall[] = [];
+      // Map for merging tool call deltas by ID
+      const toolCallMap = new Map<string, import('../agents/types.js').ToolCall>();
 
       for await (const chunk of client.chatStream(request)) {
         if (chunk.content) {
           accumulatedContent += chunk.content;
         }
         const delta = chunk.toolCallDelta;
-        if (delta && typeof delta.id === 'string' && typeof delta.name === 'string') {
-          accumulatedToolCalls.push({
-            id: delta.id,
-            name: delta.name,
-            arguments: delta.arguments ?? {},
-          });
+        if (delta && typeof delta.id === 'string') {
+          // Check if we already have this tool call
+          const existing = toolCallMap.get(delta.id);
+          if (existing) {
+            // Merge arguments into existing tool call
+            if (delta.arguments) {
+              existing.arguments = {
+                ...existing.arguments,
+                ...delta.arguments,
+              };
+            }
+          } else if (typeof delta.name === 'string') {
+            // New tool call - only create if we have both id and name
+            const newToolCall: import('../agents/types.js').ToolCall = {
+              id: delta.id,
+              name: delta.name,
+              arguments: delta.arguments ?? {},
+            };
+            toolCallMap.set(delta.id, newToolCall);
+            accumulatedToolCalls.push(newToolCall);
+          }
         }
         if (chunk.done && debug.logResponses) {
           const response: ChatResponse = {

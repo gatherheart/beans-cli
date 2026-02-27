@@ -7,6 +7,49 @@ import type {
   ToolConfirmation,
 } from '../types.js';
 
+/**
+ * Maximum output size in bytes (1MB)
+ * Prevents memory exhaustion from commands like `cat /dev/zero`
+ */
+const MAX_OUTPUT_SIZE = 1024 * 1024;
+
+/**
+ * Dangerous command patterns that should be blocked
+ * These patterns indicate potentially malicious intent
+ */
+const DANGEROUS_PATTERNS = [
+  /\brm\s+(-[rf]+\s+)*[\/~]/, // rm -rf / or rm -rf ~
+  /\bmkfs\b/,                  // Format filesystem
+  /\bdd\s+.*of=\/dev/,         // Write to device
+  />\s*\/dev\/sd[a-z]/,        // Redirect to disk device
+  /\bchmod\s+777\s+\//,        // chmod 777 on root
+  /\bchown\s+.*\s+\//,         // chown on root paths
+  /\|.*\bsh\b/,                // Piping to shell
+  /\|.*\bbash\b/,              // Piping to bash
+  /\bcurl\b.*\|\s*(ba)?sh/,    // curl | bash pattern
+  /\bwget\b.*\|\s*(ba)?sh/,    // wget | bash pattern
+  /`.*`/,                      // Backtick command substitution
+  /\$\(.*\)/,                  // $() command substitution (suspicious in most contexts)
+];
+
+/**
+ * Check if a command contains dangerous patterns
+ */
+function isDangerousCommand(command: string): { dangerous: boolean; reason?: string } {
+  const normalized = command.toLowerCase();
+
+  for (const pattern of DANGEROUS_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return {
+        dangerous: true,
+        reason: `Command matches dangerous pattern: ${pattern.toString()}`
+      };
+    }
+  }
+
+  return { dangerous: false };
+}
+
 const ShellSchema = z.object({
   command: z.string().describe('The shell command to execute'),
   timeout: z
@@ -41,6 +84,15 @@ export class ShellTool extends BaseTool<ShellParams> {
   ): Promise<ToolExecutionResult> {
     try {
       const cwd = options?.cwd ?? process.cwd();
+
+      // Security check: Block dangerous command patterns
+      const dangerCheck = isDangerousCommand(params.command);
+      if (dangerCheck.dangerous) {
+        return {
+          content: `Command blocked for security reasons: ${dangerCheck.reason}`,
+          isError: true,
+        };
+      }
 
       // For streaming output
       if (options?.onOutput) {
@@ -92,13 +144,29 @@ export class ShellTool extends BaseTool<ShellParams> {
 
       let stdout = '';
       let stderr = '';
+      let totalSize = 0;
+      let truncated = false;
 
       child.stdout.on('data', (data) => {
-        stdout += data.toString();
+        const chunk = data.toString();
+        totalSize += chunk.length;
+        if (totalSize <= MAX_OUTPUT_SIZE) {
+          stdout += chunk;
+        } else if (!truncated) {
+          truncated = true;
+          stdout += '\n... (output truncated, exceeded 1MB limit)';
+        }
       });
 
       child.stderr.on('data', (data) => {
-        stderr += data.toString();
+        const chunk = data.toString();
+        totalSize += chunk.length;
+        if (totalSize <= MAX_OUTPUT_SIZE) {
+          stderr += chunk;
+        } else if (!truncated) {
+          truncated = true;
+          stderr += '\n... (output truncated, exceeded 1MB limit)';
+        }
       });
 
       child.on('close', (code) => {
@@ -112,6 +180,7 @@ export class ShellTool extends BaseTool<ShellParams> {
             command,
             cwd,
             exitCode: code,
+            truncated,
           },
         });
       });
@@ -142,17 +211,35 @@ export class ShellTool extends BaseTool<ShellParams> {
 
       let stdout = '';
       let stderr = '';
+      let totalSize = 0;
+      let truncated = false;
 
       child.stdout.on('data', (data) => {
         const chunk = data.toString();
-        stdout += chunk;
-        options.onOutput?.(chunk);
+        totalSize += chunk.length;
+        if (totalSize <= MAX_OUTPUT_SIZE) {
+          stdout += chunk;
+          options.onOutput?.(chunk);
+        } else if (!truncated) {
+          truncated = true;
+          const msg = '\n... (output truncated, exceeded 1MB limit)';
+          stdout += msg;
+          options.onOutput?.(msg);
+        }
       });
 
       child.stderr.on('data', (data) => {
         const chunk = data.toString();
-        stderr += chunk;
-        options.onOutput?.(`stderr: ${chunk}`);
+        totalSize += chunk.length;
+        if (totalSize <= MAX_OUTPUT_SIZE) {
+          stderr += chunk;
+          options.onOutput?.(`stderr: ${chunk}`);
+        } else if (!truncated) {
+          truncated = true;
+          const msg = '\n... (output truncated, exceeded 1MB limit)';
+          stderr += msg;
+          options.onOutput?.(`stderr: ${msg}`);
+        }
       });
 
       // Handle abort signal
@@ -173,6 +260,7 @@ export class ShellTool extends BaseTool<ShellParams> {
             command: params.command,
             cwd,
             exitCode: code,
+            truncated,
           },
         });
       });

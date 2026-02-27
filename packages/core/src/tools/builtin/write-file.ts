@@ -7,7 +7,7 @@ import type {
   ToolExecutionOptions,
   ToolConfirmation,
 } from '../types.js';
-import { expandTilde } from '../utils.js';
+import { validatePath } from '../utils/path-validator.js';
 
 const WriteFileSchema = z.object({
   path: z.string().describe('Absolute path to the file to write'),
@@ -43,8 +43,23 @@ export class WriteFileTool extends BaseTool<WriteFileParams> {
     options?: ToolExecutionOptions
   ): Promise<ToolExecutionResult> {
     try {
-      const expandedPath = expandTilde(params.path);
-      const filePath = path.resolve(options?.cwd ?? process.cwd(), expandedPath);
+      const cwd = options?.cwd ?? process.cwd();
+
+      // Validate path to prevent traversal attacks
+      const validation = await validatePath(params.path, {
+        cwd,
+        allowOutsideProject: false,
+        allowHomeAccess: false,
+      });
+
+      if (!validation.valid) {
+        return {
+          content: `Access denied: ${validation.error}`,
+          isError: true,
+        };
+      }
+
+      const filePath = validation.resolvedPath;
 
       // Read original content before writing (for diff display)
       let originalContent: string | null = null;
