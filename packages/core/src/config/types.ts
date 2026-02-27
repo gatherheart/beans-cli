@@ -1,5 +1,9 @@
-import type { LLMProvider } from '../llm/types.js';
-import type { MemoryConfig } from '../memory/types.js';
+import type { LLMProvider } from "../llm/types.js";
+import type { MemoryConfig } from "../memory/types.js";
+import type { PolicyConfig } from "../policy/types.js";
+import type { ErrorCategory } from "../llm/error-classifier.js";
+import type { CircuitBreakerConfig } from "../llm/circuit-breaker.js";
+import type { CompressionConfig } from "../agents/compression.js";
 
 /**
  * Main application configuration
@@ -11,6 +15,8 @@ export interface AppConfig {
   agent: AgentConfig;
   /** Tool settings */
   tools: ToolsConfig;
+  /** Policy settings */
+  policy: PolicyConfig;
   /** Telemetry settings */
   telemetry: TelemetryConfig;
   /** UI settings */
@@ -24,7 +30,7 @@ export interface AppConfig {
 }
 
 // Re-export MemoryConfig for convenience
-export type { MemoryConfig } from '../memory/types.js';
+export type { MemoryConfig } from "../memory/types.js";
 
 /**
  * Debug configuration
@@ -54,6 +60,28 @@ export interface LLMConfig {
   maxTokens?: number;
   /** Custom base URL */
   baseUrl?: string;
+  /** Model routing configuration */
+  routing?: RoutingConfig;
+}
+
+/**
+ * Model routing configuration
+ */
+export interface RoutingConfig {
+  /** Enable model routing with fallbacks */
+  enabled: boolean;
+  /** Fallback models in order of preference */
+  fallbacks: string[];
+  /** Error categories that trigger fallback */
+  fallbackOn: ErrorCategory[];
+  /** Maximum retry attempts per model */
+  maxRetries: number;
+  /** Base retry delay in milliseconds */
+  retryDelayMs: number;
+  /** Maximum retry delay in milliseconds */
+  maxRetryDelayMs: number;
+  /** Circuit breaker configuration */
+  circuitBreaker?: CircuitBreakerConfig;
 }
 
 /**
@@ -68,12 +96,14 @@ export interface AgentConfig {
   streaming: boolean;
   /** Auto-approve tool calls */
   autoApprove: AutoApproveLevel;
+  /** Chat compression configuration */
+  compression?: CompressionConfig;
 }
 
 /**
  * Auto-approve levels
  */
-export type AutoApproveLevel = 'none' | 'safe' | 'all';
+export type AutoApproveLevel = "none" | "safe" | "all";
 
 /**
  * Tools configuration
@@ -120,7 +150,7 @@ export interface TelemetryConfig {
  */
 export interface UIConfig {
   /** Color theme */
-  theme: 'dark' | 'light' | 'auto';
+  theme: "dark" | "light" | "auto";
   /** Show thinking/reasoning */
   showThinking: boolean;
   /** Compact output mode */

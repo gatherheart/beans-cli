@@ -8,7 +8,9 @@ import type {
 import type { LLMClient } from "../llm/types.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import type { MemoryStore } from "../memory/index.js";
+import type { PolicyEngine } from "../policy/engine.js";
 import { executeWithTimeout, DEFAULT_TOOL_TIMEOUT } from "../tools/utils.js";
+import { LoopDetector, type LoopDetectorConfig } from "./loop-detector.js";
 
 /**
  * Options for agent execution
@@ -24,6 +26,16 @@ export interface ExecuteOptions {
   cwd?: string;
   /** Memory store for loading persistent instructions */
   memoryStore?: MemoryStore;
+  /** Policy engine for tool approval */
+  policyEngine?: PolicyEngine;
+  /** Callback to request user approval for tools */
+  onApprovalRequest?: (
+    toolName: string,
+    params: Record<string, unknown>,
+    message: string,
+  ) => Promise<boolean>;
+  /** Loop detection configuration */
+  loopDetection?: Partial<LoopDetectorConfig>;
 }
 
 /**
@@ -41,7 +53,9 @@ export type AgentActivityEvent =
     }
   | { type: "content_chunk"; content: string }
   | { type: "turn_end"; turnNumber: number }
-  | { type: "error"; error: Error };
+  | { type: "error"; error: Error }
+  | { type: "loop_warning"; pattern: string[]; suggestion: string }
+  | { type: "loop_detected"; pattern: string[]; message: string };
 
 /**
  * Agent executor - runs the agent loop
@@ -65,6 +79,9 @@ export class AgentExecutor {
       onActivity,
       cwd = process.cwd(),
       memoryStore,
+      policyEngine,
+      onApprovalRequest,
+      loopDetection,
     } = options;
     const messages: Message[] = [];
     let turnCount = 0;
@@ -72,6 +89,13 @@ export class AgentExecutor {
 
     const maxTurns = definition.runConfig?.maxTurns ?? 50;
     const timeoutMs = definition.runConfig?.timeoutMs ?? 300000; // 5 min default
+
+    // Initialize loop detector
+    const loopDetectorConfig = {
+      ...definition.runConfig?.loopDetection,
+      ...loopDetection,
+    };
+    const loopDetector = new LoopDetector(loopDetectorConfig);
 
     // Build system prompt with input substitution
     let systemPrompt = this.substituteInputs(
@@ -154,10 +178,43 @@ export class AgentExecutor {
 
         // Handle tool calls
         if (response.toolCalls && response.toolCalls.length > 0) {
+          // Check for loops before executing
+          for (const toolCall of response.toolCalls) {
+            const loopResult = loopDetector.check(toolCall, turnCount);
+
+            if (loopResult.shouldWarn) {
+              onActivity?.({
+                type: "loop_warning",
+                pattern: loopResult.pattern!,
+                suggestion: loopResult.suggestion!,
+              });
+            }
+
+            if (loopResult.shouldStop) {
+              onActivity?.({
+                type: "loop_detected",
+                pattern: loopResult.pattern!,
+                message: `Stopping due to detected loop: ${loopResult.pattern!.join(" -> ")}`,
+              });
+              terminateReason = "error";
+              return {
+                success: false,
+                rawContent: "",
+                terminateReason,
+                error: `Loop detected: ${loopResult.suggestion}`,
+                turnCount,
+                messages,
+              };
+            }
+          }
+
           const toolResults = await this.executeToolCalls(
             response.toolCalls,
             onActivity,
             cwd,
+            DEFAULT_TOOL_TIMEOUT,
+            policyEngine,
+            onApprovalRequest,
           );
 
           messages.push({
@@ -263,6 +320,12 @@ export class AgentExecutor {
     onActivity: ((event: AgentActivityEvent) => void) | undefined,
     cwd: string,
     toolTimeout: number = DEFAULT_TOOL_TIMEOUT,
+    policyEngine?: PolicyEngine,
+    onApprovalRequest?: (
+      toolName: string,
+      params: Record<string, unknown>,
+      message: string,
+    ) => Promise<boolean>,
   ) {
     const results = await Promise.all(
       toolCalls.map(async (toolCall) => {
@@ -281,6 +344,56 @@ export class AgentExecutor {
             result: result.error,
           });
           return result;
+        }
+
+        // Check policy if policy engine is available
+        if (policyEngine) {
+          const confirmation = tool.getConfirmation?.(toolCall.arguments);
+          const decision = policyEngine.evaluate({
+            toolName: toolCall.name,
+            confirmation,
+            params: toolCall.arguments,
+          });
+
+          // Tool is blocked
+          if (!decision.allowed) {
+            const result = {
+              toolCallId: toolCall.id,
+              content: "",
+              error:
+                decision.reason ||
+                `Tool '${toolCall.name}' is blocked by policy`,
+            };
+            onActivity?.({
+              type: "tool_call_end",
+              toolCallId: toolCall.id,
+              result: result.error,
+            });
+            return result;
+          }
+
+          // Tool requires approval
+          if (decision.requiresApproval && onApprovalRequest) {
+            const approved = await onApprovalRequest(
+              toolCall.name,
+              toolCall.arguments,
+              decision.reason || `Approve ${toolCall.name}?`,
+            );
+
+            if (!approved) {
+              const result = {
+                toolCallId: toolCall.id,
+                content: "",
+                error: `Tool '${toolCall.name}' was rejected by user`,
+              };
+              onActivity?.({
+                type: "tool_call_end",
+                toolCallId: toolCall.id,
+                result: result.error,
+              });
+              return result;
+            }
+          }
         }
 
         try {

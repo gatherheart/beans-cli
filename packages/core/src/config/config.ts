@@ -17,6 +17,8 @@ import { AgentRegistry } from "../agents/registry.js";
 import { createLLMClient } from "../llm/client.js";
 import type { LLMClient, LLMProvider, DebugEvent } from "../llm/types.js";
 import { MemoryStore, DEFAULT_MEMORY_CONFIG } from "../memory/index.js";
+import type { PolicyConfig } from "../policy/types.js";
+import { PolicyEngine, DEFAULT_POLICY_CONFIG } from "../policy/index.js";
 
 /**
  * Default configuration values
@@ -54,6 +56,7 @@ const defaults: AppConfig = {
     enabled: false,
     logPrompts: false,
   },
+  policy: { ...DEFAULT_POLICY_CONFIG },
   ui: {
     theme: "auto",
     showThinking: true,
@@ -83,6 +86,7 @@ export class Config {
   private _agentRegistry: AgentRegistry | null = null;
   private _llmClient: LLMClient | null = null;
   private _memoryStore: MemoryStore | null = null;
+  private _policyEngine: PolicyEngine | null = null;
 
   // Debug event callback (set by UI)
   private _debugEventCallback: ((event: DebugEvent) => void) | null = null;
@@ -171,6 +175,30 @@ export class Config {
    */
   getMemoryConfig(): MemoryConfig {
     return { ...this.config.memory };
+  }
+
+  /**
+   * Get policy configuration
+   */
+  getPolicyConfig(): PolicyConfig {
+    return { ...this.config.policy };
+  }
+
+  /**
+   * Get the policy engine (lazy-loaded)
+   */
+  getPolicyEngine(): PolicyEngine {
+    if (!this._policyEngine) {
+      this._policyEngine = new PolicyEngine(this.config.policy);
+    }
+    return this._policyEngine;
+  }
+
+  /**
+   * Reset the policy engine (useful when changing modes)
+   */
+  resetPolicyEngine(): void {
+    this._policyEngine = null;
   }
 
   /**
@@ -275,6 +303,7 @@ export class Config {
       llm: { ...this.config.llm, ...updates.llm },
       agent: { ...this.config.agent, ...updates.agent },
       tools: { ...this.config.tools, ...updates.tools },
+      policy: { ...this.config.policy, ...updates.policy },
       telemetry: { ...this.config.telemetry, ...updates.telemetry },
       ui: { ...this.config.ui, ...updates.ui },
       debug: { ...this.config.debug, ...updates.debug },
@@ -285,6 +314,7 @@ export class Config {
     this._llmClient = null;
     this._toolRegistry = null;
     this._memoryStore = null;
+    this._policyEngine = null;
 
     // Save to settings file (runtime config is excluded)
     await saveSettings(this.configToSettings());
@@ -307,6 +337,7 @@ export class Config {
       llm: { ...defaults.llm, ...settings.llm },
       agent: { ...defaults.agent, ...settings.agent },
       tools: { ...defaults.tools, ...settings.tools },
+      policy: { ...defaults.policy, ...settings.policy },
       telemetry: { ...defaults.telemetry, ...settings.telemetry },
       ui: { ...defaults.ui, ...settings.ui },
       debug: { ...defaults.debug, ...settings.debug },
@@ -324,6 +355,7 @@ export class Config {
       llm: this.config.llm,
       agent: this.config.agent,
       tools: this.config.tools,
+      policy: this.config.policy,
       telemetry: this.config.telemetry,
       ui: this.config.ui,
       debug: this.config.debug,

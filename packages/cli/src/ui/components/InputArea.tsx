@@ -18,6 +18,9 @@ const HELP_TEXT = `## Available Commands
 - **/history** - Show LLM message history
 - **/memory** - Show the current system prompt
 - **/model** - Show current model or switch models
+- **/plan** - Enter plan mode (read-only, blocks writes)
+- **/plan exit** - Exit plan mode
+- **/mode** - Show or set approval mode (default/auto/yolo/plan)
 - **/exit** - Exit the application
 
 **Multi-line input:**
@@ -128,7 +131,7 @@ export const InputArea = React.memo(function InputArea({
   const [inputHistory, setInputHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
-  const { isLoading, profile } = useChatState();
+  const { isLoading, profile, approvalMode } = useChatState();
   const {
     sendMessage,
     addSystemMessage,
@@ -138,6 +141,9 @@ export const InputArea = React.memo(function InputArea({
     switchModel,
     getCurrentModel,
     listModels,
+    setApprovalMode,
+    enterPlanMode,
+    exitPlanMode,
   } = useChatActions();
 
   const handleSubmit = useCallback(
@@ -223,6 +229,45 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ""}`;
           return;
         }
 
+        if (command === "plan") {
+          enterPlanMode();
+          dispatch({ type: "clear" });
+          return;
+        }
+
+        if (command === "plan exit" || command === "plan off") {
+          exitPlanMode();
+          dispatch({ type: "clear" });
+          return;
+        }
+
+        if (command === "mode" || command.startsWith("mode ")) {
+          const modeArg = command.slice(5).trim().toUpperCase();
+          if (modeArg) {
+            if (["DEFAULT", "AUTO_EDIT", "PLAN", "YOLO"].includes(modeArg)) {
+              setApprovalMode(
+                modeArg as "DEFAULT" | "AUTO_EDIT" | "PLAN" | "YOLO",
+              );
+            } else {
+              addSystemMessage(
+                `Unknown mode: ${modeArg}\n\nAvailable modes: DEFAULT, AUTO_EDIT, PLAN, YOLO`,
+              );
+            }
+          } else {
+            addSystemMessage(
+              `Current approval mode: **${approvalMode}**\n\n` +
+                `Available modes:\n` +
+                `- **DEFAULT** - Ask for approval on write/execute operations\n` +
+                `- **AUTO_EDIT** - Auto-approve file edits, ask for shell commands\n` +
+                `- **PLAN** - Read-only mode, all writes blocked\n` +
+                `- **YOLO** - Auto-approve everything (dangerous!)\n\n` +
+                `Use \`/mode <MODE>\` to switch.`,
+            );
+          }
+          dispatch({ type: "clear" });
+          return;
+        }
+
         addSystemMessage(
           `Unknown command: ${trimmed}. Type /help for available commands.`,
         );
@@ -245,6 +290,10 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ""}`;
       getCurrentModel,
       listModels,
       inputHistory,
+      setApprovalMode,
+      enterPlanMode,
+      exitPlanMode,
+      approvalMode,
     ],
   );
 

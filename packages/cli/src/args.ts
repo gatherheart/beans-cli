@@ -6,14 +6,14 @@
  * Available UI test scenarios
  */
 export type UITestScenarioArg =
-  | 'basic'
-  | 'long-content'
-  | 'rapid-stream'
-  | 'tool-calls'
-  | 'empty-response'
-  | 'multi-turn'
-  | 'slow-stream'
-  | 'error';
+  | "basic"
+  | "long-content"
+  | "rapid-stream"
+  | "tool-calls"
+  | "empty-response"
+  | "multi-turn"
+  | "slow-stream"
+  | "error";
 
 export interface CLIArgs {
   /** Initial prompt */
@@ -28,6 +28,8 @@ export interface CLIArgs {
   model?: string;
   /** Auto-approve all tool calls */
   yolo: boolean;
+  /** Plan mode - read-only, blocks write/execute operations */
+  plan: boolean;
   /** Verbose output */
   verbose: boolean;
   /** Working directory */
@@ -76,6 +78,7 @@ export async function parseArgs(): Promise<CLIArgs> {
     version: false,
     continue: false,
     yolo: false,
+    plan: false,
     verbose: false,
     listModels: false,
     interactive: false,
@@ -91,90 +94,93 @@ export async function parseArgs(): Promise<CLIArgs> {
     const arg = args[i];
 
     switch (arg) {
-      case '-h':
-      case '--help':
+      case "-h":
+      case "--help":
         result.help = true;
         break;
-      case '-v':
-      case '--version':
+      case "-v":
+      case "--version":
         result.version = true;
         break;
-      case '-c':
-      case '--continue':
+      case "-c":
+      case "--continue":
         result.continue = true;
         break;
-      case '-m':
-      case '--model':
+      case "-m":
+      case "--model":
         result.model = args[++i];
         break;
-      case '--yolo':
+      case "--yolo":
         result.yolo = true;
         break;
-      case '--verbose':
+      case "--plan":
+        result.plan = true;
+        break;
+      case "--verbose":
         result.verbose = true;
         break;
-      case '--cwd':
+      case "--cwd":
         result.cwd = args[++i];
         break;
-      case '--list-models':
+      case "--list-models":
         result.listModels = true;
         break;
-      case '-i':
-      case '--interactive':
+      case "-i":
+      case "--interactive":
         result.interactive = true;
         break;
-      case '-a':
-      case '--agent':
+      case "-a":
+      case "--agent":
         result.agentDescription = args[++i];
         break;
-      case '--agent-profile':
+      case "--agent-profile":
         result.agentProfile = args[++i];
         break;
-      case '--debug':
+      case "--debug":
         result.debug = true;
         break;
-      case '--ui-test':
+      case "--ui-test":
         result.uiTest = true;
         break;
-      case '--ui-test-scenario':
+      case "--ui-test-scenario":
         result.uiTestScenario = args[++i] as UITestScenarioArg;
         break;
-      case '--eval':
+      case "--eval":
         result.eval = true;
         break;
-      case '--benchmark':
+      case "--benchmark":
         result.benchmark = args[++i];
         break;
-      case '--limit':
+      case "--limit":
         result.limit = parseInt(args[++i], 10);
         break;
-      case '--offset':
+      case "--offset":
         result.offset = parseInt(args[++i], 10);
         break;
-      case '--output':
+      case "--output":
         result.output = args[++i];
         break;
-      case '--resume':
+      case "--resume":
         result.resume = args[++i];
         break;
-      case '--timeout':
+      case "--timeout":
         result.timeout = parseInt(args[++i], 10);
         break;
-      case '--agentic':
+      case "--agentic":
         result.agentic = true;
         break;
-      case '--max-iterations':
+      case "--max-iterations":
         result.maxIterations = parseInt(args[++i], 10);
         break;
       default:
-        if (!arg.startsWith('-')) {
+        if (!arg.startsWith("-")) {
           positional.push(arg);
         }
     }
   }
 
   if (positional.length > 0) {
-    result.prompt = positional.join(' ');
+    result.prompt = positional.join(" ");
   }
 
   return result;

@@ -1,5 +1,6 @@
-import { z } from 'zod';
-import type { Tool } from '../tools/types.js';
+import { z } from "zod";
+import type { Tool } from "../tools/types.js";
+import type { LoopDetectorConfig } from "./loop-detector.js";
 
 /**
  * Configuration for the agent's system prompt and initial messages
@@ -41,6 +42,8 @@ export interface RunConfig {
   streaming?: boolean;
   /** Enable debug logging for message history */
   debug?: boolean;
+  /** Loop detection configuration */
+  loopDetection?: Partial<LoopDetectorConfig>;
 }
 
 /**
@@ -66,7 +69,7 @@ export interface InputConfig {
  */
 export interface InputDefinition {
   /** Parameter type */
-  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  type: "string" | "number" | "boolean" | "object" | "array";
   /** Whether the parameter is required */
   required?: boolean;
   /** Default value if not provided */
@@ -114,7 +117,7 @@ export interface AgentDefinition<TOutput extends z.ZodTypeAny = z.ZodAny> {
 /**
  * Message role types
  */
-export type MessageRole = 'user' | 'assistant' | 'system' | 'tool';
+export type MessageRole = "user" | "assistant" | "system" | "tool";
 
 /**
  * Message structure
@@ -148,12 +151,12 @@ export interface ToolResult {
  * Reason for agent termination
  */
 export type TerminateReason =
-  | 'complete'
-  | 'max_turns'
-  | 'timeout'
-  | 'error'
-  | 'user_cancelled'
-  | 'abort_signal';
+  | "complete"
+  | "max_turns"
+  | "timeout"
+  | "error"
+  | "user_cancelled"
+  | "abort_signal";
 
 /**
  * Result from agent execution

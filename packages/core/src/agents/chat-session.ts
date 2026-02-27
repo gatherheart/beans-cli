@@ -19,6 +19,13 @@ import type { LLMClient } from "../llm/types.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import type { AgentActivityEvent } from "./executor.js";
 import type { MemoryStore } from "../memory/index.js";
+import type { PolicyEngine } from "../policy/engine.js";
+import { LoopDetector } from "./loop-detector.js";
+import {
+  ChatCompressor,
+  type CompressionConfig,
+  type CompressionResult,
+} from "./compression.js";
 
 /**
  * Configuration for creating a chat session
@@ -36,6 +43,16 @@ export interface ChatSessionConfig {
   cwd?: string;
   /** Memory store for loading persistent instructions */
   memoryStore?: MemoryStore;
+  /** Policy engine for tool approval */
+  policyEngine?: PolicyEngine;
+  /** Callback to request user approval for tools */
+  onApprovalRequest?: (
+    toolName: string,
+    params: Record<string, unknown>,
+    message: string,
+  ) => Promise<boolean>;
+  /** Compression configuration */
+  compressionConfig?: Partial<CompressionConfig>;
 }
 
 /**
@@ -75,7 +92,17 @@ export class ChatSession {
   private readonly toolConfig?: ToolConfig;
   private readonly cwd: string;
   private readonly memoryStore?: MemoryStore;
+  private readonly policyEngine?: PolicyEngine;
+  private readonly onApprovalRequest?: (
+    toolName: string,
+    params: Record<string, unknown>,
+    message: string,
+  ) => Promise<boolean>;
+  private readonly loopDetector: LoopDetector;
+  private readonly compressor: ChatCompressor;
   private memoryInitialized = false;
+  private turnCount = 0;
+  private lastCompressionResult?: CompressionResult;
 
   /**
    * Creates a new ChatSession instance.
@@ -108,6 +135,11 @@ export class ChatSession {
     this.toolConfig = config.toolConfig;
     this.cwd = config.cwd ?? process.cwd();
     this.memoryStore = config.memoryStore;
+    this.policyEngine = config.policyEngine;
+    this.onApprovalRequest = config.onApprovalRequest;
+    this.loopDetector = new LoopDetector(this.runConfig.loopDetection);
+    this.compressor = new ChatCompressor(config.compressionConfig);
+    this.compressor.setLLMClient(llmClient, config.modelConfig.model);
   }
 
   /**
@@ -180,6 +212,28 @@ export class ChatSession {
 
     // Initialize memory on first message if not already done
     await this.initializeMemory();
+
+    // Check if compression should be triggered before processing
+    if (this.compressor.shouldCompress(this.messages, this.turnCount)) {
+      try {
+        this.lastCompressionResult = await this.compressor.compress(
+          this.messages,
+        );
+        this.messages = this.lastCompressionResult.messages;
+
+        if (this.runConfig.debug) {
+          console.log(
+            `[ChatSession] Compressed ${this.lastCompressionResult.messagesCompressed} messages, ` +
+              `saved ~${this.lastCompressionResult.tokensSaved} tokens`,
+          );
+        }
+      } catch (error) {
+        // Compression failed - continue without it
+        if (this.runConfig.debug) {
+          console.warn("[ChatSession] Compression failed:", error);
+        }
+      }
+    }
 
     // Add user message to history
     this.messages.push({ role: "user", content: userMessage });
@@ -276,6 +330,34 @@ export class ChatSession {
 
         // Handle tool calls
         if (toolCalls.length > 0) {
+          // Check for loops before executing
+          for (const toolCall of toolCalls) {
+            const loopResult = this.loopDetector.check(toolCall, turnCount);
+
+            if (loopResult.shouldWarn) {
+              onActivity?.({
+                type: "loop_warning",
+                pattern: loopResult.pattern!,
+                suggestion: loopResult.suggestion!,
+              });
+            }
+
+            if (loopResult.shouldStop) {
+              onActivity?.({
+                type: "loop_detected",
+                pattern: loopResult.pattern!,
+                message: `Stopping due to detected loop: ${loopResult.pattern!.join(" -> ")}`,
+              });
+              return {
+                success: false,
+                content: "",
+                error: `Loop detected: ${loopResult.suggestion}`,
+                turnCount,
+                terminateReason: "error",
+              };
+            }
+          }
+
           const toolResults = await this.executeToolCalls(
             toolCalls,
             onActivity,
@@ -310,6 +392,9 @@ export class ChatSession {
         terminateReason = "max_turns";
       }
 
+      // Update session-level turn count
+      this.turnCount += turnCount;
+
       // Get the last assistant response
       const lastAssistant = [...this.messages]
         .reverse()
@@ -325,6 +410,9 @@ export class ChatSession {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       onActivity?.({ type: "error", error: error as Error });
+
+      // Update session-level turn count even on error
+      this.turnCount += turnCount;
 
       return {
         success: false,
@@ -382,6 +470,60 @@ export class ChatSession {
    */
   clearHistory(): void {
     this.messages = [];
+    this.turnCount = 0;
+    this.lastCompressionResult = undefined;
+  }
+
+  /**
+   * Manually trigger compression of the message history.
+   *
+   * @remarks
+   * This method compresses the current message history regardless of whether
+   * the automatic compression thresholds have been met. It's useful for:
+   * - Manually reducing context size when needed
+   * - Implementing a /compress slash command
+   * - Preparing for long-running sessions
+   *
+   * @returns A promise that resolves to the compression result, including
+   * the summary generated and tokens saved. Returns undefined if there's
+   * nothing to compress.
+   */
+  async compress(): Promise<CompressionResult | undefined> {
+    if (this.messages.length <= this.compressor.getConfig().preserveRecent) {
+      return undefined;
+    }
+
+    try {
+      this.lastCompressionResult = await this.compressor.compress(
+        this.messages,
+      );
+      this.messages = this.lastCompressionResult.messages;
+      return this.lastCompressionResult;
+    } catch (error) {
+      if (this.runConfig.debug) {
+        console.warn("[ChatSession] Manual compression failed:", error);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get the last compression result, if any.
+   *
+   * @returns The result from the last compression operation, or undefined
+   * if compression has never been performed.
+   */
+  getLastCompressionResult(): CompressionResult | undefined {
+    return this.lastCompressionResult;
+  }
+
+  /**
+   * Get the session-level turn count.
+   *
+   * @returns The total number of turns across all sendMessage calls.
+   */
+  getSessionTurnCount(): number {
+    return this.turnCount;
   }
 
   /**
@@ -466,9 +608,10 @@ export class ChatSession {
    *
    * For each tool call, the method:
    * 1. Emits a `tool_call_start` activity event
-   * 2. Looks up the tool in the registry
-   * 3. Executes the tool with the provided arguments
-   * 4. Emits a `tool_call_end` activity event with the result or error
+   * 2. Checks policy engine if available
+   * 3. Looks up the tool in the registry
+   * 4. Executes the tool with the provided arguments (if allowed)
+   * 5. Emits a `tool_call_end` activity event with the result or error
    *
    * Error handling is performed per-tool, meaning one tool's failure does not
    * prevent other tools from executing. Failed tools return an error message
@@ -505,6 +648,56 @@ export class ChatSession {
             result: result.error,
           });
           return result;
+        }
+
+        // Check policy if policy engine is available
+        if (this.policyEngine) {
+          const confirmation = tool.getConfirmation?.(toolCall.arguments);
+          const decision = this.policyEngine.evaluate({
+            toolName: toolCall.name,
+            confirmation,
+            params: toolCall.arguments,
+          });
+
+          // Tool is blocked
+          if (!decision.allowed) {
+            const result = {
+              toolCallId: toolCall.id,
+              content: "",
+              error:
+                decision.reason ||
+                `Tool '${toolCall.name}' is blocked by policy`,
+            };
+            onActivity?.({
+              type: "tool_call_end",
+              toolCallId: toolCall.id,
+              result: result.error,
+            });
+            return result;
+          }
+
+          // Tool requires approval
+          if (decision.requiresApproval && this.onApprovalRequest) {
+            const approved = await this.onApprovalRequest(
+              toolCall.name,
+              toolCall.arguments,
+              decision.reason || `Approve ${toolCall.name}?`,
+            );
+
+            if (!approved) {
+              const result = {
+                toolCallId: toolCall.id,
+                content: "",
+                error: `Tool '${toolCall.name}' was rejected by user`,
+              };
+              onActivity?.({
+                type: "tool_call_end",
+                toolCallId: toolCall.id,
+                result: result.error,
+              });
+              return result;
+            }
+          }
         }
 
         try {

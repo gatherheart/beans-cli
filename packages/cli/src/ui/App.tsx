@@ -7,18 +7,21 @@
  * - No height constraints to avoid rendering corruption
  */
 
-import React, { useEffect, Component, type ReactNode } from 'react';
-import { Box, Text, useApp } from 'ink';
-import { ChatProvider, useChatActions } from './contexts/ChatContext.js';
-import { TaskProvider } from './contexts/TaskContext.js';
-import { ChatView } from './components/ChatView.js';
-import { InputArea } from './components/InputArea.js';
-import { useTerminalSize } from './hooks/useTerminalSize.js';
-import type { Config } from '@beans/core';
-import type { AgentProfile } from '@beans/core';
+import React, { useEffect, Component, type ReactNode } from "react";
+import { Box, Text, useApp } from "ink";
+import { ChatProvider, useChatActions } from "./contexts/ChatContext.js";
+import { TaskProvider } from "./contexts/TaskContext.js";
+import { ChatView } from "./components/ChatView.js";
+import { InputArea } from "./components/InputArea.js";
+import { useTerminalSize } from "./hooks/useTerminalSize.js";
+import type { Config, ApprovalMode } from "@beans/core";
+import type { AgentProfile } from "@beans/core";
 
 // Error boundary to catch React errors
-class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+class ErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
   constructor(props: { children: ReactNode }) {
     super(props);
     this.state = { error: null };
@@ -29,9 +32,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('[ErrorBoundary] React error:', error.message);
-    console.error('[ErrorBoundary] Stack:', error.stack);
-    console.error('[ErrorBoundary] Component stack:', info.componentStack);
+    console.error("[ErrorBoundary] React error:", error.message);
+    console.error("[ErrorBoundary] Stack:", error.stack);
+    console.error("[ErrorBoundary] Component stack:", info.componentStack);
   }
 
   render() {
@@ -47,6 +50,7 @@ interface AppProps {
   systemPrompt: string;
   profile?: AgentProfile;
   initialPrompt?: string;
+  initialApprovalMode?: ApprovalMode;
 }
 
 /**
@@ -62,11 +66,17 @@ function calculateMainAreaWidth(terminalWidth: number): number {
   }
   // Linearly interpolate between 80 columns (98%) and 132 columns (90%)
   const t = (terminalWidth - 80) / (132 - 80);
-  const percentage = 98 - (t * 8); // lerp from 98 to 90
+  const percentage = 98 - t * 8; // lerp from 98 to 90
   return Math.round(percentage * terminalWidth * 0.01);
 }
 
-function AppContent({ initialPrompt, onExit }: { initialPrompt?: string; onExit: () => void }): React.ReactElement {
+function AppContent({
+  initialPrompt,
+  onExit,
+}: {
+  initialPrompt?: string;
+  onExit: () => void;
+}): React.ReactElement {
   const { sendMessage } = useChatActions();
   const { columns } = useTerminalSize();
 
@@ -88,7 +98,13 @@ function AppContent({ initialPrompt, onExit }: { initialPrompt?: string; onExit:
   );
 }
 
-export function App({ config, systemPrompt, profile, initialPrompt }: AppProps): React.ReactElement {
+export function App({
+  config,
+  systemPrompt,
+  profile,
+  initialPrompt,
+  initialApprovalMode,
+}: AppProps): React.ReactElement {
   const { exit } = useApp();
 
   const handleExit = () => {
@@ -98,7 +114,12 @@ export function App({ config, systemPrompt, profile, initialPrompt }: AppProps):
   return (
     <ErrorBoundary>
       <TaskProvider>
-        <ChatProvider config={config} systemPrompt={systemPrompt} profile={profile}>
+        <ChatProvider
+          config={config}
+          systemPrompt={systemPrompt}
+          profile={profile}
+          initialApprovalMode={initialApprovalMode}
+        >
           <AppContent initialPrompt={initialPrompt} onExit={handleExit} />
         </ChatProvider>
       </TaskProvider>

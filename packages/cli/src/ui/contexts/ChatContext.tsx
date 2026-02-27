@@ -30,6 +30,7 @@ import type {
   MultiAgentEvent,
   Message as LLMMessage,
   AgentProfile,
+  ApprovalMode,
 } from "@beans/core";
 import { useChatHistory } from "../hooks/useChatHistory.js";
 import type { Message, ToolCallInfo } from "../hooks/useChatHistory.js";
@@ -46,6 +47,7 @@ interface ChatStateValue {
   error: string | null;
   profile: AgentProfile | null;
   currentAgent: string | null;
+  approvalMode: ApprovalMode;
 }
 
 /**
@@ -60,6 +62,9 @@ interface ChatActionsValue {
   switchModel: (model: string) => Promise<void>;
   getCurrentModel: () => string;
   listModels: () => Promise<void>;
+  setApprovalMode: (mode: ApprovalMode) => void;
+  enterPlanMode: () => void;
+  exitPlanMode: () => void;
 }
 
 const ChatStateContext = createContext<ChatStateValue | null>(null);
@@ -70,6 +75,7 @@ export interface ChatProviderProps {
   config: Config;
   systemPrompt: string;
   profile?: AgentProfile;
+  initialApprovalMode?: ApprovalMode;
 }
 
 export function ChatProvider({
@@ -77,10 +83,13 @@ export function ChatProvider({
   config,
   systemPrompt,
   profile,
+  initialApprovalMode = "DEFAULT",
 }: ChatProviderProps): React.ReactElement {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentAgent, setCurrentAgent] = useState<string | null>(null);
+  const [approvalMode, setApprovalModeState] =
+    useState<ApprovalMode>(initialApprovalMode);
 
   // Use custom hook for message management
   const history = useChatHistory();
@@ -304,6 +313,41 @@ export function ChatProvider({
     }
   }, [config, history]);
 
+  const setApprovalMode = useCallback(
+    (mode: ApprovalMode): void => {
+      setApprovalModeState(mode);
+      // Update the policy engine
+      const policyEngine = config.getPolicyEngine();
+      policyEngine.setMode(mode);
+      history.addSystemMessage(`Approval mode set to: **${mode}**`);
+    },
+    [config, history],
+  );
+
+  const enterPlanMode = useCallback((): void => {
+    if (approvalMode === "PLAN") {
+      history.addSystemMessage("Already in Plan mode.");
+      return;
+    }
+    setApprovalMode("PLAN");
+    history.addSystemMessage(
+      "**Plan Mode enabled** - Read-only mode. Write and execute operations are blocked.\n\n" +
+        "Allowed tools: `read_file`, `glob`, `grep`, `list_directory`\n\n" +
+        "Use `/plan exit` to exit plan mode.",
+    );
+  }, [approvalMode, setApprovalMode, history]);
+
+  const exitPlanMode = useCallback((): void => {
+    if (approvalMode !== "PLAN") {
+      history.addSystemMessage("Not in Plan mode.");
+      return;
+    }
+    setApprovalMode("DEFAULT");
+    history.addSystemMessage(
+      "**Plan Mode disabled** - Write and execute operations are now allowed.",
+    );
+  }, [approvalMode, setApprovalMode, history]);
+
   // Memoize state value to prevent unnecessary re-renders
   const stateValue = useMemo<ChatStateValue>(
     () => ({
@@ -312,8 +356,9 @@ export function ChatProvider({
       error,
       profile: profile || null,
       currentAgent,
+      approvalMode,
     }),
-    [history.messages, isLoading, error, profile, currentAgent],
+    [history.messages, isLoading, error, profile, currentAgent, approvalMode],
   );
 
   // Memoize actions value to prevent unnecessary re-renders
@@ -327,6 +372,9 @@ export function ChatProvider({
       switchModel,
       getCurrentModel,
       listModels,
+      setApprovalMode,
+      enterPlanMode,
+      exitPlanMode,
     }),
     [
       sendMessage,
@@ -337,6 +385,9 @@ export function ChatProvider({
       switchModel,
       getCurrentModel,
       listModels,
+      setApprovalMode,
+      enterPlanMode,
+      exitPlanMode,
     ],
   );
 

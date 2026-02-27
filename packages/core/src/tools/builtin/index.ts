@@ -10,6 +10,7 @@ export * from "./save-memory.js";
 export * from "./list-directory.js";
 export * from "./rename-file.js";
 export * from "./delete-file.js";
+export * from "./spawn-agent.js";
 
 import { ReadFileTool } from "./read-file.js";
 import { WriteFileTool } from "./write-file.js";
@@ -27,6 +28,7 @@ import { SaveMemoryTool } from "./save-memory.js";
 import { ListDirectoryTool } from "./list-directory.js";
 import { RenameFileTool } from "./rename-file.js";
 import { DeleteFileTool } from "./delete-file.js";
+import { SpawnAgentTool } from "./spawn-agent.js";
 import type { Tool } from "../types.js";
 
 /**
@@ -48,5 +50,6 @@ export function createBuiltinTools(): Tool[] {
     new ListDirectoryTool(),
     new RenameFileTool(),
     new DeleteFileTool(),
+    new SpawnAgentTool(),
   ];
 }
