@@ -42,6 +42,7 @@ ${toolContext}
 ## Intent Categories
 - simple_question: Quick question that can be answered directly (use general agent)
 - web_search: Requires searching the web for information (weather, news, facts, current events) - use general agent with web_search tool
+- math_problem: Math calculations, probability, statistics, equations - use math agent
 - code_exploration: Finding/understanding code without modifying it
 - code_modification: Changes to existing code or creating new code
 - bash_execution: Running shell commands, git operations, builds
@@ -53,6 +54,7 @@ ${toolContext}
 - bash: For shell commands, git, builds
 - explore: For finding files, searching code, understanding structure
 - plan: For designing implementation approaches
+- math: For math problems, calculations, probability, statistics (writes and runs Python code)
 - general: For web search, complex tasks, or anything needing multiple tools
 
 ## IMPORTANT
@@ -61,6 +63,7 @@ ${toolContext}
 - Always consider the tool recommendations when choosing an agent
 - Set requiresPlanning=false for most requests. Only use true for genuinely complex multi-step tasks
 - A single agent can usually handle writing code, searching, or running commands without task planning
+- If user says "run it" or similar and there's code in conversation context, use agent "general" (not bash) since general can save and run code
 
 ## Response Format
 Respond with valid JSON only, no other text:
@@ -181,6 +184,7 @@ function parseAnalysisResponse(content: string): AnalysisResponse {
   const validIntents: UserIntent[] = [
     "simple_question",
     "web_search",
+    "math_problem",
     "code_exploration",
     "code_modification",
     "bash_execution",

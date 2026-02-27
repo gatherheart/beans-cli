@@ -153,10 +153,9 @@ export class AgentExecutor {
         turnCount++;
         onActivity?.({ type: "turn_start", turnNumber: turnCount });
 
-        // Call LLM
+        // Call LLM with retry on empty response
         const tools = this.getToolDefinitions(definition);
-
-        const response = await this.llmClient.chat({
+        let response = await this.llmClient.chat({
           model: definition.modelConfig.model,
           messages,
           systemPrompt,
@@ -164,6 +163,38 @@ export class AgentExecutor {
           temperature: definition.modelConfig.temperature,
           maxTokens: definition.modelConfig.maxTokens,
         });
+
+        // Retry with higher temperature if response is completely empty
+        if (!response.content && !response.toolCalls?.length) {
+          response = await this.llmClient.chat({
+            model: definition.modelConfig.model,
+            messages,
+            systemPrompt,
+            tools,
+            temperature: 0.7, // Use higher temperature on retry
+            maxTokens: definition.modelConfig.maxTokens,
+          });
+        }
+
+        // Second retry with even higher temperature and simplified prompt hint
+        if (!response.content && !response.toolCalls?.length) {
+          const retryMessages = [
+            ...messages,
+            {
+              role: "user" as const,
+              content:
+                "(Please respond with either a text answer or use a tool. Do not return an empty response.)",
+            },
+          ];
+          response = await this.llmClient.chat({
+            model: definition.modelConfig.model,
+            messages: retryMessages,
+            systemPrompt,
+            tools,
+            temperature: 1.0,
+            maxTokens: definition.modelConfig.maxTokens,
+          });
+        }
 
         // Handle thinking content
         if (response.thinking) {
@@ -230,8 +261,14 @@ export class AgentExecutor {
           });
         } else {
           // No tool calls - push final assistant message and done
-          if (response.content) {
-            messages.push({ role: "assistant", content: response.content });
+          // Always push a message, even if empty, to ensure we have a response
+          const content =
+            response.content ||
+            "(The assistant did not provide a response. This may indicate an issue with the request or the model.)";
+          messages.push({ role: "assistant", content });
+          if (!response.content) {
+            // Emit the fallback content so UI shows something
+            onActivity?.({ type: "content_chunk", content });
           }
           onActivity?.({ type: "turn_end", turnNumber: turnCount });
           break;

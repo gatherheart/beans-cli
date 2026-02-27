@@ -11,17 +11,13 @@ import type {
   AgentExecutionResult,
   SpawnOptions,
   AgentManagerConfig,
-  InputAnalysis,
 } from "./types.js";
-import { analyzeUserInput } from "./user-input-agent.js";
-import { createTask, updateTask, getUnblockedTasks } from "./task-store.js";
 import { specializedAgents, getAgentDefinition } from "./specialized/index.js";
 import {
   setMultiAgentDebug,
   isMultiAgentDebugEnabled,
   logMultiAgentEvent,
   logConversationHistory,
-  logOrchestrationSummary,
 } from "./debug-logger.js";
 
 /**
@@ -160,15 +156,6 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
     options.onActivity?.(spawnStartEvent);
     logMultiAgentEvent(spawnStartEvent);
 
-    // Update task status if associated with a task
-    if (options.taskId) {
-      updateTask({
-        taskId: options.taskId,
-        status: "in_progress",
-        owner: agentType,
-      });
-    }
-
     try {
       const result = await executor.execute(definition, {
         signal: options.signal,
@@ -235,14 +222,6 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
         messages: result.messages,
       };
 
-      // Update task status on completion
-      if (options.taskId) {
-        updateTask({
-          taskId: options.taskId,
-          status: result.success ? "completed" : "pending",
-        });
-      }
-
       // Log conversation history in debug mode
       if (isMultiAgentDebugEnabled()) {
         logConversationHistory(agentType, result.messages);
@@ -282,170 +261,65 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
   }
 
   /**
+   * Simple keyword-based agent routing (no LLM call)
+   * Following gemini-cli pattern: avoid costly LLM calls for routing
+   */
+  function routeToAgent(userInput: string): string {
+    const input = userInput.toLowerCase();
+
+    // Math problems: probability, calculate, equation, formula, etc.
+    if (
+      /\b(probability|calculate|equation|formula|solve|math|integral|derivative|statistics|p\(|e\^)\b/i.test(
+        input,
+      )
+    ) {
+      return "math";
+    }
+
+    // Code exploration: find, search, where is, how does
+    if (
+      /\b(find|search|where is|how does|show me|list all)\b/i.test(input) &&
+      /\b(file|code|function|class|method|variable)\b/i.test(input)
+    ) {
+      return "explore";
+    }
+
+    // Bash/shell commands: run, execute, git, npm, build
+    if (
+      /^(run|execute|git|npm|yarn|pnpm|make|docker|kubectl)\b/i.test(
+        input.trim(),
+      )
+    ) {
+      return "bash";
+    }
+
+    // Default to general agent (has all tools)
+    return "general";
+  }
+
+  /**
    * Process user input through the multi-agent system
+   * Uses simple keyword routing instead of LLM-based analysis (cost efficient)
    */
   async function processInput(
     userInput: string,
     options: SpawnOptions = {},
   ): Promise<AgentExecutionResult> {
-    // Notify analysis start
-    const analysisStartEvent = {
-      type: "input_analysis_start" as const,
-      input: userInput,
-    };
-    options.onActivity?.(analysisStartEvent);
-    logMultiAgentEvent(analysisStartEvent);
+    // Simple keyword-based routing (no LLM call)
+    const agentType = routeToAgent(userInput);
 
-    // Analyze user input
-    let analysis: InputAnalysis;
-    try {
-      analysis = await analyzeUserInput(userInput, llmClient, defaultModel);
-    } catch {
-      // Fallback to general agent on analysis failure
-      analysis = {
+    logMultiAgentEvent({
+      type: "input_analysis_complete" as const,
+      analysis: {
         intent: "unknown",
         requiresPlanning: false,
-        suggestedAgent: "general",
+        suggestedAgent: agentType,
         originalInput: userInput,
-      };
-    }
+      },
+    });
 
-    // Notify analysis complete
-    const analysisCompleteEvent = {
-      type: "input_analysis_complete" as const,
-      analysis,
-    };
-    options.onActivity?.(analysisCompleteEvent);
-    logMultiAgentEvent(analysisCompleteEvent);
-
-    // Check if tasks are properly structured (have subject and description)
-    const hasValidTasks =
-      analysis.tasks?.length &&
-      analysis.tasks.every(
-        (t) => t && typeof t === "object" && t.subject && t.description,
-      );
-
-    // Simple request OR malformed tasks - spawn single agent with original input
-    if (!analysis.requiresPlanning || !hasValidTasks) {
-      const agentType = analysis.suggestedAgent ?? "general";
-      return spawn(agentType, userInput, options);
-    }
-
-    // Complex request with valid tasks - create tasks and execute
-    // But still include original input for context
-    return executeTaskPlan(analysis, userInput, options);
+    return spawn(agentType, userInput, options);
   }
-
-  /**
-   * Execute a task plan with dependencies
-   */
-  async function executeTaskPlan(
-    analysis: InputAnalysis,
-    originalInput: string,
-    options: SpawnOptions = {},
-  ): Promise<AgentExecutionResult> {
-    const tasks = analysis.tasks ?? [];
-    const taskIdMap = new Map<string, string>();
-    const results: AgentExecutionResult[] = [];
-    const agentsUsed = new Set<string>();
-
-    // Create all tasks first
-    for (let i = 0; i < tasks.length; i++) {
-      const taskSuggestion = tasks[i];
-      const task = createTask({
-        subject: taskSuggestion.subject,
-        description: taskSuggestion.description,
-        metadata: {
-          suggestedAgent: taskSuggestion.suggestedAgent,
-          originalIndex: i,
-        },
-      });
-      taskIdMap.set(String(i), task.id);
-
-      const taskCreatedEvent = {
-        type: "task_created" as const,
-        task,
-      };
-      options.onActivity?.(taskCreatedEvent);
-      logMultiAgentEvent(taskCreatedEvent);
-    }
-
-    // Set up dependencies
-    for (let i = 0; i < tasks.length; i++) {
-      const taskSuggestion = tasks[i];
-      const taskId = taskIdMap.get(String(i));
-      if (taskId && taskSuggestion.dependencies?.length) {
-        const blockedBy = taskSuggestion.dependencies
-          .map((dep) => taskIdMap.get(dep))
-          .filter((id): id is string => id !== undefined);
-
-        if (blockedBy.length > 0) {
-          const updatedTask = updateTask({
-            taskId,
-            addBlockedBy: blockedBy,
-          });
-          if (updatedTask) {
-            const taskUpdatedEvent = {
-              type: "task_updated" as const,
-              task: updatedTask,
-            };
-            options.onActivity?.(taskUpdatedEvent);
-            logMultiAgentEvent(taskUpdatedEvent);
-          }
-        }
-      }
-    }
-
-    // Execute tasks in dependency order
-    let hasMoreTasks = true;
-    while (hasMoreTasks) {
-      const unblockedTasks = getUnblockedTasks();
-      if (unblockedTasks.length === 0) {
-        hasMoreTasks = false;
-        break;
-      }
-
-      // Execute unblocked tasks (could be parallel, but keeping sequential for simplicity)
-      for (const task of unblockedTasks) {
-        const agentType =
-          (task.metadata?.suggestedAgent as string) ?? "general";
-        agentsUsed.add(agentType);
-        // Include original user input for context along with task description
-        const prompt = `Original request: ${originalInput}\n\nCurrent task: ${task.description}`;
-        const result = await spawn(agentType, prompt, {
-          ...options,
-          taskId: task.id,
-        });
-        results.push(result);
-      }
-    }
-
-    // Log orchestration summary
-    const totalTurns = results.reduce((sum, r) => sum + r.turnCount, 0);
-    const completedCount = results.filter((r) => r.success).length;
-    logOrchestrationSummary(
-      tasks.length,
-      completedCount,
-      totalTurns,
-      Array.from(agentsUsed),
-    );
-
-    // Aggregate results
-    const allSuccess = results.every((r) => r.success);
-    const aggregatedContent = results
-      .map((r) => `## ${r.agentType} Result\n${r.content}`)
-      .join("\n\n");
-
-    return {
-      success: allSuccess,
-      content: aggregatedContent,
-      agentType: "orchestrator",
-      terminateReason: allSuccess ? "complete" : "error",
-      turnCount: totalTurns,
-      messages: results.flatMap((r) => r.messages),
-    };
-  }
-
   return {
     register,
     getAgent,

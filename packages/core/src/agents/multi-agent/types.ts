@@ -2,13 +2,13 @@
  * Multi-agent system types
  */
 
-import type { Tool } from '../../tools/types.js';
-import type { Message, TerminateReason } from '../types.js';
+import type { Tool } from "../../tools/types.js";
+import type { Message, TerminateReason } from "../types.js";
 
 /**
  * Task status in the task store
  */
-export type TaskStatus = 'pending' | 'in_progress' | 'completed';
+export type TaskStatus = "pending" | "in_progress" | "completed";
 
 /**
  * Task in the multi-agent task store
@@ -89,14 +89,15 @@ export interface SpecializedAgentDefinition {
  * Intent classification from user input analysis
  */
 export type UserIntent =
-  | 'simple_question'
-  | 'web_search'
-  | 'code_exploration'
-  | 'code_modification'
-  | 'bash_execution'
-  | 'planning'
-  | 'multi_step_task'
-  | 'unknown';
+  | "simple_question"
+  | "web_search"
+  | "math_problem"
+  | "code_exploration"
+  | "code_modification"
+  | "bash_execution"
+  | "planning"
+  | "multi_step_task"
+  | "unknown";
 
 /**
  * Task suggestion from user input analysis
@@ -172,18 +173,23 @@ export interface SpawnOptions {
  * Events emitted by the multi-agent system
  */
 export type MultiAgentEvent =
-  | { type: 'input_analysis_start'; input: string }
-  | { type: 'input_analysis_complete'; analysis: InputAnalysis }
-  | { type: 'task_created'; task: Task }
-  | { type: 'task_updated'; task: Task }
-  | { type: 'agent_spawn_start'; agentType: string; taskId?: string }
-  | { type: 'agent_spawn_complete'; result: AgentExecutionResult }
-  | { type: 'turn_start'; turnNumber: number; agentType: string }
-  | { type: 'turn_end'; turnNumber: number; agentType: string }
-  | { type: 'content_chunk'; content: string; agentType: string }
-  | { type: 'tool_call_start'; toolName: string; agentType: string }
-  | { type: 'tool_call_end'; toolName: string; result: string; agentType: string }
-  | { type: 'error'; error: Error; agentType?: string };
+  | { type: "input_analysis_start"; input: string }
+  | { type: "input_analysis_complete"; analysis: InputAnalysis }
+  | { type: "task_created"; task: Task }
+  | { type: "task_updated"; task: Task }
+  | { type: "agent_spawn_start"; agentType: string; taskId?: string }
+  | { type: "agent_spawn_complete"; result: AgentExecutionResult }
+  | { type: "turn_start"; turnNumber: number; agentType: string }
+  | { type: "turn_end"; turnNumber: number; agentType: string }
+  | { type: "content_chunk"; content: string; agentType: string }
+  | { type: "tool_call_start"; toolName: string; agentType: string }
+  | {
+      type: "tool_call_end";
+      toolName: string;
+      result: string;
+      agentType: string;
+    }
+  | { type: "error"; error: Error; agentType?: string };
 
 /**
  * Configuration for the agent manager

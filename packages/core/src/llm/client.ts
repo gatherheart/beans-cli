@@ -375,6 +375,19 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
       const data = (await response.json()) as Parameters<
         typeof parseGoogleResponse
       >[0];
+
+      // Debug: log raw response structure if candidates are empty or have no content
+      if (config.debug?.enabled) {
+        const hasContent = data.candidates?.[0]?.content?.parts?.some(
+          (p) => p.text,
+        );
+        if (!hasContent) {
+          writeDebugLog(
+            `🔴 EMPTY RESPONSE DEBUG:\n${JSON.stringify(data, null, 2)}`,
+          );
+        }
+      }
+
       return parseGoogleResponse(data, request.model);
     },
 
@@ -791,7 +804,12 @@ function parseGoogleResponse(
         }>;
       };
       finishReason?: string;
+      safetyRatings?: Array<{ category: string; probability: string }>;
     }>;
+    promptFeedback?: {
+      blockReason?: string;
+      safetyRatings?: Array<{ category: string; probability: string }>;
+    };
     usageMetadata?: {
       promptTokenCount: number;
       candidatesTokenCount: number;
@@ -806,16 +824,57 @@ function parseGoogleResponse(
     throw new Error(`Google API error: ${data.error.message}`);
   }
 
-  // Handle empty candidates
-  if (!data.candidates || data.candidates.length === 0) {
+  // Handle prompt blocked by safety filters
+  if (data.promptFeedback?.blockReason) {
     return {
-      content: null,
+      content: `[Response blocked: ${data.promptFeedback.blockReason}]`,
       model,
       finishReason: "stop",
     };
   }
 
+  // Handle empty candidates
+  if (!data.candidates || data.candidates.length === 0) {
+    return {
+      content: "[No response generated]",
+      model,
+      finishReason: "stop",
+    };
+  }
+
+  // Check if candidate was blocked for safety
   const candidate = data.candidates[0];
+  if (candidate.finishReason === "SAFETY") {
+    return {
+      content: "[Response blocked for safety reasons]",
+      model,
+      finishReason: "stop",
+    };
+  }
+
+  // Handle malformed function call - model tried to use a tool incorrectly
+  if (candidate.finishReason === "MALFORMED_FUNCTION_CALL") {
+    const finishMessage = (candidate as { finishMessage?: string })
+      .finishMessage;
+    // Extract the code the model was trying to run
+    const codeMatch = finishMessage?.match(/Malformed function call: (.+)/s);
+    const attemptedCode = codeMatch?.[1]?.trim();
+
+    if (attemptedCode) {
+      return {
+        content: `I tried to calculate this but encountered a formatting issue. Here's the code I wanted to run:\n\n\`\`\`python\n${attemptedCode}\n\`\`\`\n\nYou can run this yourself, or I can try a different approach.`,
+        model,
+        finishReason: "stop",
+      };
+    }
+    return {
+      content:
+        "[Model attempted an invalid tool call. Please rephrase your request.]",
+      model,
+      finishReason: "stop",
+    };
+  }
+
   const parts = candidate.content?.parts ?? [];
 
   const text = parts.find((p) => p.text)?.text;

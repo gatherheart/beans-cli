@@ -3,12 +3,12 @@
  * Inspired by gemini-cli's implementation
  */
 
-import React from 'react';
-import { Box, Text } from 'ink';
-import { createLowlight, common } from 'lowlight';
-import type { Element, Text as HastText, Root, RootContent } from 'hast';
-import { theme } from '../theme/colors.js';
-import stringWidth from 'string-width';
+import React from "react";
+import { Box, Text } from "ink";
+import { createLowlight, common } from "lowlight";
+import type { Element, Text as HastText, Root, RootContent } from "hast";
+import { theme } from "../theme/colors.js";
+import stringWidth from "string-width";
 
 const lowlight = createLowlight(common);
 
@@ -20,32 +20,32 @@ interface MarkdownDisplayProps {
 
 // Map highlight.js classes to terminal colors
 const CLASS_TO_COLOR: Record<string, string> = {
-  'hljs-keyword': theme.syntax.keyword,
-  'hljs-built_in': theme.syntax.builtin,
-  'hljs-type': theme.syntax.type,
-  'hljs-literal': theme.syntax.literal,
-  'hljs-number': theme.syntax.number,
-  'hljs-string': theme.syntax.string,
-  'hljs-comment': theme.syntax.comment,
-  'hljs-doctag': theme.syntax.comment,
-  'hljs-meta': theme.syntax.comment,
-  'hljs-attr': theme.syntax.property,
-  'hljs-attribute': theme.syntax.property,
-  'hljs-name': 'blue',
-  'hljs-tag': 'blue',
-  'hljs-title': theme.syntax.function,
-  'hljs-function': theme.syntax.function,
-  'hljs-class': theme.syntax.function,
-  'hljs-params': 'white',
-  'hljs-variable': theme.syntax.variable,
-  'hljs-regexp': theme.syntax.variable,
-  'hljs-symbol': theme.syntax.variable,
-  'hljs-template-variable': theme.syntax.variable,
-  'hljs-selector-id': 'blue',
-  'hljs-selector-class': 'blue',
-  'hljs-selector-tag': 'blue',
-  'hljs-property': theme.syntax.property,
-  'hljs-punctuation': theme.syntax.punctuation,
+  "hljs-keyword": theme.syntax.keyword,
+  "hljs-built_in": theme.syntax.builtin,
+  "hljs-type": theme.syntax.type,
+  "hljs-literal": theme.syntax.literal,
+  "hljs-number": theme.syntax.number,
+  "hljs-string": theme.syntax.string,
+  "hljs-comment": theme.syntax.comment,
+  "hljs-doctag": theme.syntax.comment,
+  "hljs-meta": theme.syntax.comment,
+  "hljs-attr": theme.syntax.property,
+  "hljs-attribute": theme.syntax.property,
+  "hljs-name": "blue",
+  "hljs-tag": "blue",
+  "hljs-title": theme.syntax.function,
+  "hljs-function": theme.syntax.function,
+  "hljs-class": theme.syntax.function,
+  "hljs-params": "white",
+  "hljs-variable": theme.syntax.variable,
+  "hljs-regexp": theme.syntax.variable,
+  "hljs-symbol": theme.syntax.variable,
+  "hljs-template-variable": theme.syntax.variable,
+  "hljs-selector-id": "blue",
+  "hljs-selector-class": "blue",
+  "hljs-selector-tag": "blue",
+  "hljs-property": theme.syntax.property,
+  "hljs-punctuation": theme.syntax.punctuation,
 };
 
 function getColorFromClasses(classes: string[]): string | undefined {
@@ -59,15 +59,22 @@ function getColorFromClasses(classes: string[]): string | undefined {
 
 let hastKeyCounter = 0;
 
-function renderHastNode(node: RootContent, inheritedColor?: string): React.ReactNode {
-  if (node.type === 'text') {
+function renderHastNode(
+  node: RootContent,
+  inheritedColor?: string,
+): React.ReactNode {
+  if (node.type === "text") {
     const textNode = node as HastText;
     const color = inheritedColor || theme.text.code;
     const key = `hast-${hastKeyCounter++}`;
-    return <Text key={key} color={color}>{textNode.value}</Text>;
+    return (
+      <Text key={key} color={color}>
+        {textNode.value}
+      </Text>
+    );
   }
 
-  if (node.type === 'element') {
+  if (node.type === "element") {
     const element = node as Element;
     const classes = (element.properties?.className as string[]) || [];
     const elementColor = getColorFromClasses(classes);
@@ -86,12 +93,16 @@ function renderHastNode(node: RootContent, inheritedColor?: string): React.React
   return null;
 }
 
-function renderHighlightedCode(code: string, language: string | null): React.ReactNode {
+function renderHighlightedCode(
+  code: string,
+  language: string | null,
+): React.ReactNode {
   try {
     hastKeyCounter = 0;
-    const result: Root = language && lowlight.registered(language)
-      ? lowlight.highlight(language, code)
-      : lowlight.highlightAuto(code);
+    const result: Root =
+      language && lowlight.registered(language)
+        ? lowlight.highlight(language, code)
+        : lowlight.highlightAuto(code);
 
     return result.children.map((child, idx) => (
       <React.Fragment key={`code-${idx}`}>
@@ -113,14 +124,26 @@ interface CodeBlockProps {
   showLineNumbers?: boolean;
 }
 
-const CodeBlockInternal: React.FC<CodeBlockProps> = ({ code, language, showLineNumbers = false }) => {
-  const lines = code.split('\n');
+const CodeBlockInternal: React.FC<CodeBlockProps> = ({
+  code,
+  language,
+  showLineNumbers = false,
+}) => {
+  // Skip rendering empty code blocks
+  if (!code.trim()) {
+    return null;
+  }
+
+  const lines = code.split("\n");
   const padWidth = String(lines.length).length;
 
   return (
     <Box flexDirection="column" marginY={1}>
       {language && (
-        <Text color={theme.text.secondary} dimColor> {language}</Text>
+        <Text color={theme.text.secondary} dimColor>
+          {" "}
+          {language}
+        </Text>
       )}
       <Box
         flexDirection="column"
@@ -132,11 +155,11 @@ const CodeBlockInternal: React.FC<CodeBlockProps> = ({ code, language, showLineN
           <Box key={i}>
             {showLineNumbers && (
               <Text color={theme.text.secondary}>
-                {String(i + 1).padStart(padWidth, ' ')}
+                {String(i + 1).padStart(padWidth, " ")}
               </Text>
             )}
             <Text color={theme.text.code}>
-              {line === '' ? ' ' : renderHighlightedCode(line, language)}
+              {line === "" ? " " : renderHighlightedCode(line, language)}
             </Text>
           </Box>
         ))}
@@ -160,35 +183,155 @@ interface InlineProps {
  */
 function getPlainTextLength(text: string): number {
   const cleanText = text
-    .replace(/\*\*(.*?)\*\*/g, '$1')
-    .replace(/\*(.*?)\*/g, '$1')
-    .replace(/_(.*?)_/g, '$1')
-    .replace(/~~(.*?)~~/g, '$1')
-    .replace(/`(.*?)`/g, '$1')
-    .replace(/\[(.*?)\]\(.*?\)/g, '$1');
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/_(.*?)_/g, "$1")
+    .replace(/~~(.*?)~~/g, "$1")
+    .replace(/`(.*?)`/g, "$1")
+    .replace(/\[(.*?)\]\(.*?\)/g, "$1");
   return stringWidth(cleanText);
 }
 
+// Static maps for LaTeX conversion (avoid recreating on every call)
+const LATEX_SYMBOLS: Record<string, string> = {
+  "\\leq": "≤",
+  "\\geq": "≥",
+  "\\neq": "≠",
+  "\\approx": "≈",
+  "\\pm": "±",
+  "\\times": "×",
+  "\\cdot": "·",
+  "\\infty": "∞",
+  "\\sqrt": "√",
+  "\\sum": "Σ",
+  "\\prod": "Π",
+  "\\int": "∫",
+  "\\alpha": "α",
+  "\\beta": "β",
+  "\\gamma": "γ",
+  "\\delta": "δ",
+  "\\epsilon": "ε",
+  "\\lambda": "λ",
+  "\\mu": "μ",
+  "\\pi": "π",
+  "\\sigma": "σ",
+  "\\theta": "θ",
+  "\\rightarrow": "→",
+  "\\leftarrow": "←",
+  "\\Rightarrow": "⇒",
+  "\\Leftarrow": "⇐",
+};
+
+const SUPERSCRIPTS: Record<string, string> = {
+  "0": "⁰",
+  "1": "¹",
+  "2": "²",
+  "3": "³",
+  "4": "⁴",
+  "5": "⁵",
+  "6": "⁶",
+  "7": "⁷",
+  "8": "⁸",
+  "9": "⁹",
+  "+": "⁺",
+  "-": "⁻",
+  "=": "⁼",
+  "(": "⁽",
+  ")": "⁾",
+  n: "ⁿ",
+  x: "ˣ",
+  y: "ʸ",
+  a: "ᵃ",
+  b: "ᵇ",
+  c: "ᶜ",
+  d: "ᵈ",
+  e: "ᵉ",
+  f: "ᶠ",
+  g: "ᵍ",
+  h: "ʰ",
+  i: "ⁱ",
+  j: "ʲ",
+  k: "ᵏ",
+  l: "ˡ",
+  m: "ᵐ",
+  o: "ᵒ",
+  p: "ᵖ",
+  r: "ʳ",
+  s: "ˢ",
+  t: "ᵗ",
+  u: "ᵘ",
+  v: "ᵛ",
+  w: "ʷ",
+  z: "ᶻ",
+};
+
+// Pre-compiled regex for LaTeX detection and conversion
+const HAS_LATEX = /[$\\^]/;
+const LATEX_COMMAND =
+  /\\(leq|geq|neq|approx|pm|times|cdot|infty|sqrt|sum|prod|int|alpha|beta|gamma|delta|epsilon|lambda|mu|pi|sigma|theta|rightarrow|leftarrow|Rightarrow|Leftarrow)\b/g;
+const LATEX_FRAC = /\\frac\{([^}]*)\}\{([^}]*)\}/g;
+const LATEX_TEXT = /\\text\{([^}]*)\}/g;
+const LATEX_UNKNOWN = /\\([a-zA-Z]+)/g;
+const EXPONENT_PAREN = /\^(\([^)]+\))/g;
+const EXPONENT_BRACE = /\^\{([^}]+)\}/g;
+const EXPONENT_SIMPLE = /\^([0-9a-z]+)/gi;
+
+/**
+ * Convert LaTeX math notation to Unicode for terminal display
+ * Optimized: early return if no LaTeX detected
+ */
+function convertLatexToUnicode(text: string): string {
+  // Fast path: skip if no LaTeX markers
+  if (!HAS_LATEX.test(text)) {
+    return text;
+  }
+
+  let result = text
+    .replace(/\$\$/g, "")
+    .replace(/\$/g, "")
+    .replace(LATEX_COMMAND, (_, cmd) => LATEX_SYMBOLS["\\" + cmd] || cmd)
+    .replace(LATEX_FRAC, "($1)/($2)")
+    .replace(LATEX_TEXT, "$1")
+    .replace(LATEX_UNKNOWN, "$1");
+
+  // Convert exponents to superscript
+  const toSuper = (s: string) =>
+    s
+      .split("")
+      .map((c) => SUPERSCRIPTS[c] || c)
+      .join("");
+  result = result
+    .replace(EXPONENT_PAREN, (_, exp) => toSuper(exp))
+    .replace(EXPONENT_BRACE, (_, exp) => toSuper(exp))
+    .replace(EXPONENT_SIMPLE, (_, exp) => toSuper(exp));
+
+  return result;
+}
+
 const RenderInlineInternal: React.FC<InlineProps> = ({ text }) => {
+  // Convert LaTeX math to Unicode first
+  const processedText = convertLatexToUnicode(text);
+
   // Early return for plain text without markdown or URLs
-  if (!/[*_~`[<]|https?:/.test(text)) {
-    return <Text color={theme.text.primary}>{text}</Text>;
+  if (!/[*_~`[<]|https?:/.test(processedText)) {
+    return <Text color={theme.text.primary}>{processedText}</Text>;
   }
 
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
 
   // Combined regex for all inline styles
-  const inlineRegex = /(\*\*[^*]+\*\*|\*[^*]+\*|_[^_]+_|`[^`]+`|~~[^~]+~~|\[[^\]]+\]\([^)]+\)|<u>[^<]+<\/u>|https?:\/\/\S+)/g;
+  const inlineRegex =
+    /(\*\*[^*]+\*\*|\*[^*]+\*|_[^_]+_|`[^`]+`|~~[^~]+~~|\[[^\]]+\]\([^)]+\)|<u>[^<]+<\/u>|https?:\/\/\S+)/g;
   let match: RegExpExecArray | null;
 
-  while ((match = inlineRegex.exec(text)) !== null) {
+  while ((match = inlineRegex.exec(processedText)) !== null) {
     // Add text before match
     if (match.index > lastIndex) {
       parts.push(
         <Text key={`t-${lastIndex}`} color={theme.text.primary}>
-          {text.slice(lastIndex, match.index)}
-        </Text>
+          {processedText.slice(lastIndex, match.index)}
+        </Text>,
       );
     }
 
@@ -197,7 +340,11 @@ const RenderInlineInternal: React.FC<InlineProps> = ({ text }) => {
     let renderedNode: React.ReactNode = null;
 
     // **bold**
-    if (fullMatch.startsWith('**') && fullMatch.endsWith('**') && fullMatch.length > 4) {
+    if (
+      fullMatch.startsWith("**") &&
+      fullMatch.endsWith("**") &&
+      fullMatch.length > 4
+    ) {
       renderedNode = (
         <Text key={key} bold color={theme.text.primary}>
           {fullMatch.slice(2, -2)}
@@ -206,14 +353,14 @@ const RenderInlineInternal: React.FC<InlineProps> = ({ text }) => {
     }
     // *italic* or _italic_ (with boundary checks)
     else if (
-      ((fullMatch.startsWith('*') && fullMatch.endsWith('*')) ||
-       (fullMatch.startsWith('_') && fullMatch.endsWith('_'))) &&
+      ((fullMatch.startsWith("*") && fullMatch.endsWith("*")) ||
+        (fullMatch.startsWith("_") && fullMatch.endsWith("_"))) &&
       fullMatch.length > 2 &&
-      !fullMatch.startsWith('**')
+      !fullMatch.startsWith("**")
     ) {
       // Check word boundaries to avoid false positives in paths like some_var_name
-      const prevChar = match.index > 0 ? text[match.index - 1] : '';
-      const nextChar = text[inlineRegex.lastIndex] || '';
+      const prevChar = match.index > 0 ? processedText[match.index - 1] : "";
+      const nextChar = processedText[inlineRegex.lastIndex] || "";
       const isWordBoundary = !/\w/.test(prevChar) && !/\w/.test(nextChar);
 
       if (isWordBoundary) {
@@ -225,7 +372,11 @@ const RenderInlineInternal: React.FC<InlineProps> = ({ text }) => {
       }
     }
     // `code`
-    else if (fullMatch.startsWith('`') && fullMatch.endsWith('`') && fullMatch.length > 2) {
+    else if (
+      fullMatch.startsWith("`") &&
+      fullMatch.endsWith("`") &&
+      fullMatch.length > 2
+    ) {
       renderedNode = (
         <Text key={key} color={theme.text.accent}>
           {fullMatch.slice(1, -1)}
@@ -233,7 +384,11 @@ const RenderInlineInternal: React.FC<InlineProps> = ({ text }) => {
       );
     }
     // ~~strikethrough~~
-    else if (fullMatch.startsWith('~~') && fullMatch.endsWith('~~') && fullMatch.length > 4) {
+    else if (
+      fullMatch.startsWith("~~") &&
+      fullMatch.endsWith("~~") &&
+      fullMatch.length > 4
+    ) {
       renderedNode = (
         <Text key={key} strikethrough color={theme.text.secondary}>
           {fullMatch.slice(2, -2)}
@@ -241,19 +396,21 @@ const RenderInlineInternal: React.FC<InlineProps> = ({ text }) => {
       );
     }
     // [text](url) - links shown as text with URL
-    else if (fullMatch.startsWith('[') && fullMatch.includes('](')) {
+    else if (fullMatch.startsWith("[") && fullMatch.includes("](")) {
       const linkMatch = fullMatch.match(/\[([^\]]+)\]\(([^)]+)\)/);
       if (linkMatch) {
         renderedNode = (
           <Text key={key}>
-            <Text color={theme.text.link} underline>{linkMatch[1]}</Text>
+            <Text color={theme.text.link} underline>
+              {linkMatch[1]}
+            </Text>
             <Text color={theme.text.secondary}> ({linkMatch[2]})</Text>
           </Text>
         );
       }
     }
     // <u>underline</u>
-    else if (fullMatch.startsWith('<u>') && fullMatch.endsWith('</u>')) {
+    else if (fullMatch.startsWith("<u>") && fullMatch.endsWith("</u>")) {
       renderedNode = (
         <Text key={key} underline color={theme.text.primary}>
           {fullMatch.slice(3, -4)}
@@ -269,20 +426,34 @@ const RenderInlineInternal: React.FC<InlineProps> = ({ text }) => {
       );
     }
 
-    parts.push(renderedNode ?? <Text key={key} color={theme.text.primary}>{fullMatch}</Text>);
+    parts.push(
+      renderedNode ?? (
+        <Text key={key} color={theme.text.primary}>
+          {fullMatch}
+        </Text>
+      ),
+    );
     lastIndex = inlineRegex.lastIndex;
   }
 
   // Add remaining text
-  if (lastIndex < text.length) {
+  if (lastIndex < processedText.length) {
     parts.push(
       <Text key={`t-${lastIndex}`} color={theme.text.primary}>
-        {text.slice(lastIndex)}
-      </Text>
+        {processedText.slice(lastIndex)}
+      </Text>,
     );
   }
 
-  return <>{parts.length > 0 ? parts : <Text color={theme.text.primary}>{text}</Text>}</>;
+  return (
+    <>
+      {parts.length > 0 ? (
+        parts
+      ) : (
+        <Text color={theme.text.primary}>{processedText}</Text>
+      )}
+    </>
+  );
 };
 
 const RenderInline = React.memo(RenderInlineInternal);
@@ -297,7 +468,11 @@ interface TableProps {
   terminalWidth?: number;
 }
 
-const TableInternal: React.FC<TableProps> = ({ headers, rows, terminalWidth = 80 }) => {
+const TableInternal: React.FC<TableProps> = ({
+  headers,
+  rows,
+  terminalWidth = 80,
+}) => {
   if (headers.length === 0) return <></>;
 
   // Calculate column widths using display width
@@ -305,40 +480,51 @@ const TableInternal: React.FC<TableProps> = ({ headers, rows, terminalWidth = 80
     const headerWidth = getPlainTextLength(header);
     const maxRowWidth = Math.max(
       0,
-      ...rows.map((row) => getPlainTextLength(row[index] || ''))
+      ...rows.map((row) => getPlainTextLength(row[index] || "")),
     );
     return Math.max(headerWidth, maxRowWidth) + 2; // Add padding
   });
 
   // Scale to fit terminal width
   const totalWidth = columnWidths.reduce((sum, width) => sum + width + 1, 1);
-  const scaleFactor = totalWidth > terminalWidth ? terminalWidth / totalWidth : 1;
-  const adjustedWidths = columnWidths.map((width) => Math.max(3, Math.floor(width * scaleFactor)));
+  const scaleFactor =
+    totalWidth > terminalWidth ? terminalWidth / totalWidth : 1;
+  const adjustedWidths = columnWidths.map((width) =>
+    Math.max(3, Math.floor(width * scaleFactor)),
+  );
 
   // Render border
-  const renderBorder = (type: 'top' | 'middle' | 'bottom'): React.ReactNode => {
+  const renderBorder = (type: "top" | "middle" | "bottom"): React.ReactNode => {
     const chars = {
-      top: { left: '┌', middle: '┬', right: '┐', horizontal: '─' },
-      middle: { left: '├', middle: '┼', right: '┤', horizontal: '─' },
-      bottom: { left: '└', middle: '┴', right: '┘', horizontal: '─' },
+      top: { left: "┌", middle: "┬", right: "┐", horizontal: "─" },
+      middle: { left: "├", middle: "┼", right: "┤", horizontal: "─" },
+      bottom: { left: "└", middle: "┴", right: "┘", horizontal: "─" },
     };
     const char = chars[type];
     const borderParts = adjustedWidths.map((w) => char.horizontal.repeat(w));
-    return <Text color={theme.border.default}>{char.left + borderParts.join(char.middle) + char.right}</Text>;
+    return (
+      <Text color={theme.border.default}>
+        {char.left + borderParts.join(char.middle) + char.right}
+      </Text>
+    );
   };
 
   // Render cell with proper width
-  const renderCell = (content: string, width: number, isHeader = false): React.ReactNode => {
+  const renderCell = (
+    content: string,
+    width: number,
+    isHeader = false,
+  ): React.ReactNode => {
     const contentWidth = Math.max(0, width - 2);
     const displayWidth = getPlainTextLength(content);
     let cellContent = content;
 
     if (displayWidth > contentWidth) {
-      cellContent = content.substring(0, Math.max(0, contentWidth - 3)) + '...';
+      cellContent = content.substring(0, Math.max(0, contentWidth - 3)) + "...";
     }
 
     const actualWidth = getPlainTextLength(cellContent);
-    const padding = ' '.repeat(Math.max(0, contentWidth - actualWidth));
+    const padding = " ".repeat(Math.max(0, contentWidth - actualWidth));
 
     return (
       <Text>
@@ -361,7 +547,7 @@ const TableInternal: React.FC<TableProps> = ({ headers, rows, terminalWidth = 80
       {cells.map((cell, index) => (
         <React.Fragment key={index}>
           <Text> </Text>
-          {renderCell(cell || '', adjustedWidths[index] || 3, isHeader)}
+          {renderCell(cell || "", adjustedWidths[index] || 3, isHeader)}
           <Text color={theme.border.default}>│</Text>
         </React.Fragment>
       ))}
@@ -370,13 +556,13 @@ const TableInternal: React.FC<TableProps> = ({ headers, rows, terminalWidth = 80
 
   return (
     <Box flexDirection="column" marginY={1}>
-      {renderBorder('top')}
+      {renderBorder("top")}
       {renderRow(headers, true)}
-      {renderBorder('middle')}
+      {renderBorder("middle")}
       {rows.map((row, index) => (
         <React.Fragment key={index}>{renderRow(row)}</React.Fragment>
       ))}
-      {renderBorder('bottom')}
+      {renderBorder("bottom")}
     </Box>
   );
 };
@@ -390,7 +576,7 @@ const Table = React.memo(TableInternal);
 const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
   text,
   width,
-  showLineNumbers = false
+  showLineNumbers = false,
 }) => {
   if (!text) return <></>;
 
@@ -410,7 +596,7 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
   let inCodeBlock = false;
   let codeBlockLines: string[] = [];
   let codeBlockLang: string | null = null;
-  let codeBlockFence = '';
+  let codeBlockFence = "";
   let tableHeaders: string[] = [];
   let tableRows: string[][] = [];
   let inTable = false;
@@ -419,7 +605,12 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
   const flushTable = (key: string) => {
     if (tableHeaders.length > 0 && tableRows.length > 0) {
       elements.push(
-        <Table key={key} headers={tableHeaders} rows={tableRows} terminalWidth={width} />
+        <Table
+          key={key}
+          headers={tableHeaders}
+          rows={tableRows}
+          terminalWidth={width}
+        />,
       );
     }
     tableHeaders = [];
@@ -433,21 +624,24 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
     // Code fence handling
     const codeFenceMatch = line.match(codeFenceRegex);
     if (codeFenceMatch) {
-      if (inCodeBlock && codeFenceMatch[1].startsWith(codeBlockFence[0]) &&
-          codeFenceMatch[1].length >= codeBlockFence.length) {
+      if (
+        inCodeBlock &&
+        codeFenceMatch[1].startsWith(codeBlockFence[0]) &&
+        codeFenceMatch[1].length >= codeBlockFence.length
+      ) {
         // End code block
         elements.push(
           <CodeBlock
             key={key}
-            code={codeBlockLines.join('\n')}
+            code={codeBlockLines.join("\n")}
             language={codeBlockLang}
             showLineNumbers={showLineNumbers}
-          />
+          />,
         );
         inCodeBlock = false;
         codeBlockLines = [];
         codeBlockLang = null;
-        codeBlockFence = '';
+        codeBlockFence = "";
         lastLineEmpty = false;
       } else if (!inCodeBlock) {
         // Start code block
@@ -468,7 +662,10 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
       // Check if next line is separator
       if (index + 1 < lines.length && tableSepRegex.test(lines[index + 1])) {
         inTable = true;
-        tableHeaders = line.slice(1, -1).split('|').map(cell => cell.trim());
+        tableHeaders = line
+          .slice(1, -1)
+          .split("|")
+          .map((cell) => cell.trim());
         return;
       }
     }
@@ -478,10 +675,14 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
         return; // Skip separator
       }
       if (tableRowRegex.test(line)) {
-        const cells = line.slice(1, -1).split('|').map(cell => cell.trim());
+        const cells = line
+          .slice(1, -1)
+          .split("|")
+          .map((cell) => cell.trim());
         // Ensure row has same column count as headers
-        while (cells.length < tableHeaders.length) cells.push('');
-        if (cells.length > tableHeaders.length) cells.length = tableHeaders.length;
+        while (cells.length < tableHeaders.length) cells.push("");
+        if (cells.length > tableHeaders.length)
+          cells.length = tableHeaders.length;
         tableRows.push(cells);
         return;
       }
@@ -515,7 +716,11 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
           </Text>
         );
       }
-      elements.push(<Box key={key} marginY={level <= 2 ? 1 : 0}>{headerNode}</Box>);
+      elements.push(
+        <Box key={key} marginY={level <= 2 ? 1 : 0}>
+          {headerNode}
+        </Box>,
+      );
       lastLineEmpty = false;
       return;
     }
@@ -524,8 +729,10 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
     if (hrRegex.test(line)) {
       elements.push(
         <Box key={key} marginY={1}>
-          <Text color={theme.text.secondary}>{'─'.repeat(Math.min(40, width || 40))}</Text>
-        </Box>
+          <Text color={theme.text.secondary}>
+            {"─".repeat(Math.min(40, width || 40))}
+          </Text>
+        </Box>,
       );
       lastLineEmpty = false;
       return;
@@ -540,7 +747,7 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
           <Text italic color={theme.text.secondary}>
             <RenderInline text={blockquoteMatch[1]} />
           </Text>
-        </Box>
+        </Box>,
       );
       lastLineEmpty = false;
       return;
@@ -560,7 +767,7 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
               <RenderInline text={ulMatch[3]} />
             </Text>
           </Box>
-        </Box>
+        </Box>,
       );
       lastLineEmpty = false;
       return;
@@ -582,7 +789,7 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
               <RenderInline text={olMatch[3]} />
             </Text>
           </Box>
-        </Box>
+        </Box>,
       );
       lastLineEmpty = false;
       return;
@@ -603,7 +810,7 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
         <Text wrap="wrap" color={theme.text.primary}>
           <RenderInline text={line} />
         </Text>
-      </Box>
+      </Box>,
     );
     lastLineEmpty = false;
   });
@@ -613,19 +820,23 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
     elements.push(
       <CodeBlock
         key="unclosed-code"
-        code={codeBlockLines.join('\n')}
+        code={codeBlockLines.join("\n")}
         language={codeBlockLang}
         showLineNumbers={showLineNumbers}
-      />
+      />,
     );
   }
 
   // Handle unclosed table
   if (inTable) {
-    flushTable('unclosed-table');
+    flushTable("unclosed-table");
   }
 
-  return <Box flexDirection="column" width={width}>{elements}</Box>;
+  return (
+    <Box flexDirection="column" width={width}>
+      {elements}
+    </Box>
+  );
 };
 
 export const MarkdownDisplay = React.memo(MarkdownDisplayInternal);
