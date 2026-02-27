@@ -5,27 +5,31 @@
  * queries to appropriate tools and agents based on semantic similarity.
  */
 
-import type { LLMClient } from '../../llm/types.js';
-import type { InputAnalysis, TaskSuggestion, UserIntent } from './types.js';
+import type { LLMClient } from "../../llm/types.js";
+import type { InputAnalysis, TaskSuggestion, UserIntent } from "./types.js";
 import {
   initializeToolRAG,
   retrieveTools,
   type ToolRecommendation,
-} from './tool-rag/index.js';
+} from "./tool-rag/index.js";
 
 /**
  * Build the analysis prompt with RAG context
  */
 function buildAnalysisPrompt(
   input: string,
-  toolRecommendations: ToolRecommendation[]
+  toolRecommendations: ToolRecommendation[],
 ): string {
   // Build tool context from RAG results
-  const toolContext = toolRecommendations.length > 0
-    ? `\n## Relevant Tools (from semantic search)\n${toolRecommendations
-        .map(r => `- ${r.toolName} (relevance: ${(r.relevance * 100).toFixed(0)}%): ${r.topMatches[0]?.text || 'N/A'}`)
-        .join('\n')}\n`
-    : '';
+  const toolContext =
+    toolRecommendations.length > 0
+      ? `\n## Relevant Tools (from semantic search)\n${toolRecommendations
+          .map(
+            (r) =>
+              `- ${r.toolName} (relevance: ${(r.relevance * 100).toFixed(0)}%): ${r.topMatches[0]?.text || "N/A"}`,
+          )
+          .join("\n")}\n`
+      : "";
 
   return `You are an AI assistant that analyzes user input to determine the best approach for handling it.
 
@@ -55,16 +59,31 @@ ${toolContext}
 - If semantic search suggests web_search tool, use intent "web_search" and agent "general"
 - If user asks about weather, news, current events, stocks, or needs real-time info, use web_search
 - Always consider the tool recommendations when choosing an agent
+- Set requiresPlanning=false for most requests. Only use true for genuinely complex multi-step tasks
+- A single agent can usually handle writing code, searching, or running commands without task planning
 
 ## Response Format
 Respond with valid JSON only, no other text:
 {
   "intent": "<intent_category>",
-  "requiresPlanning": <true|false>,
+  "requiresPlanning": false,
   "suggestedAgent": "<agent_type>",
   "suggestedTools": ["tool1", "tool2"],
   "tasks": []
 }
+
+If requiresPlanning is true, tasks must be an array of objects with this structure:
+{
+  "tasks": [
+    {
+      "subject": "Brief task title",
+      "description": "Detailed description of what to do",
+      "suggestedAgent": "agent_type",
+      "dependencies": ["0"]
+    }
+  ]
+}
+- dependencies is optional, use task indices (as strings) to specify order
 
 User Input:
 ${input}`;
@@ -92,7 +111,7 @@ interface AnalysisResponse {
 export async function analyzeUserInput(
   input: string,
   llmClient: LLMClient,
-  model: string
+  model: string,
 ): Promise<InputAnalysis> {
   try {
     // Initialize RAG if needed
@@ -108,7 +127,7 @@ export async function analyzeUserInput(
       model,
       messages: [
         {
-          role: 'user',
+          role: "user",
           content: prompt,
         },
       ],
@@ -125,12 +144,14 @@ export async function analyzeUserInput(
       intent: parsed.intent,
       requiresPlanning: parsed.requiresPlanning,
       suggestedAgent: parsed.suggestedAgent,
-      tasks: parsed.tasks?.map((task): TaskSuggestion => ({
-        subject: task.subject,
-        description: task.description,
-        suggestedAgent: task.suggestedAgent,
-        dependencies: task.dependencies,
-      })),
+      tasks: parsed.tasks?.map(
+        (task): TaskSuggestion => ({
+          subject: task.subject,
+          description: task.description,
+          suggestedAgent: task.suggestedAgent,
+          dependencies: task.dependencies,
+        }),
+      ),
       originalInput: input,
     };
   } catch {
@@ -146,29 +167,29 @@ function parseAnalysisResponse(content: string): AnalysisResponse {
   // Try to extract JSON from the response
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    throw new Error('No JSON found in response');
+    throw new Error("No JSON found in response");
   }
 
   const parsed = JSON.parse(jsonMatch[0]) as AnalysisResponse;
 
   // Validate required fields
-  if (!parsed.intent || typeof parsed.requiresPlanning !== 'boolean') {
-    throw new Error('Missing required fields');
+  if (!parsed.intent || typeof parsed.requiresPlanning !== "boolean") {
+    throw new Error("Missing required fields");
   }
 
   // Validate intent is one of the expected values
   const validIntents: UserIntent[] = [
-    'simple_question',
-    'web_search',
-    'code_exploration',
-    'code_modification',
-    'bash_execution',
-    'planning',
-    'multi_step_task',
-    'unknown',
+    "simple_question",
+    "web_search",
+    "code_exploration",
+    "code_modification",
+    "bash_execution",
+    "planning",
+    "multi_step_task",
+    "unknown",
   ];
   if (!validIntents.includes(parsed.intent)) {
-    parsed.intent = 'unknown';
+    parsed.intent = "unknown";
   }
 
   return parsed;
@@ -179,13 +200,13 @@ function parseAnalysisResponse(content: string): AnalysisResponse {
  */
 function createRAGFallbackAnalysis(
   input: string,
-  recommendations: ToolRecommendation[]
+  recommendations: ToolRecommendation[],
 ): InputAnalysis {
   if (recommendations.length === 0) {
     return {
-      intent: 'unknown',
+      intent: "unknown",
       requiresPlanning: false,
-      suggestedAgent: 'general',
+      suggestedAgent: "general",
       originalInput: input,
     };
   }
@@ -193,21 +214,21 @@ function createRAGFallbackAnalysis(
   const best = recommendations[0];
 
   // Map tool to intent
-  let intent: UserIntent = 'unknown';
-  if (best.toolName === 'web_search') {
-    intent = 'web_search';
-  } else if (['glob', 'grep', 'read_file'].includes(best.toolName)) {
-    intent = 'code_exploration';
-  } else if (best.toolName === 'write_file') {
-    intent = 'code_modification';
-  } else if (best.toolName === 'shell') {
-    intent = 'bash_execution';
+  let intent: UserIntent = "unknown";
+  if (best.toolName === "web_search") {
+    intent = "web_search";
+  } else if (["glob", "grep", "read_file"].includes(best.toolName)) {
+    intent = "code_exploration";
+  } else if (best.toolName === "write_file") {
+    intent = "code_modification";
+  } else if (best.toolName === "shell") {
+    intent = "bash_execution";
   }
 
   return {
     intent,
     requiresPlanning: false,
-    suggestedAgent: best.suggestedAgent || 'general',
+    suggestedAgent: best.suggestedAgent || "general",
     originalInput: input,
   };
 }
@@ -224,9 +245,9 @@ async function createRAGOnlyAnalysis(input: string): Promise<InputAnalysis> {
   } catch {
     // Ultimate fallback
     return {
-      intent: 'unknown',
+      intent: "unknown",
       requiresPlanning: false,
-      suggestedAgent: 'general',
+      suggestedAgent: "general",
       originalInput: input,
     };
   }
@@ -244,35 +265,35 @@ export async function quickClassifyIntent(input: string): Promise<UserIntent> {
     const recommendations = await retrieveTools(input, 3);
 
     if (recommendations.length === 0) {
-      return 'unknown';
+      return "unknown";
     }
 
     const best = recommendations[0];
 
     // Map tool to intent based on relevance
     if (best.relevance < 0.3) {
-      return 'unknown';
+      return "unknown";
     }
 
     switch (best.toolName) {
-      case 'web_search':
-        return 'web_search';
-      case 'glob':
-      case 'grep':
-      case 'read_file':
-        return 'code_exploration';
-      case 'write_file':
-        return 'code_modification';
-      case 'shell':
-        return 'bash_execution';
-      case 'TaskCreate':
-      case 'TaskUpdate':
-        return 'planning';
+      case "web_search":
+        return "web_search";
+      case "glob":
+      case "grep":
+      case "read_file":
+        return "code_exploration";
+      case "write_file":
+        return "code_modification";
+      case "shell":
+        return "bash_execution";
+      case "TaskCreate":
+      case "TaskUpdate":
+        return "planning";
       default:
-        return 'simple_question';
+        return "simple_question";
     }
   } catch {
-    return 'unknown';
+    return "unknown";
   }
 }
 
@@ -280,7 +301,7 @@ export async function quickClassifyIntent(input: string): Promise<UserIntent> {
  * Get tool recommendations for a query (exposed for debugging)
  */
 export async function getToolRecommendations(
-  input: string
+  input: string,
 ): Promise<ToolRecommendation[]> {
   await initializeToolRAG();
   return retrieveTools(input, 5);
