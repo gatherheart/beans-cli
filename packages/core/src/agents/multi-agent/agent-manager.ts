@@ -318,14 +318,22 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
     options.onActivity?.(analysisCompleteEvent);
     logMultiAgentEvent(analysisCompleteEvent);
 
-    // Simple request - spawn single agent
-    if (!analysis.requiresPlanning || !analysis.tasks?.length) {
+    // Check if tasks are properly structured (have subject and description)
+    const hasValidTasks =
+      analysis.tasks?.length &&
+      analysis.tasks.every(
+        (t) => t && typeof t === "object" && t.subject && t.description,
+      );
+
+    // Simple request OR malformed tasks - spawn single agent with original input
+    if (!analysis.requiresPlanning || !hasValidTasks) {
       const agentType = analysis.suggestedAgent ?? "general";
       return spawn(agentType, userInput, options);
     }
 
-    // Complex request - create tasks and execute
-    return executeTaskPlan(analysis, options);
+    // Complex request with valid tasks - create tasks and execute
+    // But still include original input for context
+    return executeTaskPlan(analysis, userInput, options);
   }
 
   /**
@@ -333,6 +341,7 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
    */
   async function executeTaskPlan(
     analysis: InputAnalysis,
+    originalInput: string,
     options: SpawnOptions = {},
   ): Promise<AgentExecutionResult> {
     const tasks = analysis.tasks ?? [];
@@ -401,7 +410,9 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
         const agentType =
           (task.metadata?.suggestedAgent as string) ?? "general";
         agentsUsed.add(agentType);
-        const result = await spawn(agentType, task.description, {
+        // Include original user input for context along with task description
+        const prompt = `Original request: ${originalInput}\n\nCurrent task: ${task.description}`;
+        const result = await spawn(agentType, prompt, {
           ...options,
           taskId: task.id,
         });
