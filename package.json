@@ -36,9 +36,12 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "preflight": "npm run build && npm run test && npm run typecheck && npm run lint",
-    "clean": "rm -rf packages/*/dist node_modules/.cache && find packages -name '*.js' -path '*/src/*' -delete && find packages -name '*.js.map' -path '*/src/*' -delete && find packages -name '*.d.ts' -path '*/src/*' -delete && find packages -name '*.d.ts.map' -path '*/src/*' -delete"
+    "clean": "rm -rf packages/*/dist node_modules/.cache && find packages -name '*.js' -path '*/src/*' -delete && find packages -name '*.js.map' -path '*/src/*' -delete && find packages -name '*.d.ts' -path '*/src/*' -delete && find packages -name '*.d.ts.map' -path '*/src/*' -delete",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.4.2",
+    "@commitlint/config-conventional": "^20.4.2",
     "@eslint/js": "^9.39.2",
     "@lydell/node-pty": "^1.2.0-beta.3",
     "@types/node": "^20.0.0",
@@ -48,6 +51,8 @@
     "esbuild": "^0.27.3",
     "eslint": "^9.0.0",
     "eslint-config-prettier": "^10.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
     "prettier": "^3.0.0",
     "strip-ansi": "^7.1.2",
     "tsx": "^4.7.0",

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 /**
  * Tool definition for LLM function calling
@@ -12,7 +12,7 @@ export interface ToolDefinition {
   description: string;
   /** JSON Schema for parameters */
   parameters: {
-    type: 'object';
+    type: "object";
     properties: Record<string, ParameterDefinition>;
     required?: string[];
   };
@@ -22,7 +22,7 @@ export interface ToolDefinition {
  * Parameter definition within tool schema
  */
 export interface ParameterDefinition {
-  type: 'string' | 'number' | 'boolean' | 'array' | 'object';
+  type: "string" | "number" | "boolean" | "array" | "object";
   description?: string;
   enum?: string[];
   items?: ParameterDefinition;
@@ -53,7 +53,7 @@ export interface ToolConfirmation {
   /** Message to show the user */
   message?: string;
   /** Type of operation */
-  type?: 'read' | 'write' | 'execute' | 'destructive';
+  type?: "read" | "write" | "execute" | "destructive";
 }
 
 /**
@@ -78,7 +78,7 @@ export interface Tool<TParams = Record<string, unknown>> {
    */
   execute(
     params: TParams,
-    options?: ToolExecutionOptions
+    options?: ToolExecutionOptions,
   ): Promise<ToolExecutionResult>;
 }
 
@@ -94,7 +94,14 @@ export interface ToolExecutionOptions {
   cwd?: string;
   /** Additional context */
   context?: Record<string, unknown>;
+  /** Timeout in milliseconds (default: 120000 = 2 minutes) */
+  timeout?: number;
 }
+
+/**
+ * Default timeout for tool execution (2 minutes)
+ */
+export const DEFAULT_TOOL_TIMEOUT = 120000;
 
 /**
  * Schema for validating tool parameters using Zod

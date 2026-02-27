@@ -4,9 +4,11 @@ import type {
   Message,
   TerminateReason,
   ToolCall,
-} from './types.js';
-import type { LLMClient } from '../llm/types.js';
-import type { ToolRegistry } from '../tools/registry.js';
+} from "./types.js";
+import type { LLMClient } from "../llm/types.js";
+import type { ToolRegistry } from "../tools/registry.js";
+import type { MemoryStore } from "../memory/index.js";
+import { executeWithTimeout, DEFAULT_TOOL_TIMEOUT } from "../tools/utils.js";
 
 /**
  * Options for agent execution
@@ -20,19 +22,26 @@ export interface ExecuteOptions {
   onActivity?: (event: AgentActivityEvent) => void;
   /** Working directory for tool execution */
   cwd?: string;
+  /** Memory store for loading persistent instructions */
+  memoryStore?: MemoryStore;
 }
 
 /**
  * Activity event types for observability
  */
 export type AgentActivityEvent =
-  | { type: 'turn_start'; turnNumber: number }
-  | { type: 'thinking'; content: string }
-  | { type: 'tool_call_start'; toolCall: ToolCall }
-  | { type: 'tool_call_end'; toolCallId: string; result: string; metadata?: Record<string, unknown> }
-  | { type: 'content_chunk'; content: string }
-  | { type: 'turn_end'; turnNumber: number }
-  | { type: 'error'; error: Error };
+  | { type: "turn_start"; turnNumber: number }
+  | { type: "thinking"; content: string }
+  | { type: "tool_call_start"; toolCall: ToolCall }
+  | {
+      type: "tool_call_end";
+      toolCallId: string;
+      result: string;
+      metadata?: Record<string, unknown>;
+    }
+  | { type: "content_chunk"; content: string }
+  | { type: "turn_end"; turnNumber: number }
+  | { type: "error"; error: Error };
 
 /**
  * Agent executor - runs the agent loop
@@ -40,7 +49,7 @@ export type AgentActivityEvent =
 export class AgentExecutor {
   constructor(
     private llmClient: LLMClient,
-    private toolRegistry: ToolRegistry
+    private toolRegistry: ToolRegistry,
   ) {}
 
   /**
@@ -48,21 +57,39 @@ export class AgentExecutor {
    */
   async execute<T>(
     definition: AgentDefinition,
-    options: ExecuteOptions = {}
+    options: ExecuteOptions = {},
   ): Promise<AgentResult<T>> {
-    const { inputs = {}, signal, onActivity, cwd = process.cwd() } = options;
+    const {
+      inputs = {},
+      signal,
+      onActivity,
+      cwd = process.cwd(),
+      memoryStore,
+    } = options;
     const messages: Message[] = [];
     let turnCount = 0;
-    let terminateReason: TerminateReason = 'complete';
+    let terminateReason: TerminateReason = "complete";
 
     const maxTurns = definition.runConfig?.maxTurns ?? 50;
     const timeoutMs = definition.runConfig?.timeoutMs ?? 300000; // 5 min default
 
     // Build system prompt with input substitution
-    const systemPrompt = this.substituteInputs(
+    let systemPrompt = this.substituteInputs(
       definition.promptConfig.systemPrompt,
-      inputs
+      inputs,
     );
+
+    // Load and prepend memory content if available
+    if (memoryStore) {
+      try {
+        const memoryContent = await memoryStore.getContent();
+        if (memoryContent) {
+          systemPrompt = `${memoryContent}\n\n---\n\n${systemPrompt}`;
+        }
+      } catch {
+        // Memory loading failed - continue without it
+      }
+    }
 
     // Build initial query
     const query = definition.promptConfig.query
@@ -76,7 +103,7 @@ export class AgentExecutor {
 
     // Add query as user message
     if (query) {
-      messages.push({ role: 'user', content: query });
+      messages.push({ role: "user", content: query });
     }
 
     // Track where new messages start (after initial messages + query)
@@ -89,18 +116,18 @@ export class AgentExecutor {
       while (turnCount < maxTurns) {
         // Check timeout
         if (Date.now() - startTime > timeoutMs) {
-          terminateReason = 'timeout';
+          terminateReason = "timeout";
           break;
         }
 
         // Check abort signal
         if (signal?.aborted) {
-          terminateReason = 'abort_signal';
+          terminateReason = "abort_signal";
           break;
         }
 
         turnCount++;
-        onActivity?.({ type: 'turn_start', turnNumber: turnCount });
+        onActivity?.({ type: "turn_start", turnNumber: turnCount });
 
         // Call LLM
         const tools = this.getToolDefinitions(definition);
@@ -116,13 +143,13 @@ export class AgentExecutor {
 
         // Handle thinking content
         if (response.thinking) {
-          onActivity?.({ type: 'thinking', content: response.thinking });
+          onActivity?.({ type: "thinking", content: response.thinking });
         }
 
         // Handle content
         if (response.content) {
-          onActivity?.({ type: 'content_chunk', content: response.content });
-          messages.push({ role: 'assistant', content: response.content });
+          onActivity?.({ type: "content_chunk", content: response.content });
+          messages.push({ role: "assistant", content: response.content });
         }
 
         // Handle tool calls
@@ -130,39 +157,39 @@ export class AgentExecutor {
           const toolResults = await this.executeToolCalls(
             response.toolCalls,
             onActivity,
-            cwd
+            cwd,
           );
 
           messages.push({
-            role: 'assistant',
-            content: response.content ?? '',
+            role: "assistant",
+            content: response.content ?? "",
             toolCalls: response.toolCalls,
           });
 
           messages.push({
-            role: 'tool',
-            content: '',
+            role: "tool",
+            content: "",
             toolResults,
           });
         } else {
           // No tool calls - agent is done
-          onActivity?.({ type: 'turn_end', turnNumber: turnCount });
+          onActivity?.({ type: "turn_end", turnNumber: turnCount });
           break;
         }
 
-        onActivity?.({ type: 'turn_end', turnNumber: turnCount });
+        onActivity?.({ type: "turn_end", turnNumber: turnCount });
       }
 
       if (turnCount >= maxTurns) {
-        terminateReason = 'max_turns';
+        terminateReason = "max_turns";
       }
 
       // Extract and validate output - only look at NEW messages (not conversation history)
       const newMessages = messages.slice(newMessagesStartIndex);
       const lastAssistantMessage = [...newMessages]
         .reverse()
-        .find((m) => m.role === 'assistant');
-      const rawContent = lastAssistantMessage?.content ?? '';
+        .find((m) => m.role === "assistant");
+      const rawContent = lastAssistantMessage?.content ?? "";
 
       let output: T | undefined;
       if (definition.outputConfig) {
@@ -185,12 +212,12 @@ export class AgentExecutor {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      onActivity?.({ type: 'error', error: error as Error });
+      onActivity?.({ type: "error", error: error as Error });
 
       return {
         success: false,
-        rawContent: '',
-        terminateReason: 'error',
+        rawContent: "",
+        terminateReason: "error",
         error: errorMessage,
         turnCount,
         messages,
@@ -203,11 +230,11 @@ export class AgentExecutor {
    */
   private substituteInputs(
     template: string,
-    inputs: Record<string, unknown>
+    inputs: Record<string, unknown>,
   ): string {
     return template.replace(/\$\{(\w+)\}/g, (_, key) => {
       const value = inputs[key];
-      return value !== undefined ? String(value) : '';
+      return value !== undefined ? String(value) : "";
     });
   }
 
@@ -219,36 +246,37 @@ export class AgentExecutor {
 
     const tools = definition.toolConfig.allowAllTools
       ? this.toolRegistry.getAllTools()
-      : definition.toolConfig.tools
+      : (definition.toolConfig.tools
           ?.map((t) =>
-            typeof t === 'string' ? this.toolRegistry.getTool(t) : t
+            typeof t === "string" ? this.toolRegistry.getTool(t) : t,
           )
-          .filter((t): t is NonNullable<typeof t> => t !== undefined) ?? [];
+          .filter((t): t is NonNullable<typeof t> => t !== undefined) ?? []);
 
     return tools.map((t) => t.definition);
   }
 
   /**
-   * Execute tool calls in parallel
+   * Execute tool calls in parallel with timeout enforcement
    */
   private async executeToolCalls(
     toolCalls: ToolCall[],
     onActivity: ((event: AgentActivityEvent) => void) | undefined,
-    cwd: string
+    cwd: string,
+    toolTimeout: number = DEFAULT_TOOL_TIMEOUT,
   ) {
     const results = await Promise.all(
       toolCalls.map(async (toolCall) => {
-        onActivity?.({ type: 'tool_call_start', toolCall });
+        onActivity?.({ type: "tool_call_start", toolCall });
 
         const tool = this.toolRegistry.getTool(toolCall.name);
         if (!tool) {
           const result = {
             toolCallId: toolCall.id,
-            content: '',
+            content: "",
             error: `Tool not found: ${toolCall.name}`,
           };
           onActivity?.({
-            type: 'tool_call_end',
+            type: "tool_call_end",
             toolCallId: toolCall.id,
             result: result.error,
           });
@@ -256,9 +284,15 @@ export class AgentExecutor {
         }
 
         try {
-          const result = await tool.execute(toolCall.arguments, { cwd });
+          // Execute with timeout enforcement
+          const result = await executeWithTimeout(
+            toolCall.name,
+            () =>
+              tool.execute(toolCall.arguments, { cwd, timeout: toolTimeout }),
+            toolTimeout,
+          );
           onActivity?.({
-            type: 'tool_call_end',
+            type: "tool_call_end",
             toolCallId: toolCall.id,
             result: result.content,
             metadata: result.metadata,
@@ -266,22 +300,23 @@ export class AgentExecutor {
           return {
             toolCallId: toolCall.id,
             content: result.content,
+            error: result.isError ? result.content : undefined,
           };
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : String(error);
           onActivity?.({
-            type: 'tool_call_end',
+            type: "tool_call_end",
             toolCallId: toolCall.id,
             result: errorMessage,
           });
           return {
             toolCallId: toolCall.id,
-            content: '',
+            content: "",
             error: errorMessage,
           };
         }
-      })
+      }),
     );
 
     return results;

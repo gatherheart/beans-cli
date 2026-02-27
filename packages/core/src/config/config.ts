@@ -1,20 +1,30 @@
-import type { AppConfig, LLMConfig, AgentConfig, ToolsConfig, TelemetryConfig, UIConfig, DebugConfig, RuntimeConfig, MemoryConfig } from './types.js';
-import { loadSettings, saveSettings, type Settings } from './settings.js';
-import { loadEnv } from './env.js';
-import { ToolRegistry } from '../tools/registry.js';
-import { createBuiltinTools } from '../tools/builtin/index.js';
-import { AgentRegistry } from '../agents/registry.js';
-import { createLLMClient } from '../llm/client.js';
-import type { LLMClient, LLMProvider, DebugEvent } from '../llm/types.js';
-import { MemoryStore, DEFAULT_MEMORY_CONFIG } from '../memory/index.js';
+import type {
+  AppConfig,
+  LLMConfig,
+  AgentConfig,
+  ToolsConfig,
+  TelemetryConfig,
+  UIConfig,
+  DebugConfig,
+  RuntimeConfig,
+  MemoryConfig,
+} from "./types.js";
+import { loadSettings, saveSettings, type Settings } from "./settings.js";
+import { loadEnv } from "./env.js";
+import { ToolRegistry } from "../tools/registry.js";
+import { createBuiltinTools } from "../tools/builtin/index.js";
+import { AgentRegistry } from "../agents/registry.js";
+import { createLLMClient } from "../llm/client.js";
+import type { LLMClient, LLMProvider, DebugEvent } from "../llm/types.js";
+import { MemoryStore, DEFAULT_MEMORY_CONFIG } from "../memory/index.js";
 
 /**
  * Default configuration values
  */
 const defaults: AppConfig = {
   llm: {
-    provider: 'google',
-    model: 'gemini-2.0-flash',
+    provider: "google",
+    model: "gemini-2.0-flash",
     temperature: 0.7,
     maxTokens: 4096,
   },
@@ -22,10 +32,18 @@ const defaults: AppConfig = {
     maxTurns: 50,
     timeoutMs: 300000, // 5 minutes
     streaming: true,
-    autoApprove: 'none',
+    autoApprove: "none",
   },
   tools: {
-    enabled: ['read_file', 'write_file', 'shell', 'glob', 'grep', 'web_search', 'save_memory'],
+    enabled: [
+      "read_file",
+      "write_file",
+      "shell",
+      "glob",
+      "grep",
+      "web_search",
+      "save_memory",
+    ],
     disabled: [],
     shellTimeout: 120000,
   },
@@ -34,7 +52,7 @@ const defaults: AppConfig = {
     logPrompts: false,
   },
   ui: {
-    theme: 'auto',
+    theme: "auto",
     showThinking: true,
     compact: false,
     maxOutputLines: 500,
@@ -246,7 +264,9 @@ export class Config {
    *
    * Note: Runtime config changes are not persisted. Use setRuntimeConfig() instead.
    */
-  async updateConfig(updates: Partial<Omit<AppConfig, 'runtime'>>): Promise<void> {
+  async updateConfig(
+    updates: Partial<Omit<AppConfig, "runtime">>,
+  ): Promise<void> {
     this.config = {
       ...this.config,
       llm: { ...this.config.llm, ...updates.llm },
@@ -318,18 +338,20 @@ export class Config {
     // Use config key if provided
     if (configKey) {
       // Check if it's an env var reference
-      if (configKey.startsWith('$')) {
-        return process.env[configKey.slice(1)] ?? '';
+      if (configKey.startsWith("$")) {
+        return process.env[configKey.slice(1)] ?? "";
       }
       return configKey;
     }
 
     // Fall back to standard env vars
     const envVars: Record<LLMProvider, string> = {
-      google: 'GOOGLE_API_KEY',
-      ollama: '', // No key needed
+      google: "GOOGLE_API_KEY",
+      ollama: "", // No key needed
+      openai: "OPENAI_API_KEY",
+      anthropic: "ANTHROPIC_API_KEY",
     };
 
-    return process.env[envVars[provider]] ?? '';
+    return process.env[envVars[provider]] ?? "";
   }
 }

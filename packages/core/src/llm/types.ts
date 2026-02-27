@@ -1,5 +1,5 @@
-import type { ToolDefinition } from '../tools/types.js';
-import type { Message, ToolCall } from '../agents/types.js';
+import type { ToolDefinition } from "../tools/types.js";
+import type { Message, ToolCall } from "../agents/types.js";
 
 /**
  * Request for LLM chat completion
@@ -56,11 +56,11 @@ export interface TokenUsage {
  * Reason for completion finishing
  */
 export type FinishReason =
-  | 'stop'
-  | 'length'
-  | 'tool_calls'
-  | 'content_filter'
-  | 'error';
+  | "stop"
+  | "length"
+  | "tool_calls"
+  | "content_filter"
+  | "error";
 
 /**
  * Streaming chunk from LLM
@@ -109,7 +109,7 @@ export interface LLMClient {
    * Send a chat request and stream the response
    */
   chatStream?(
-    request: ChatRequest
+    request: ChatRequest,
   ): AsyncGenerator<ChatStreamChunk, void, unknown>;
 
   /**
@@ -151,7 +151,7 @@ export interface ProviderConfig {
  * Debug event emitted by the LLM client
  */
 export interface DebugEvent {
-  type: 'request' | 'response';
+  type: "request" | "response";
   data: DebugRequestData | DebugResponseData;
 }
 
@@ -189,4 +189,4 @@ export interface DebugResponseData {
 /**
  * Supported LLM providers
  */
-export type LLMProvider = 'google' | 'ollama';
+export type LLMProvider = "google" | "ollama" | "openai" | "anthropic";

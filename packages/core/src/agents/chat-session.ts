@@ -14,10 +14,11 @@ import type {
   ModelConfig,
   RunConfig,
   ToolConfig,
-} from './types.js';
-import type { LLMClient } from '../llm/types.js';
-import type { ToolRegistry } from '../tools/registry.js';
-import type { AgentActivityEvent } from './executor.js';
+} from "./types.js";
+import type { LLMClient } from "../llm/types.js";
+import type { ToolRegistry } from "../tools/registry.js";
+import type { AgentActivityEvent } from "./executor.js";
+import type { MemoryStore } from "../memory/index.js";
 
 /**
  * Configuration for creating a chat session
@@ -33,6 +34,8 @@ export interface ChatSessionConfig {
   toolConfig?: ToolConfig;
   /** Working directory for tool execution (defaults to process.cwd()) */
   cwd?: string;
+  /** Memory store for loading persistent instructions */
+  memoryStore?: MemoryStore;
 }
 
 /**
@@ -71,6 +74,8 @@ export class ChatSession {
   private readonly runConfig: RunConfig;
   private readonly toolConfig?: ToolConfig;
   private readonly cwd: string;
+  private readonly memoryStore?: MemoryStore;
+  private memoryInitialized = false;
 
   /**
    * Creates a new ChatSession instance.
@@ -95,13 +100,49 @@ export class ChatSession {
   constructor(
     private readonly llmClient: LLMClient,
     private readonly toolRegistry: ToolRegistry,
-    config: ChatSessionConfig
+    config: ChatSessionConfig,
   ) {
     this.systemPrompt = config.systemPrompt;
     this.modelConfig = config.modelConfig;
     this.runConfig = config.runConfig ?? {};
     this.toolConfig = config.toolConfig;
     this.cwd = config.cwd ?? process.cwd();
+    this.memoryStore = config.memoryStore;
+  }
+
+  /**
+   * Initialize memory by loading content from the memory store.
+   *
+   * @remarks
+   * This method loads persistent instructions from the memory store (BEANS.md files)
+   * and prepends them to the system prompt. Memory is only loaded once per session;
+   * subsequent calls are no-ops.
+   *
+   * Call this method before the first `sendMessage()` if you want memory content
+   * to be included. If not called explicitly, memory will be automatically
+   * initialized on the first `sendMessage()`.
+   *
+   * @returns A promise that resolves when memory initialization is complete.
+   */
+  async initializeMemory(): Promise<void> {
+    if (this.memoryInitialized || !this.memoryStore) {
+      return;
+    }
+
+    try {
+      const memoryContent = await this.memoryStore.getContent();
+      if (memoryContent) {
+        // Prepend memory content to system prompt
+        this.systemPrompt = `${memoryContent}\n\n---\n\n${this.systemPrompt}`;
+      }
+    } catch (error) {
+      // Log but don't fail - memory is optional
+      if (this.runConfig.debug) {
+        console.warn("[ChatSession] Failed to load memory:", error);
+      }
+    }
+
+    this.memoryInitialized = true;
   }
 
   /**
@@ -133,49 +174,56 @@ export class ChatSession {
    */
   async sendMessage(
     userMessage: string,
-    options: SendMessageOptions = {}
+    options: SendMessageOptions = {},
   ): Promise<SendMessageResult> {
     const { signal, onActivity } = options;
 
+    // Initialize memory on first message if not already done
+    await this.initializeMemory();
+
     // Add user message to history
-    this.messages.push({ role: 'user', content: userMessage });
+    this.messages.push({ role: "user", content: userMessage });
 
     const maxTurns = this.runConfig.maxTurns ?? 50;
     const timeoutMs = this.runConfig.timeoutMs ?? 300000;
     const startTime = Date.now();
     let turnCount = 0;
-    let terminateReason: TerminateReason = 'complete';
+    let terminateReason: TerminateReason = "complete";
 
     try {
       // Agent loop for this message
       while (turnCount < maxTurns) {
         // Check timeout
         if (Date.now() - startTime > timeoutMs) {
-          terminateReason = 'timeout';
+          terminateReason = "timeout";
           break;
         }
 
         // Check abort signal
         if (signal?.aborted) {
-          terminateReason = 'abort_signal';
+          terminateReason = "abort_signal";
           break;
         }
 
         turnCount++;
-        onActivity?.({ type: 'turn_start', turnNumber: turnCount });
+        onActivity?.({ type: "turn_start", turnNumber: turnCount });
 
         // Call LLM with accumulated messages
         const tools = this.getToolDefinitions();
 
         // Debug: Log message history being sent
         if (this.runConfig.debug) {
-          console.log(`[ChatSession] Turn ${turnCount}: Sending ${this.messages.length} messages to LLM`);
+          console.log(
+            `[ChatSession] Turn ${turnCount}: Sending ${this.messages.length} messages to LLM`,
+          );
           this.messages.forEach((msg, i) => {
-            const preview = msg.content?.substring(0, 80) || '(empty)';
-            const suffix = msg.content && msg.content.length > 80 ? '...' : '';
+            const preview = msg.content?.substring(0, 80) || "(empty)";
+            const suffix = msg.content && msg.content.length > 80 ? "..." : "";
             console.log(`  [${i}] ${msg.role}: ${preview}${suffix}`);
           });
-          console.log(`  Tools: ${tools?.map(t => t.name).join(', ') || 'none'}`);
+          console.log(
+            `  Tools: ${tools?.map((t) => t.name).join(", ") || "none"}`,
+          );
         }
 
         const chatRequest = {
@@ -187,7 +235,7 @@ export class ChatSession {
           maxTokens: this.modelConfig.maxTokens,
         };
 
-        let content = '';
+        let content = "";
         let toolCalls: ToolCall[] = [];
 
         // Use streaming if available
@@ -196,10 +244,10 @@ export class ChatSession {
           for await (const chunk of stream) {
             if (chunk.content) {
               content += chunk.content;
-              onActivity?.({ type: 'content_chunk', content: chunk.content });
+              onActivity?.({ type: "content_chunk", content: chunk.content });
             }
             if (chunk.thinking) {
-              onActivity?.({ type: 'thinking', content: chunk.thinking });
+              onActivity?.({ type: "thinking", content: chunk.thinking });
             }
             if (chunk.toolCallDelta) {
               // Collect tool calls
@@ -212,17 +260,17 @@ export class ChatSession {
         } else {
           // Fall back to non-streaming
           const response = await this.llmClient.chat(chatRequest);
-          content = response.content ?? '';
+          content = response.content ?? "";
           toolCalls = response.toolCalls ?? [];
 
           // Handle thinking content
           if (response.thinking) {
-            onActivity?.({ type: 'thinking', content: response.thinking });
+            onActivity?.({ type: "thinking", content: response.thinking });
           }
 
           // Handle content
           if (content) {
-            onActivity?.({ type: 'content_chunk', content });
+            onActivity?.({ type: "content_chunk", content });
           }
         }
 
@@ -230,60 +278,60 @@ export class ChatSession {
         if (toolCalls.length > 0) {
           const toolResults = await this.executeToolCalls(
             toolCalls,
-            onActivity
+            onActivity,
           );
 
           // Add assistant message with tool calls
           this.messages.push({
-            role: 'assistant',
+            role: "assistant",
             content: content,
             toolCalls: toolCalls,
           });
 
           // Add tool results
           this.messages.push({
-            role: 'tool',
-            content: '',
+            role: "tool",
+            content: "",
             toolResults,
           });
         } else {
           // No tool calls - add final response and done
           if (content) {
-            this.messages.push({ role: 'assistant', content: content });
+            this.messages.push({ role: "assistant", content: content });
           }
-          onActivity?.({ type: 'turn_end', turnNumber: turnCount });
+          onActivity?.({ type: "turn_end", turnNumber: turnCount });
           break;
         }
 
-        onActivity?.({ type: 'turn_end', turnNumber: turnCount });
+        onActivity?.({ type: "turn_end", turnNumber: turnCount });
       }
 
       if (turnCount >= maxTurns) {
-        terminateReason = 'max_turns';
+        terminateReason = "max_turns";
       }
 
       // Get the last assistant response
       const lastAssistant = [...this.messages]
         .reverse()
-        .find((m) => m.role === 'assistant');
+        .find((m) => m.role === "assistant");
 
       return {
         success: true,
-        content: lastAssistant?.content ?? '',
+        content: lastAssistant?.content ?? "",
         turnCount,
         terminateReason,
       };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      onActivity?.({ type: 'error', error: error as Error });
+      onActivity?.({ type: "error", error: error as Error });
 
       return {
         success: false,
-        content: '',
+        content: "",
         error: errorMessage,
         turnCount,
-        terminateReason: 'error',
+        terminateReason: "error",
       };
     }
   }
@@ -399,11 +447,11 @@ export class ChatSession {
 
     const tools = this.toolConfig.allowAllTools
       ? this.toolRegistry.getAllTools()
-      : this.toolConfig.tools
+      : (this.toolConfig.tools
           ?.map((t) =>
-            typeof t === 'string' ? this.toolRegistry.getTool(t) : t
+            typeof t === "string" ? this.toolRegistry.getTool(t) : t,
           )
-          .filter((t): t is NonNullable<typeof t> => t !== undefined) ?? [];
+          .filter((t): t is NonNullable<typeof t> => t !== undefined) ?? []);
 
     return tools.map((t) => t.definition);
   }
@@ -438,21 +486,21 @@ export class ChatSession {
    */
   private async executeToolCalls(
     toolCalls: ToolCall[],
-    onActivity?: (event: AgentActivityEvent) => void
+    onActivity?: (event: AgentActivityEvent) => void,
   ) {
     const results = await Promise.all(
       toolCalls.map(async (toolCall) => {
-        onActivity?.({ type: 'tool_call_start', toolCall });
+        onActivity?.({ type: "tool_call_start", toolCall });
 
         const tool = this.toolRegistry.getTool(toolCall.name);
         if (!tool) {
           const result = {
             toolCallId: toolCall.id,
-            content: '',
+            content: "",
             error: `Tool not found: ${toolCall.name}`,
           };
           onActivity?.({
-            type: 'tool_call_end',
+            type: "tool_call_end",
             toolCallId: toolCall.id,
             result: result.error,
           });
@@ -460,9 +508,11 @@ export class ChatSession {
         }
 
         try {
-          const result = await tool.execute(toolCall.arguments, { cwd: this.cwd });
+          const result = await tool.execute(toolCall.arguments, {
+            cwd: this.cwd,
+          });
           onActivity?.({
-            type: 'tool_call_end',
+            type: "tool_call_end",
             toolCallId: toolCall.id,
             result: result.content,
             metadata: result.metadata,
@@ -475,17 +525,17 @@ export class ChatSession {
           const errorMessage =
             error instanceof Error ? error.message : String(error);
           onActivity?.({
-            type: 'tool_call_end',
+            type: "tool_call_end",
             toolCallId: toolCall.id,
             result: errorMessage,
           });
           return {
             toolCallId: toolCall.id,
-            content: '',
+            content: "",
             error: errorMessage,
           };
         }
-      })
+      }),
     );
 
     return results;

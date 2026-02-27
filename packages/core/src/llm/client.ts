@@ -1,6 +1,6 @@
-import { appendFileSync, mkdirSync, existsSync } from 'fs';
-import { join } from 'path';
-import { homedir } from 'os';
+import { appendFileSync, mkdirSync, existsSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
 import type {
   LLMClient,
   ChatRequest,
@@ -10,7 +10,7 @@ import type {
   ModelInfo,
   DebugRequestData,
   DebugResponseData,
-} from './types.js';
+} from "./types.js";
 
 /**
  * Infers the LLM provider from a model name.
@@ -18,22 +18,34 @@ import type {
  * @remarks
  * Uses naming conventions to determine the provider:
  * - Models starting with 'gemini-' are Google models
+ * - Models starting with 'gpt-' or 'o1' or 'o3' are OpenAI models
+ * - Models starting with 'claude-' are Anthropic models
  * - All other models are assumed to be Ollama (local) models
  *
  * @param model - The model name to infer provider from
  * @returns The inferred LLMProvider
  */
 export function inferProviderFromModel(model: string): LLMProvider {
-  if (model.startsWith('gemini-')) {
-    return 'google';
+  if (model.startsWith("gemini-")) {
+    return "google";
+  }
+  if (
+    model.startsWith("gpt-") ||
+    model.startsWith("o1") ||
+    model.startsWith("o3")
+  ) {
+    return "openai";
+  }
+  if (model.startsWith("claude-")) {
+    return "anthropic";
   }
   // Assume Ollama for all other models (tinyllama, llama3, mistral, etc.)
-  return 'ollama';
+  return "ollama";
 }
 
 // Debug log file path
-const DEBUG_LOG_DIR = join(homedir(), '.beans', 'logs');
-const DEBUG_LOG_FILE = join(DEBUG_LOG_DIR, 'debug.log');
+const DEBUG_LOG_DIR = join(homedir(), ".beans", "logs");
+const DEBUG_LOG_FILE = join(DEBUG_LOG_DIR, "debug.log");
 
 function ensureLogDir(): void {
   if (!existsSync(DEBUG_LOG_DIR)) {
@@ -71,15 +83,21 @@ function writeDebugLog(content: string): void {
  */
 export function createLLMClient(
   provider: LLMProvider,
-  config: ProviderConfig
+  config: ProviderConfig,
 ): LLMClient {
   let client: LLMClient;
   switch (provider) {
-    case 'google':
+    case "google":
       client = createGoogleClient(config);
       break;
-    case 'ollama':
+    case "ollama":
       client = createOllamaClient(config);
+      break;
+    case "openai":
+      client = createOpenAIClient(config);
+      break;
+    case "anthropic":
+      client = createAnthropicClient(config);
       break;
     default:
       throw new Error(`Unsupported provider: ${provider}`);
@@ -98,7 +116,7 @@ export function createLLMClient(
  */
 function wrapWithDebugLogging(
   client: LLMClient,
-  debug: NonNullable<ProviderConfig['debug']>
+  debug: NonNullable<ProviderConfig["debug"]>,
 ): LLMClient {
   const emitDebugEvent = debug.onDebugEvent;
 
@@ -107,9 +125,9 @@ function wrapWithDebugLogging(
     systemPrompt: request.systemPrompt,
     messageCount: request.messages.length,
     toolCount: request.tools?.length ?? 0,
-    messages: request.messages.map(msg => ({
+    messages: request.messages.map((msg) => ({
       role: msg.role,
-      contentPreview: msg.content?.substring(0, 200) ?? '',
+      contentPreview: msg.content?.substring(0, 200) ?? "",
       toolCallCount: msg.toolCalls?.length,
       toolResultCount: msg.toolResults?.length,
     })),
@@ -118,7 +136,7 @@ function wrapWithDebugLogging(
   const buildResponseData = (response: ChatResponse): DebugResponseData => ({
     model: response.model,
     finishReason: response.finishReason,
-    contentPreview: response.content?.substring(0, 500) ?? '',
+    contentPreview: response.content?.substring(0, 500) ?? "",
     toolCallCount: response.toolCalls?.length ?? 0,
     usage: response.usage,
   });
@@ -126,73 +144,76 @@ function wrapWithDebugLogging(
   const logRequest = (request: ChatRequest) => {
     // Emit event for UI if callback provided
     if (emitDebugEvent) {
-      emitDebugEvent({ type: 'request', data: buildRequestData(request) });
+      emitDebugEvent({ type: "request", data: buildRequestData(request) });
     }
 
     if (!debug.logRequests) return;
 
     const lines: string[] = [
-      '─'.repeat(60),
-      '🔵 REQUEST',
+      "─".repeat(60),
+      "🔵 REQUEST",
       `Model: ${request.model}`,
     ];
 
     if (request.systemPrompt) {
-      lines.push('', 'System Prompt:', request.systemPrompt);
+      lines.push("", "System Prompt:", request.systemPrompt);
     }
 
-    lines.push('', 'Messages:');
+    lines.push("", "Messages:");
     request.messages.forEach((msg) => {
-      lines.push(`  [${msg.role}]: ${msg.content || ''}`);
+      lines.push(`  [${msg.role}]: ${msg.content || ""}`);
       if (msg.toolCalls) {
         lines.push(`    Tool Calls: ${JSON.stringify(msg.toolCalls, null, 2)}`);
       }
       if (msg.toolResults) {
-        msg.toolResults.forEach(r => {
+        msg.toolResults.forEach((r) => {
           lines.push(`    Tool Result [${r.toolCallId}]: ${r.content}`);
         });
       }
     });
 
     if (request.tools) {
-      lines.push('', `Tools: ${request.tools.map(t => t.name).join(', ')}`);
+      lines.push("", `Tools: ${request.tools.map((t) => t.name).join(", ")}`);
     }
 
-    lines.push('─'.repeat(60));
-    writeDebugLog(lines.join('\n'));
+    lines.push("─".repeat(60));
+    writeDebugLog(lines.join("\n"));
   };
 
   const logResponse = (response: ChatResponse) => {
     // Emit event for UI if callback provided
     if (emitDebugEvent) {
-      emitDebugEvent({ type: 'response', data: buildResponseData(response) });
+      emitDebugEvent({ type: "response", data: buildResponseData(response) });
     }
 
     if (!debug.logResponses) return;
 
     const lines: string[] = [
-      '🟢 RESPONSE',
+      "🟢 RESPONSE",
       `Model: ${response.model}`,
       `Finish: ${response.finishReason}`,
     ];
 
     if (response.content) {
-      lines.push('', 'Content:', response.content);
+      lines.push("", "Content:", response.content);
     }
 
     if (response.toolCalls && response.toolCalls.length > 0) {
-      lines.push('', 'Tool Calls:');
+      lines.push("", "Tool Calls:");
       response.toolCalls.forEach((tc) => {
         lines.push(`  - ${tc.name}: ${JSON.stringify(tc.arguments, null, 2)}`);
       });
     }
 
     if (response.usage) {
-      lines.push('', `Tokens: ${response.usage.promptTokens} prompt + ${response.usage.completionTokens} completion = ${response.usage.totalTokens} total`);
+      lines.push(
+        "",
+        `Tokens: ${response.usage.promptTokens} prompt + ${response.usage.completionTokens} completion = ${response.usage.totalTokens} total`,
+      );
     }
 
-    lines.push('─'.repeat(60));
-    writeDebugLog(lines.join('\n'));
+    lines.push("─".repeat(60));
+    writeDebugLog(lines.join("\n"));
   };
 
   return {
@@ -217,17 +238,20 @@ function wrapWithDebugLogging(
         return;
       }
 
-      let accumulatedContent = '';
-      const accumulatedToolCalls: import('../agents/types.js').ToolCall[] = [];
+      let accumulatedContent = "";
+      const accumulatedToolCalls: import("../agents/types.js").ToolCall[] = [];
       // Map for merging tool call deltas by ID
-      const toolCallMap = new Map<string, import('../agents/types.js').ToolCall>();
+      const toolCallMap = new Map<
+        string,
+        import("../agents/types.js").ToolCall
+      >();
 
       for await (const chunk of client.chatStream(request)) {
         if (chunk.content) {
           accumulatedContent += chunk.content;
         }
         const delta = chunk.toolCallDelta;
-        if (delta && typeof delta.id === 'string') {
+        if (delta && typeof delta.id === "string") {
           // Check if we already have this tool call
           const existing = toolCallMap.get(delta.id);
           if (existing) {
@@ -238,9 +262,9 @@ function wrapWithDebugLogging(
                 ...delta.arguments,
               };
             }
-          } else if (typeof delta.name === 'string') {
+          } else if (typeof delta.name === "string") {
             // New tool call - only create if we have both id and name
-            const newToolCall: import('../agents/types.js').ToolCall = {
+            const newToolCall: import("../agents/types.js").ToolCall = {
               id: delta.id,
               name: delta.name,
               arguments: delta.arguments ?? {},
@@ -252,9 +276,12 @@ function wrapWithDebugLogging(
         if (chunk.done && debug.logResponses) {
           const response: ChatResponse = {
             content: accumulatedContent || null,
-            toolCalls: accumulatedToolCalls.length > 0 ? accumulatedToolCalls : undefined,
+            toolCalls:
+              accumulatedToolCalls.length > 0
+                ? accumulatedToolCalls
+                : undefined,
             model: request.model,
-            finishReason: chunk.finishReason ?? 'stop',
+            finishReason: chunk.finishReason ?? "stop",
             usage: chunk.usage,
           };
           logResponse(response);
@@ -293,16 +320,17 @@ function wrapWithDebugLogging(
  */
 function createGoogleClient(config: ProviderConfig): LLMClient {
   const baseUrl =
-    config.baseUrl ?? 'https://generativelanguage.googleapis.com/v1beta';
+    config.baseUrl ?? "https://generativelanguage.googleapis.com/v1beta";
 
   const buildRequestBody = (request: ChatRequest) => ({
     contents: formatMessagesForGoogle(request),
     systemInstruction: request.systemPrompt
       ? { parts: [{ text: request.systemPrompt }] }
       : undefined,
-    tools: request.tools && request.tools.length > 0
-      ? [{ functionDeclarations: request.tools.map(formatToolForGoogle) }]
-      : undefined,
+    tools:
+      request.tools && request.tools.length > 0
+        ? [{ functionDeclarations: request.tools.map(formatToolForGoogle) }]
+        : undefined,
     generationConfig: {
       temperature: request.temperature,
       maxOutputTokens: request.maxTokens,
@@ -315,9 +343,9 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
       const url = `${baseUrl}/models/${request.model}:generateContent?key=${config.apiKey}`;
 
       const response = await fetch(url, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           ...config.headers,
         },
         body: JSON.stringify(buildRequestBody(request)),
@@ -329,19 +357,21 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
         throw new Error(`Google API error: ${response.status} - ${errorBody}`);
       }
 
-      const data = await response.json() as Parameters<typeof parseGoogleResponse>[0];
+      const data = (await response.json()) as Parameters<
+        typeof parseGoogleResponse
+      >[0];
       return parseGoogleResponse(data, request.model);
     },
 
     async *chatStream(
-      request: ChatRequest
-    ): AsyncGenerator<import('./types.js').ChatStreamChunk, void, unknown> {
+      request: ChatRequest,
+    ): AsyncGenerator<import("./types.js").ChatStreamChunk, void, unknown> {
       const url = `${baseUrl}/models/${request.model}:streamGenerateContent?key=${config.apiKey}&alt=sse`;
 
       const response = await fetch(url, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           ...config.headers,
         },
         body: JSON.stringify(buildRequestBody(request)),
@@ -354,13 +384,13 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
       }
 
       if (!response.body) {
-        throw new Error('No response body for streaming');
+        throw new Error("No response body for streaming");
       }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = '';
-      const accumulatedToolCalls: import('../agents/types.js').ToolCall[] = [];
+      let buffer = "";
+      const accumulatedToolCalls: import("../agents/types.js").ToolCall[] = [];
 
       try {
         while (true) {
@@ -368,13 +398,13 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() ?? '';
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
 
           for (const line of lines) {
-            if (line.startsWith('data: ')) {
+            if (line.startsWith("data: ")) {
               const jsonStr = line.slice(6).trim();
-              if (!jsonStr || jsonStr === '[DONE]') continue;
+              if (!jsonStr || jsonStr === "[DONE]") continue;
 
               try {
                 const data = JSON.parse(jsonStr) as {
@@ -382,7 +412,10 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
                     content?: {
                       parts?: Array<{
                         text?: string;
-                        functionCall?: { name: string; args: Record<string, unknown> };
+                        functionCall?: {
+                          name: string;
+                          args: Record<string, unknown>;
+                        };
                       }>;
                     };
                     finishReason?: string;
@@ -422,11 +455,13 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
                 if (candidate?.finishReason) {
                   yield {
                     done: true,
-                    finishReason: accumulatedToolCalls.length > 0 ? 'tool_calls' : 'stop',
+                    finishReason:
+                      accumulatedToolCalls.length > 0 ? "tool_calls" : "stop",
                     usage: data.usageMetadata
                       ? {
                           promptTokens: data.usageMetadata.promptTokenCount,
-                          completionTokens: data.usageMetadata.candidatesTokenCount,
+                          completionTokens:
+                            data.usageMetadata.candidatesTokenCount,
                           totalTokens: data.usageMetadata.totalTokenCount,
                         }
                       : undefined,
@@ -454,7 +489,7 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
         throw new Error(`Google API error: ${response.status} - ${errorBody}`);
       }
 
-      const data = await response.json() as {
+      const data = (await response.json()) as {
         models: Array<{
           name: string;
           displayName: string;
@@ -464,9 +499,11 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
       };
 
       return data.models
-        .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
+        .filter((m) =>
+          m.supportedGenerationMethods?.includes("generateContent"),
+        )
         .map((m) => ({
-          id: m.name.replace('models/', ''),
+          id: m.name.replace("models/", ""),
           name: m.displayName,
           description: m.description,
           supportedMethods: m.supportedGenerationMethods,
@@ -499,14 +536,14 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
  * @returns An LLMClient instance configured for the Ollama API.
  */
 function createOllamaClient(config: ProviderConfig): LLMClient {
-  const baseUrl = config.baseUrl ?? 'http://localhost:11434';
+  const baseUrl = config.baseUrl ?? "http://localhost:11434";
 
   return {
     async chat(request: ChatRequest): Promise<ChatResponse> {
       const response = await fetch(`${baseUrl}/api/chat`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           ...config.headers,
         },
         body: JSON.stringify({
@@ -528,7 +565,9 @@ function createOllamaClient(config: ProviderConfig): LLMClient {
         throw new Error(`Ollama API error: ${response.status} - ${errorBody}`);
       }
 
-      const data = await response.json() as Parameters<typeof parseOllamaResponse>[0];
+      const data = (await response.json()) as Parameters<
+        typeof parseOllamaResponse
+      >[0];
       return parseOllamaResponse(data, request.model);
     },
 
@@ -542,7 +581,7 @@ function createOllamaClient(config: ProviderConfig): LLMClient {
         throw new Error(`Ollama API error: ${response.status}`);
       }
 
-      const data = await response.json() as {
+      const data = (await response.json()) as {
         models: Array<{
           name: string;
           size: number;
@@ -553,7 +592,7 @@ function createOllamaClient(config: ProviderConfig): LLMClient {
       return data.models.map((m) => ({
         id: m.name,
         name: m.name,
-        description: `Size: ${Math.round(m.size / 1024 / 1024 / 1024 * 10) / 10}GB`,
+        description: `Size: ${Math.round((m.size / 1024 / 1024 / 1024) * 10) / 10}GB`,
       }));
     },
   };
@@ -576,12 +615,16 @@ function createOllamaClient(config: ProviderConfig): LLMClient {
  */
 function formatMessagesForGoogle(request: ChatRequest) {
   const contents: Array<{
-    role: 'user' | 'model';
-    parts: Array<{ text?: string; functionCall?: unknown; functionResponse?: unknown }>;
+    role: "user" | "model";
+    parts: Array<{
+      text?: string;
+      functionCall?: unknown;
+      functionResponse?: unknown;
+    }>;
   }> = [];
 
   for (const msg of request.messages) {
-    if (msg.role === 'assistant') {
+    if (msg.role === "assistant") {
       const parts: Array<{ text?: string; functionCall?: unknown }> = [];
 
       if (msg.content) {
@@ -596,8 +639,8 @@ function formatMessagesForGoogle(request: ChatRequest) {
         }
       }
 
-      contents.push({ role: 'model', parts });
-    } else if (msg.role === 'tool' && msg.toolResults) {
+      contents.push({ role: "model", parts });
+    } else if (msg.role === "tool" && msg.toolResults) {
       // Tool results are sent as user messages with functionResponse parts
       const parts = msg.toolResults.map((result) => ({
         functionResponse: {
@@ -606,9 +649,9 @@ function formatMessagesForGoogle(request: ChatRequest) {
         },
       }));
 
-      contents.push({ role: 'user', parts });
+      contents.push({ role: "user", parts });
     } else {
-      contents.push({ role: 'user', parts: [{ text: msg.content }] });
+      contents.push({ role: "user", parts: [{ text: msg.content }] });
     }
   }
 
@@ -636,25 +679,25 @@ function formatMessagesForOllama(request: ChatRequest) {
   }> = [];
 
   if (request.systemPrompt) {
-    messages.push({ role: 'system', content: request.systemPrompt });
+    messages.push({ role: "system", content: request.systemPrompt });
   }
 
   for (const msg of request.messages) {
-    if (msg.role === 'tool' && msg.toolResults) {
+    if (msg.role === "tool" && msg.toolResults) {
       for (const result of msg.toolResults) {
         messages.push({
-          role: 'tool',
+          role: "tool",
           tool_call_id: result.toolCallId,
           content: result.error ?? result.content,
         });
       }
-    } else if (msg.role === 'assistant') {
+    } else if (msg.role === "assistant") {
       messages.push({
-        role: 'assistant',
+        role: "assistant",
         content: msg.content,
         tool_calls: msg.toolCalls?.map((tc) => ({
           id: tc.id,
-          type: 'function',
+          type: "function",
           function: { name: tc.name, arguments: tc.arguments },
         })),
       });
@@ -679,7 +722,7 @@ function formatMessagesForOllama(request: ChatRequest) {
  * @param tool - The unified tool definition to format.
  * @returns A function declaration object formatted for Google's API.
  */
-function formatToolForGoogle(tool: import('../tools/types.js').ToolDefinition) {
+function formatToolForGoogle(tool: import("../tools/types.js").ToolDefinition) {
   return {
     name: tool.name,
     description: tool.description,
@@ -697,9 +740,9 @@ function formatToolForGoogle(tool: import('../tools/types.js').ToolDefinition) {
  * @param tool - The unified tool definition to format.
  * @returns A tool object formatted for Ollama's API.
  */
-function formatToolForOllama(tool: import('../tools/types.js').ToolDefinition) {
+function formatToolForOllama(tool: import("../tools/types.js").ToolDefinition) {
   return {
-    type: 'function',
+    type: "function",
     function: {
       name: tool.name,
       description: tool.description,
@@ -741,7 +784,7 @@ function parseGoogleResponse(
     };
     error?: { message: string; code: number };
   },
-  model: string
+  model: string,
 ): ChatResponse {
   // Handle API errors
   if (data.error) {
@@ -753,7 +796,7 @@ function parseGoogleResponse(
     return {
       content: null,
       model,
-      finishReason: 'stop',
+      finishReason: "stop",
     };
   }
 
@@ -763,13 +806,14 @@ function parseGoogleResponse(
   const text = parts.find((p) => p.text)?.text;
   const functionCalls = parts.filter((p) => p.functionCall);
 
-  const toolCalls = functionCalls.length > 0
-    ? functionCalls.map((part, index) => ({
-        id: `call_${index}`,
-        name: part.functionCall!.name,
-        arguments: part.functionCall!.args,
-      }))
-    : undefined;
+  const toolCalls =
+    functionCalls.length > 0
+      ? functionCalls.map((part, index) => ({
+          id: `call_${index}`,
+          name: part.functionCall!.name,
+          arguments: part.functionCall!.args,
+        }))
+      : undefined;
 
   return {
     content: text ?? null,
@@ -782,7 +826,7 @@ function parseGoogleResponse(
         }
       : undefined,
     model,
-    finishReason: toolCalls ? 'tool_calls' : 'stop',
+    finishReason: toolCalls ? "tool_calls" : "stop",
   };
 }
 
@@ -811,7 +855,7 @@ function parseOllamaResponse(
     };
     done: boolean;
   },
-  model: string
+  model: string,
 ): ChatResponse {
   const toolCalls = data.message.tool_calls?.map((tc, index) => ({
     id: tc.id ?? `call_${index}`,
@@ -823,6 +867,690 @@ function parseOllamaResponse(
     content: data.message.content || null,
     toolCalls,
     model,
-    finishReason: toolCalls && toolCalls.length > 0 ? 'tool_calls' : 'stop',
+    finishReason: toolCalls && toolCalls.length > 0 ? "tool_calls" : "stop",
+  };
+}
+
+// ============================================================================
+// OpenAI Provider
+// ============================================================================
+
+/**
+ * Creates an OpenAI LLM client.
+ *
+ * @remarks
+ * Implements the OpenAI Chat Completions API for GPT models.
+ * Supports streaming, tool calling, and all standard OpenAI parameters.
+ *
+ * @param config - Provider configuration including API key and optional base URL.
+ * @returns An LLMClient instance configured for OpenAI's API.
+ */
+function createOpenAIClient(config: ProviderConfig): LLMClient {
+  const baseUrl = config.baseUrl ?? "https://api.openai.com/v1";
+
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${config.apiKey}`,
+    ...(config.organizationId
+      ? { "OpenAI-Organization": config.organizationId }
+      : {}),
+    ...config.headers,
+  };
+
+  return {
+    async chat(request: ChatRequest): Promise<ChatResponse> {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model: request.model,
+          messages: formatMessagesForOpenAI(request),
+          tools: request.tools?.map(formatToolForOpenAI),
+          temperature: request.temperature,
+          max_tokens: request.maxTokens,
+          top_p: request.topP,
+          stop: request.stopSequences,
+        }),
+        signal: AbortSignal.timeout(config.timeout ?? 60000),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`OpenAI API error: ${response.status} - ${errorBody}`);
+      }
+
+      const data = (await response.json()) as OpenAIResponse;
+      return parseOpenAIResponse(data);
+    },
+
+    async *chatStream(
+      request: ChatRequest,
+    ): AsyncGenerator<import("./types.js").ChatStreamChunk, void, unknown> {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model: request.model,
+          messages: formatMessagesForOpenAI(request),
+          tools: request.tools?.map(formatToolForOpenAI),
+          temperature: request.temperature,
+          max_tokens: request.maxTokens,
+          top_p: request.topP,
+          stop: request.stopSequences,
+          stream: true,
+        }),
+        signal: AbortSignal.timeout(config.timeout ?? 120000),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`OpenAI API error: ${response.status} - ${errorBody}`);
+      }
+
+      if (!response.body) {
+        throw new Error("No response body for streaming");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      const toolCallMap = new Map<
+        number,
+        { id: string; name: string; arguments: string }
+      >();
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const jsonStr = line.slice(6).trim();
+              if (!jsonStr || jsonStr === "[DONE]") continue;
+
+              try {
+                const data = JSON.parse(jsonStr) as OpenAIStreamChunk;
+                const choice = data.choices?.[0];
+                const delta = choice?.delta;
+
+                if (delta?.content) {
+                  yield { content: delta.content, done: false };
+                }
+
+                if (delta?.tool_calls) {
+                  for (const tc of delta.tool_calls) {
+                    const existing = toolCallMap.get(tc.index);
+                    if (existing) {
+                      if (tc.function?.arguments) {
+                        existing.arguments += tc.function.arguments;
+                      }
+                    } else {
+                      toolCallMap.set(tc.index, {
+                        id: tc.id ?? `call_${tc.index}`,
+                        name: tc.function?.name ?? "",
+                        arguments: tc.function?.arguments ?? "",
+                      });
+                    }
+
+                    // Yield tool call delta
+                    const current = toolCallMap.get(tc.index)!;
+                    yield {
+                      toolCallDelta: {
+                        id: current.id,
+                        name: current.name || undefined,
+                        arguments: tc.function?.arguments
+                          ? tryParseJSON(current.arguments)
+                          : undefined,
+                      },
+                      done: false,
+                    };
+                  }
+                }
+
+                if (choice?.finish_reason) {
+                  yield {
+                    done: true,
+                    finishReason:
+                      choice.finish_reason === "tool_calls"
+                        ? "tool_calls"
+                        : "stop",
+                    usage: data.usage
+                      ? {
+                          promptTokens: data.usage.prompt_tokens,
+                          completionTokens: data.usage.completion_tokens,
+                          totalTokens: data.usage.total_tokens,
+                        }
+                      : undefined,
+                  };
+                }
+              } catch {
+                // Skip invalid JSON
+              }
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    },
+
+    async listModels(): Promise<ModelInfo[]> {
+      const response = await fetch(`${baseUrl}/models`, {
+        headers,
+        signal: AbortSignal.timeout(config.timeout ?? 60000),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`OpenAI API error: ${response.status} - ${errorBody}`);
+      }
+
+      const data = (await response.json()) as {
+        data: Array<{ id: string; owned_by: string }>;
+      };
+      return data.data
+        .filter(
+          (m) =>
+            m.id.startsWith("gpt-") ||
+            m.id.startsWith("o1") ||
+            m.id.startsWith("o3"),
+        )
+        .map((m) => ({
+          id: m.id,
+          name: m.id,
+          description: `Owned by: ${m.owned_by}`,
+        }));
+    },
+  };
+}
+
+// OpenAI types
+interface OpenAIResponse {
+  id: string;
+  choices: Array<{
+    message: {
+      role: string;
+      content: string | null;
+      tool_calls?: Array<{
+        id: string;
+        type: string;
+        function: { name: string; arguments: string };
+      }>;
+    };
+    finish_reason: string;
+  }>;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+  model: string;
+}
+
+interface OpenAIStreamChunk {
+  choices?: Array<{
+    delta?: {
+      content?: string;
+      tool_calls?: Array<{
+        index: number;
+        id?: string;
+        function?: { name?: string; arguments?: string };
+      }>;
+    };
+    finish_reason?: string;
+  }>;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
+function formatMessagesForOpenAI(request: ChatRequest) {
+  const messages: Array<{
+    role: string;
+    content: string | null;
+    tool_calls?: Array<{
+      id: string;
+      type: string;
+      function: { name: string; arguments: string };
+    }>;
+    tool_call_id?: string;
+  }> = [];
+
+  if (request.systemPrompt) {
+    messages.push({ role: "system", content: request.systemPrompt });
+  }
+
+  for (const msg of request.messages) {
+    if (msg.role === "tool" && msg.toolResults) {
+      for (const result of msg.toolResults) {
+        messages.push({
+          role: "tool",
+          tool_call_id: result.toolCallId,
+          content: result.error ?? result.content,
+        });
+      }
+    } else if (msg.role === "assistant") {
+      messages.push({
+        role: "assistant",
+        content: msg.content,
+        tool_calls: msg.toolCalls?.map((tc) => ({
+          id: tc.id,
+          type: "function",
+          function: { name: tc.name, arguments: JSON.stringify(tc.arguments) },
+        })),
+      });
+    } else {
+      messages.push({ role: msg.role, content: msg.content });
+    }
+  }
+
+  return messages;
+}
+
+function formatToolForOpenAI(tool: import("../tools/types.js").ToolDefinition) {
+  return {
+    type: "function",
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.parameters,
+    },
+  };
+}
+
+function parseOpenAIResponse(data: OpenAIResponse): ChatResponse {
+  const choice = data.choices[0];
+  const message = choice.message;
+
+  const toolCalls = message.tool_calls?.map((tc) => ({
+    id: tc.id,
+    name: tc.function.name,
+    arguments: tryParseJSON(tc.function.arguments) ?? {},
+  }));
+
+  return {
+    content: message.content,
+    toolCalls,
+    usage: data.usage
+      ? {
+          promptTokens: data.usage.prompt_tokens,
+          completionTokens: data.usage.completion_tokens,
+          totalTokens: data.usage.total_tokens,
+        }
+      : undefined,
+    model: data.model,
+    finishReason: toolCalls && toolCalls.length > 0 ? "tool_calls" : "stop",
+  };
+}
+
+function tryParseJSON(str: string): Record<string, unknown> | undefined {
+  try {
+    return JSON.parse(str);
+  } catch {
+    return undefined;
+  }
+}
+
+// ============================================================================
+// Anthropic Provider
+// ============================================================================
+
+/**
+ * Creates an Anthropic LLM client.
+ *
+ * @remarks
+ * Implements the Anthropic Messages API for Claude models.
+ * Supports streaming, tool use, and extended thinking.
+ *
+ * @param config - Provider configuration including API key.
+ * @returns An LLMClient instance configured for Anthropic's API.
+ */
+function createAnthropicClient(config: ProviderConfig): LLMClient {
+  const baseUrl = config.baseUrl ?? "https://api.anthropic.com/v1";
+
+  const headers = {
+    "Content-Type": "application/json",
+    "x-api-key": config.apiKey ?? "",
+    "anthropic-version": "2023-06-01",
+    ...config.headers,
+  };
+
+  return {
+    async chat(request: ChatRequest): Promise<ChatResponse> {
+      const response = await fetch(`${baseUrl}/messages`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model: request.model,
+          max_tokens: request.maxTokens ?? 4096,
+          system: request.systemPrompt,
+          messages: formatMessagesForAnthropic(request),
+          tools: request.tools?.map(formatToolForAnthropic),
+          temperature: request.temperature,
+          top_p: request.topP,
+          stop_sequences: request.stopSequences,
+        }),
+        signal: AbortSignal.timeout(config.timeout ?? 60000),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(
+          `Anthropic API error: ${response.status} - ${errorBody}`,
+        );
+      }
+
+      const data = (await response.json()) as AnthropicResponse;
+      return parseAnthropicResponse(data);
+    },
+
+    async *chatStream(
+      request: ChatRequest,
+    ): AsyncGenerator<import("./types.js").ChatStreamChunk, void, unknown> {
+      const response = await fetch(`${baseUrl}/messages`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model: request.model,
+          max_tokens: request.maxTokens ?? 4096,
+          system: request.systemPrompt,
+          messages: formatMessagesForAnthropic(request),
+          tools: request.tools?.map(formatToolForAnthropic),
+          temperature: request.temperature,
+          top_p: request.topP,
+          stop_sequences: request.stopSequences,
+          stream: true,
+        }),
+        signal: AbortSignal.timeout(config.timeout ?? 120000),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(
+          `Anthropic API error: ${response.status} - ${errorBody}`,
+        );
+      }
+
+      if (!response.body) {
+        throw new Error("No response body for streaming");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      const toolCalls: Array<{
+        id: string;
+        name: string;
+        input: Record<string, unknown>;
+      }> = [];
+      let currentToolUse: {
+        id: string;
+        name: string;
+        inputJson: string;
+      } | null = null;
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const jsonStr = line.slice(6).trim();
+              if (!jsonStr) continue;
+
+              try {
+                const event = JSON.parse(jsonStr) as AnthropicStreamEvent;
+
+                switch (event.type) {
+                  case "content_block_start":
+                    if (
+                      event.content_block?.type === "tool_use" &&
+                      event.content_block.id &&
+                      event.content_block.name
+                    ) {
+                      currentToolUse = {
+                        id: event.content_block.id,
+                        name: event.content_block.name,
+                        inputJson: "",
+                      };
+                    }
+                    break;
+
+                  case "content_block_delta":
+                    if (
+                      event.delta?.type === "text_delta" &&
+                      event.delta.text
+                    ) {
+                      yield { content: event.delta.text, done: false };
+                    } else if (
+                      event.delta?.type === "input_json_delta" &&
+                      currentToolUse
+                    ) {
+                      currentToolUse.inputJson +=
+                        event.delta.partial_json ?? "";
+                    }
+                    break;
+
+                  case "content_block_stop":
+                    if (currentToolUse) {
+                      const parsedInput =
+                        tryParseJSON(currentToolUse.inputJson) ?? {};
+                      toolCalls.push({
+                        id: currentToolUse.id,
+                        name: currentToolUse.name,
+                        input: parsedInput,
+                      });
+                      yield {
+                        toolCallDelta: {
+                          id: currentToolUse.id,
+                          name: currentToolUse.name,
+                          arguments: parsedInput,
+                        },
+                        done: false,
+                      };
+                      currentToolUse = null;
+                    }
+                    break;
+
+                  case "message_stop":
+                    yield {
+                      done: true,
+                      finishReason:
+                        toolCalls.length > 0 ? "tool_calls" : "stop",
+                    };
+                    break;
+
+                  case "message_delta":
+                    if (event.usage) {
+                      yield {
+                        done: true,
+                        finishReason:
+                          toolCalls.length > 0 ? "tool_calls" : "stop",
+                        usage: {
+                          promptTokens: 0,
+                          completionTokens: event.usage.output_tokens,
+                          totalTokens: event.usage.output_tokens,
+                        },
+                      };
+                    }
+                    break;
+                }
+              } catch {
+                // Skip invalid JSON
+              }
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    },
+
+    async listModels(): Promise<ModelInfo[]> {
+      // Anthropic doesn't have a models endpoint, return known models
+      return [
+        {
+          id: "claude-sonnet-4-20250514",
+          name: "Claude Sonnet 4",
+          description: "Latest Claude Sonnet model",
+        },
+        {
+          id: "claude-opus-4-20250514",
+          name: "Claude Opus 4",
+          description: "Latest Claude Opus model",
+        },
+        {
+          id: "claude-3-5-sonnet-20241022",
+          name: "Claude 3.5 Sonnet",
+          description: "High performance model",
+        },
+        {
+          id: "claude-3-5-haiku-20241022",
+          name: "Claude 3.5 Haiku",
+          description: "Fast and efficient model",
+        },
+        {
+          id: "claude-3-opus-20240229",
+          name: "Claude 3 Opus",
+          description: "Most capable Claude 3 model",
+        },
+      ];
+    },
+  };
+}
+
+// Anthropic types
+interface AnthropicResponse {
+  id: string;
+  type: string;
+  role: string;
+  content: Array<
+    | { type: "text"; text: string }
+    | {
+        type: "tool_use";
+        id: string;
+        name: string;
+        input: Record<string, unknown>;
+      }
+  >;
+  model: string;
+  stop_reason: string;
+  usage: { input_tokens: number; output_tokens: number };
+}
+
+interface AnthropicStreamEvent {
+  type: string;
+  content_block?: { type: string; id?: string; name?: string; text?: string };
+  delta?: { type: string; text?: string; partial_json?: string };
+  usage?: { output_tokens: number };
+}
+
+function formatMessagesForAnthropic(request: ChatRequest) {
+  const messages: Array<{
+    role: "user" | "assistant";
+    content:
+      | string
+      | Array<{
+          type: string;
+          tool_use_id?: string;
+          content?: string;
+          id?: string;
+          name?: string;
+          input?: Record<string, unknown>;
+        }>;
+  }> = [];
+
+  for (const msg of request.messages) {
+    if (msg.role === "user") {
+      messages.push({ role: "user", content: msg.content });
+    } else if (msg.role === "assistant") {
+      if (msg.toolCalls && msg.toolCalls.length > 0) {
+        const content: Array<{
+          type: string;
+          text?: string;
+          id?: string;
+          name?: string;
+          input?: Record<string, unknown>;
+        }> = [];
+        if (msg.content) {
+          content.push({ type: "text", text: msg.content });
+        }
+        for (const tc of msg.toolCalls) {
+          content.push({
+            type: "tool_use",
+            id: tc.id,
+            name: tc.name,
+            input: tc.arguments,
+          });
+        }
+        messages.push({ role: "assistant", content });
+      } else {
+        messages.push({ role: "assistant", content: msg.content });
+      }
+    } else if (msg.role === "tool" && msg.toolResults) {
+      const content = msg.toolResults.map((result) => ({
+        type: "tool_result",
+        tool_use_id: result.toolCallId,
+        content: result.error ?? result.content,
+      }));
+      messages.push({ role: "user", content });
+    }
+  }
+
+  return messages;
+}
+
+function formatToolForAnthropic(
+  tool: import("../tools/types.js").ToolDefinition,
+) {
+  return {
+    name: tool.name,
+    description: tool.description,
+    input_schema: tool.parameters,
+  };
+}
+
+function parseAnthropicResponse(data: AnthropicResponse): ChatResponse {
+  let content: string | null = null;
+  const toolCalls: Array<{
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>;
+  }> = [];
+
+  for (const block of data.content) {
+    if (block.type === "text") {
+      content = block.text;
+    } else if (block.type === "tool_use") {
+      toolCalls.push({
+        id: block.id,
+        name: block.name,
+        arguments: block.input,
+      });
+    }
+  }
+
+  return {
+    content,
+    toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+    usage: {
+      promptTokens: data.usage.input_tokens,
+      completionTokens: data.usage.output_tokens,
+      totalTokens: data.usage.input_tokens + data.usage.output_tokens,
+    },
+    model: data.model,
+    finishReason: toolCalls.length > 0 ? "tool_calls" : "stop",
   };
 }
