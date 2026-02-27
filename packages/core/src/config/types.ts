@@ -1,4 +1,5 @@
 import type { LLMProvider } from '../llm/types.js';
+import type { MemoryConfig } from '../memory/types.js';
 
 /**
  * Main application configuration
@@ -16,9 +17,14 @@ export interface AppConfig {
   ui: UIConfig;
   /** Debug settings */
   debug: DebugConfig;
+  /** Memory settings */
+  memory: MemoryConfig;
   /** Runtime-only settings (never persisted) */
   runtime: RuntimeConfig;
 }
+
+// Re-export MemoryConfig for convenience
+export type { MemoryConfig } from '../memory/types.js';
 
 /**
  * Debug configuration

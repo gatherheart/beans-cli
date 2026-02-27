@@ -19,6 +19,7 @@ import {
   DEFAULT_AGENT_PROFILE,
   MockLLMClient,
   inferProviderFromModel,
+  MemoryStore,
   type AgentProfile,
   type WorkspaceContext,
 } from '@beans/core';
@@ -116,10 +117,22 @@ export async function runApp(args: CLIArgs): Promise<void> {
   console.log(`\n🤖 ${agentProfile.displayName} v${agentProfile.version}`);
   console.log(`📁 Workspace: ${workspaceContext.rootPath}`);
   console.log(`📋 ${agentProfile.description}`);
+
+  // Initialize memory system and discover memory files
+  const memoryConfig = config.getMemoryConfig();
+  let memoryContent = '';
+  if (memoryConfig.enabled) {
+    const memoryStore = new MemoryStore(memoryConfig, workspaceContext.rootPath);
+    const discoveryResult = await memoryStore.discover();
+    memoryContent = discoveryResult.content;
+    if (discoveryResult.loadedPaths.length > 0) {
+      console.log(`📝 Memory: ${discoveryResult.loadedPaths.length} file(s), ~${discoveryResult.totalTokens} tokens`);
+    }
+  }
   console.log('');
 
-  // Build system prompt with workspace context
-  const systemPrompt = buildSystemPrompt(agentProfile.systemPrompt, workspaceContext);
+  // Build system prompt with workspace context and memory
+  const systemPrompt = buildSystemPrompt(agentProfile.systemPrompt, workspaceContext, memoryContent);
 
   // If we have an initial prompt and not interactive mode, run single shot
   if (args.prompt && !args.interactive) {
@@ -362,18 +375,30 @@ async function resolveAgentProfile(config: Config, args: CLIArgs): Promise<Agent
 }
 
 /**
- * Builds the system prompt with workspace context.
+ * Builds the system prompt with workspace context and memory.
  *
  * @remarks
- * Injects workspace information into the system prompt so the LLM knows
- * about the current working directory, project type, and environment.
- * This enables the LLM to use tools proactively with proper context.
+ * Injects workspace information and memory content into the system prompt so
+ * the LLM knows about the current working directory, project type, environment,
+ * and any persistent instructions from BEANS.md files.
  *
  * @param basePrompt - The agent's system prompt
  * @param workspace - The workspace context
- * @returns The enhanced system prompt with workspace context
+ * @param memoryContent - Optional memory content from BEANS.md files
+ * @returns The enhanced system prompt with workspace context and memory
  */
-function buildSystemPrompt(basePrompt: string, workspace: WorkspaceContext): string {
+function buildSystemPrompt(basePrompt: string, workspace: WorkspaceContext, memoryContent?: string): string {
+  const sections: string[] = [basePrompt];
+
+  // Add memory content if present (before environment context)
+  if (memoryContent && memoryContent.trim()) {
+    sections.push('');
+    sections.push('## User Instructions (Memory)');
+    sections.push('');
+    sections.push(memoryContent.trim());
+  }
+
+  // Add environment context
   const contextLines: string[] = [
     '',
     '## Current Environment',
@@ -400,5 +425,7 @@ function buildSystemPrompt(basePrompt: string, workspace: WorkspaceContext): str
   contextLines.push('');
   contextLines.push('When the user asks about files, directories, or the project structure, use your tools (glob, read_file) to explore the workspace at the path above.');
 
-  return basePrompt + contextLines.join('\n');
+  sections.push(contextLines.join('\n'));
+
+  return sections.join('\n');
 }

@@ -1,4 +1,4 @@
-import type { AppConfig, LLMConfig, AgentConfig, ToolsConfig, TelemetryConfig, UIConfig, DebugConfig, RuntimeConfig } from './types.js';
+import type { AppConfig, LLMConfig, AgentConfig, ToolsConfig, TelemetryConfig, UIConfig, DebugConfig, RuntimeConfig, MemoryConfig } from './types.js';
 import { loadSettings, saveSettings, type Settings } from './settings.js';
 import { loadEnv } from './env.js';
 import { ToolRegistry } from '../tools/registry.js';
@@ -6,6 +6,7 @@ import { createBuiltinTools } from '../tools/builtin/index.js';
 import { AgentRegistry } from '../agents/registry.js';
 import { createLLMClient } from '../llm/client.js';
 import type { LLMClient, LLMProvider, DebugEvent } from '../llm/types.js';
+import { MemoryStore, DEFAULT_MEMORY_CONFIG } from '../memory/index.js';
 
 /**
  * Default configuration values
@@ -24,7 +25,7 @@ const defaults: AppConfig = {
     autoApprove: 'none',
   },
   tools: {
-    enabled: ['read_file', 'write_file', 'shell', 'glob', 'grep', 'web_search'],
+    enabled: ['read_file', 'write_file', 'shell', 'glob', 'grep', 'web_search', 'save_memory'],
     disabled: [],
     shellTimeout: 120000,
   },
@@ -43,6 +44,7 @@ const defaults: AppConfig = {
     logRequests: true,
     logResponses: true,
   },
+  memory: { ...DEFAULT_MEMORY_CONFIG },
   runtime: {
     uiTestMode: false,
   },
@@ -59,6 +61,7 @@ export class Config {
   private _toolRegistry: ToolRegistry | null = null;
   private _agentRegistry: AgentRegistry | null = null;
   private _llmClient: LLMClient | null = null;
+  private _memoryStore: MemoryStore | null = null;
 
   // Debug event callback (set by UI)
   private _debugEventCallback: ((event: DebugEvent) => void) | null = null;
@@ -140,6 +143,31 @@ export class Config {
    */
   getRuntimeConfig(): RuntimeConfig {
     return { ...this.config.runtime };
+  }
+
+  /**
+   * Get memory configuration
+   */
+  getMemoryConfig(): MemoryConfig {
+    return { ...this.config.memory };
+  }
+
+  /**
+   * Get the memory store (lazy-loaded)
+   * @param projectDir - Optional project directory for project-level memory
+   */
+  getMemoryStore(projectDir?: string): MemoryStore {
+    if (!this._memoryStore) {
+      this._memoryStore = new MemoryStore(this.config.memory, projectDir);
+    }
+    return this._memoryStore;
+  }
+
+  /**
+   * Reset the memory store (useful when changing project directory)
+   */
+  resetMemoryStore(): void {
+    this._memoryStore = null;
   }
 
   /**
@@ -227,11 +255,13 @@ export class Config {
       telemetry: { ...this.config.telemetry, ...updates.telemetry },
       ui: { ...this.config.ui, ...updates.ui },
       debug: { ...this.config.debug, ...updates.debug },
+      memory: { ...this.config.memory, ...updates.memory },
     };
 
     // Reset lazy-loaded services
     this._llmClient = null;
     this._toolRegistry = null;
+    this._memoryStore = null;
 
     // Save to settings file (runtime config is excluded)
     await saveSettings(this.configToSettings());
@@ -257,6 +287,7 @@ export class Config {
       telemetry: { ...defaults.telemetry, ...settings.telemetry },
       ui: { ...defaults.ui, ...settings.ui },
       debug: { ...defaults.debug, ...settings.debug },
+      memory: { ...defaults.memory, ...settings.memory },
       // Runtime config is never loaded from settings - always use defaults
       runtime: { ...defaults.runtime },
     };
@@ -273,6 +304,7 @@ export class Config {
       telemetry: this.config.telemetry,
       ui: this.config.ui,
       debug: this.config.debug,
+      memory: this.config.memory,
     };
   }
 
