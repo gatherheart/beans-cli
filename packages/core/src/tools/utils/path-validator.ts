@@ -5,48 +5,48 @@
  * stay within allowed boundaries.
  */
 
-import * as path from 'path';
-import * as fs from 'fs/promises';
-import { homedir } from 'os';
+import * as path from "path";
+import * as fs from "fs/promises";
+import { homedir } from "os";
 
 /**
  * Sensitive paths that should never be accessed
  */
 const SENSITIVE_PATHS = [
   // SSH keys
-  '.ssh',
+  ".ssh",
   // AWS credentials
-  '.aws',
+  ".aws",
   // GCP credentials
-  '.config/gcloud',
+  ".config/gcloud",
   // Azure credentials
-  '.azure',
+  ".azure",
   // NPM tokens
-  '.npmrc',
+  ".npmrc",
   // Docker config (may contain registry creds)
-  '.docker/config.json',
+  ".docker/config.json",
   // Git credentials
-  '.git-credentials',
-  '.gitconfig',
+  ".git-credentials",
+  ".gitconfig",
   // Shell history (may contain secrets)
-  '.bash_history',
-  '.zsh_history',
+  ".bash_history",
+  ".zsh_history",
   // Environment files in home
-  '.env',
-  '.envrc',
+  ".env",
+  ".envrc",
 ];
 
 /**
  * System paths that should be blocked
  */
 const BLOCKED_SYSTEM_PATHS = [
-  '/etc/passwd',
-  '/etc/shadow',
-  '/etc/sudoers',
-  '/etc/ssh',
-  '/proc',
-  '/sys',
-  '/dev',
+  "/etc/passwd",
+  "/etc/shadow",
+  "/etc/sudoers",
+  "/etc/ssh",
+  "/proc",
+  "/sys",
+  "/dev",
 ];
 
 export interface PathValidationResult {
@@ -71,7 +71,7 @@ export interface PathValidationOptions {
  */
 export async function validatePath(
   inputPath: string,
-  options: PathValidationOptions
+  options: PathValidationOptions,
 ): Promise<PathValidationResult> {
   const {
     cwd,
@@ -82,20 +82,20 @@ export async function validatePath(
 
   // Expand ~ to home directory
   let expandedPath = inputPath;
-  if (inputPath.startsWith('~/')) {
+  if (inputPath.startsWith("~/")) {
     if (!allowHomeAccess) {
       return {
         valid: false,
-        resolvedPath: '',
-        error: 'Access to home directory files is not allowed',
+        resolvedPath: "",
+        error: "Access to home directory files is not allowed",
       };
     }
     expandedPath = path.join(homedir(), inputPath.slice(2));
-  } else if (inputPath === '~') {
+  } else if (inputPath === "~") {
     return {
       valid: false,
-      resolvedPath: '',
-      error: 'Cannot access home directory root',
+      resolvedPath: "",
+      error: "Cannot access home directory root",
     };
   }
 
@@ -120,7 +120,10 @@ export async function validatePath(
   if (resolvedPath.startsWith(home)) {
     const relativePath = path.relative(home, resolvedPath);
     for (const sensitive of SENSITIVE_PATHS) {
-      if (relativePath === sensitive || relativePath.startsWith(sensitive + path.sep)) {
+      if (
+        relativePath === sensitive ||
+        relativePath.startsWith(sensitive + path.sep)
+      ) {
         return {
           valid: false,
           resolvedPath,
@@ -133,11 +136,16 @@ export async function validatePath(
   // Check if path escapes project directory
   if (!allowOutsideProject) {
     const normalizedCwd = path.normalize(cwd);
-    if (!resolvedPath.startsWith(normalizedCwd + path.sep) && resolvedPath !== normalizedCwd) {
+    if (
+      !resolvedPath.startsWith(normalizedCwd + path.sep) &&
+      resolvedPath !== normalizedCwd
+    ) {
       // Allow if it's within common parent directories (for monorepos)
       // But block if it goes above the workspace entirely
       const relativePath = path.relative(normalizedCwd, resolvedPath);
-      const parentTraversals = relativePath.split(path.sep).filter(p => p === '..').length;
+      const parentTraversals = relativePath
+        .split(path.sep)
+        .filter((p) => p === "..").length;
 
       // Allow up to 2 levels of parent traversal for monorepo support
       if (parentTraversals > 2) {
@@ -151,11 +159,15 @@ export async function validatePath(
   }
 
   // Check for absolute paths if not allowed
-  if (!allowAbsolutePaths && path.isAbsolute(inputPath) && !inputPath.startsWith('~')) {
+  if (
+    !allowAbsolutePaths &&
+    path.isAbsolute(inputPath) &&
+    !inputPath.startsWith("~")
+  ) {
     return {
       valid: false,
       resolvedPath,
-      error: 'Absolute paths are not allowed',
+      error: "Absolute paths are not allowed",
     };
   }
 
@@ -191,17 +203,17 @@ export async function validatePath(
  */
 export function isSuspiciousPath(inputPath: string): boolean {
   const suspicious = [
-    /\.\.[\/\\]/,           // Parent directory traversal
-    /^[\/\\]etc[\/\\]/,     // /etc access
-    /^[\/\\]proc[\/\\]/,    // /proc access
-    /^[\/\\]sys[\/\\]/,     // /sys access
-    /^[\/\\]dev[\/\\]/,     // /dev access
-    /\.ssh[\/\\]/,          // SSH directory
-    /\.aws[\/\\]/,          // AWS credentials
-    /\.env$/,               // Environment files
-    /id_rsa/,               // SSH keys
-    /credentials/i,         // Credential files
+    /\.\.[/\\]/, // Parent directory traversal
+    /^[/\\]etc[/\\]/, // /etc access
+    /^[/\\]proc[/\\]/, // /proc access
+    /^[/\\]sys[/\\]/, // /sys access
+    /^[/\\]dev[/\\]/, // /dev access
+    /\.ssh[/\\]/, // SSH directory
+    /\.aws[/\\]/, // AWS credentials
+    /\.env$/, // Environment files
+    /id_rsa/, // SSH keys
+    /credentials/i, // Credential files
   ];
 
-  return suspicious.some(pattern => pattern.test(inputPath));
+  return suspicious.some((pattern) => pattern.test(inputPath));
 }
