@@ -90,14 +90,14 @@ describe("PolicyEngine", () => {
       const decision = engine.evaluate({ toolName: "write_file" });
 
       expect(decision.allowed).toBe(false);
-      expect(decision.reason).toContain("blocked");
+      expect(decision.reason?.toLowerCase()).toContain("blocked");
     });
 
     it("should block shell tool", () => {
       const decision = engine.evaluate({ toolName: "shell" });
 
       expect(decision.allowed).toBe(false);
-      expect(decision.reason).toContain("blocked");
+      expect(decision.reason?.toLowerCase()).toContain("blocked");
     });
 
     it("should block delete_file tool", () => {

@@ -2,31 +2,27 @@
  * Agent Manager - Orchestrates specialized agents for multi-agent coordination
  */
 
-import type { Config } from '../../config/config.js';
-import type { AgentDefinition } from '../types.js';
-import { AgentExecutor } from '../executor.js';
-import type { AgentActivityEvent } from '../executor.js';
+import type { Config } from "../../config/config.js";
+import type { AgentDefinition } from "../types.js";
+import { AgentExecutor } from "../executor.js";
+import type { AgentActivityEvent } from "../executor.js";
 import type {
   SpecializedAgentDefinition,
   AgentExecutionResult,
   SpawnOptions,
   AgentManagerConfig,
   InputAnalysis,
-} from './types.js';
-import { analyzeUserInput } from './user-input-agent.js';
-import {
-  createTask,
-  updateTask,
-  getUnblockedTasks,
-} from './task-store.js';
-import { specializedAgents, getAgentDefinition } from './specialized/index.js';
+} from "./types.js";
+import { analyzeUserInput } from "./user-input-agent.js";
+import { createTask, updateTask, getUnblockedTasks } from "./task-store.js";
+import { specializedAgents, getAgentDefinition } from "./specialized/index.js";
 import {
   setMultiAgentDebug,
   isMultiAgentDebugEnabled,
   logMultiAgentEvent,
   logConversationHistory,
   logOrchestrationSummary,
-} from './debug-logger.js';
+} from "./debug-logger.js";
 
 /**
  * Create an agent manager for multi-agent orchestration
@@ -36,13 +32,14 @@ import {
  */
 export function createAgentManager(
   config: Config,
-  options: AgentManagerConfig = {}
+  options: AgentManagerConfig = {},
 ) {
   const llmClient = config.getLLMClient();
   const toolRegistry = config.getToolRegistry();
   const llmConfig = config.getLLMConfig();
   const agentConfig = config.getAgentConfig();
   const debugConfig = config.getDebugConfig();
+  const policyEngine = config.getPolicyEngine();
 
   const executor = new AgentExecutor(llmClient, toolRegistry);
   const registeredAgents = new Map<string, SpecializedAgentDefinition>();
@@ -86,13 +83,35 @@ export function createAgentManager(
   function toAgentDefinition(
     agent: SpecializedAgentDefinition,
     prompt: string,
-    options: SpawnOptions = {}
+    options: SpawnOptions = {},
   ): AgentDefinition {
+    // Build system prompt with mode information
+    let systemPrompt = agent.systemPrompt;
+
+    // Add Plan Mode restrictions to system prompt when active
+    const currentMode = policyEngine.getMode();
+    if (currentMode === "PLAN") {
+      systemPrompt += `
+
+## IMPORTANT: Plan Mode is Active
+
+You are currently in **Plan Mode** (read-only mode). This means:
+
+- **ALLOWED**: read_file, glob, grep, list_directory, get_file_info
+- **BLOCKED**: write_file, edit_file, delete_file, create_directory, shell, spawn_agent
+
+If the user asks you to write, create, or execute anything, you MUST:
+1. Explain that Plan Mode is active and these operations are blocked
+2. Tell the user to exit Plan Mode using \`/plan exit\` or \`/mode default\` to enable writing
+
+Do NOT repeatedly ask questions about file paths or permissions. Simply explain that Plan Mode prevents these operations.`;
+    }
+
     return {
       name: agent.type,
       description: agent.description,
       promptConfig: {
-        systemPrompt: agent.systemPrompt,
+        systemPrompt,
         // Include conversation history as initial messages for context
         initialMessages: options.conversationHistory,
         query: prompt,
@@ -115,15 +134,15 @@ export function createAgentManager(
   async function spawn(
     agentType: string,
     prompt: string,
-    options: SpawnOptions = {}
+    options: SpawnOptions = {},
   ): Promise<AgentExecutionResult> {
     const agent = getAgent(agentType);
     if (!agent) {
       return {
         success: false,
-        content: '',
+        content: "",
         agentType,
-        terminateReason: 'error',
+        terminateReason: "error",
         error: `Unknown agent type: ${agentType}`,
         turnCount: 0,
         messages: [],
@@ -134,7 +153,7 @@ export function createAgentManager(
 
     // Notify spawn start
     const spawnStartEvent = {
-      type: 'agent_spawn_start' as const,
+      type: "agent_spawn_start" as const,
       agentType,
       taskId: options.taskId,
     };
@@ -145,7 +164,7 @@ export function createAgentManager(
     if (options.taskId) {
       updateTask({
         taskId: options.taskId,
-        status: 'in_progress',
+        status: "in_progress",
         owner: agentType,
       });
     }
@@ -154,48 +173,49 @@ export function createAgentManager(
       const result = await executor.execute(definition, {
         signal: options.signal,
         cwd: options.cwd ?? defaultCwd,
+        policyEngine,
         onActivity: (event: AgentActivityEvent) => {
           // Map executor events to multi-agent events
           switch (event.type) {
-            case 'turn_start':
+            case "turn_start":
               options.onActivity?.({
-                type: 'turn_start',
+                type: "turn_start",
                 turnNumber: event.turnNumber,
                 agentType,
               });
               break;
-            case 'turn_end':
+            case "turn_end":
               options.onActivity?.({
-                type: 'turn_end',
+                type: "turn_end",
                 turnNumber: event.turnNumber,
                 agentType,
               });
               break;
-            case 'content_chunk':
+            case "content_chunk":
               options.onActivity?.({
-                type: 'content_chunk',
+                type: "content_chunk",
                 content: event.content,
                 agentType,
               });
               break;
-            case 'tool_call_start':
+            case "tool_call_start":
               options.onActivity?.({
-                type: 'tool_call_start',
+                type: "tool_call_start",
                 toolName: event.toolCall.name,
                 agentType,
               });
               break;
-            case 'tool_call_end':
+            case "tool_call_end":
               options.onActivity?.({
-                type: 'tool_call_end',
+                type: "tool_call_end",
                 toolName: event.toolCallId,
                 result: event.result,
                 agentType,
               });
               break;
-            case 'error':
+            case "error":
               options.onActivity?.({
-                type: 'error',
+                type: "error",
                 error: event.error,
                 agentType,
               });
@@ -219,7 +239,7 @@ export function createAgentManager(
       if (options.taskId) {
         updateTask({
           taskId: options.taskId,
-          status: result.success ? 'completed' : 'pending',
+          status: result.success ? "completed" : "pending",
         });
       }
 
@@ -229,7 +249,7 @@ export function createAgentManager(
       }
 
       const spawnCompleteEvent = {
-        type: 'agent_spawn_complete' as const,
+        type: "agent_spawn_complete" as const,
         result: executionResult,
       };
       options.onActivity?.(spawnCompleteEvent);
@@ -237,21 +257,22 @@ export function createAgentManager(
 
       return executionResult;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       const executionResult: AgentExecutionResult = {
         success: false,
-        content: '',
+        content: "",
         taskId: options.taskId,
         agentType,
-        terminateReason: 'error',
+        terminateReason: "error",
         error: errorMessage,
         turnCount: 0,
         messages: [],
       };
 
       options.onActivity?.({
-        type: 'error',
+        type: "error",
         error: error instanceof Error ? error : new Error(errorMessage),
         agentType,
       });
@@ -265,11 +286,11 @@ export function createAgentManager(
    */
   async function processInput(
     userInput: string,
-    options: SpawnOptions = {}
+    options: SpawnOptions = {},
   ): Promise<AgentExecutionResult> {
     // Notify analysis start
     const analysisStartEvent = {
-      type: 'input_analysis_start' as const,
+      type: "input_analysis_start" as const,
       input: userInput,
     };
     options.onActivity?.(analysisStartEvent);
@@ -282,16 +303,16 @@ export function createAgentManager(
     } catch {
       // Fallback to general agent on analysis failure
       analysis = {
-        intent: 'unknown',
+        intent: "unknown",
         requiresPlanning: false,
-        suggestedAgent: 'general',
+        suggestedAgent: "general",
         originalInput: userInput,
       };
     }
 
     // Notify analysis complete
     const analysisCompleteEvent = {
-      type: 'input_analysis_complete' as const,
+      type: "input_analysis_complete" as const,
       analysis,
     };
     options.onActivity?.(analysisCompleteEvent);
@@ -299,7 +320,7 @@ export function createAgentManager(
 
     // Simple request - spawn single agent
     if (!analysis.requiresPlanning || !analysis.tasks?.length) {
-      const agentType = analysis.suggestedAgent ?? 'general';
+      const agentType = analysis.suggestedAgent ?? "general";
       return spawn(agentType, userInput, options);
     }
 
@@ -312,7 +333,7 @@ export function createAgentManager(
    */
   async function executeTaskPlan(
     analysis: InputAnalysis,
-    options: SpawnOptions = {}
+    options: SpawnOptions = {},
   ): Promise<AgentExecutionResult> {
     const tasks = analysis.tasks ?? [];
     const taskIdMap = new Map<string, string>();
@@ -333,7 +354,7 @@ export function createAgentManager(
       taskIdMap.set(String(i), task.id);
 
       const taskCreatedEvent = {
-        type: 'task_created' as const,
+        type: "task_created" as const,
         task,
       };
       options.onActivity?.(taskCreatedEvent);
@@ -346,7 +367,7 @@ export function createAgentManager(
       const taskId = taskIdMap.get(String(i));
       if (taskId && taskSuggestion.dependencies?.length) {
         const blockedBy = taskSuggestion.dependencies
-          .map(dep => taskIdMap.get(dep))
+          .map((dep) => taskIdMap.get(dep))
           .filter((id): id is string => id !== undefined);
 
         if (blockedBy.length > 0) {
@@ -356,7 +377,7 @@ export function createAgentManager(
           });
           if (updatedTask) {
             const taskUpdatedEvent = {
-              type: 'task_updated' as const,
+              type: "task_updated" as const,
               task: updatedTask,
             };
             options.onActivity?.(taskUpdatedEvent);
@@ -377,7 +398,8 @@ export function createAgentManager(
 
       // Execute unblocked tasks (could be parallel, but keeping sequential for simplicity)
       for (const task of unblockedTasks) {
-        const agentType = (task.metadata?.suggestedAgent as string) ?? 'general';
+        const agentType =
+          (task.metadata?.suggestedAgent as string) ?? "general";
         agentsUsed.add(agentType);
         const result = await spawn(agentType, task.description, {
           ...options,
@@ -389,27 +411,27 @@ export function createAgentManager(
 
     // Log orchestration summary
     const totalTurns = results.reduce((sum, r) => sum + r.turnCount, 0);
-    const completedCount = results.filter(r => r.success).length;
+    const completedCount = results.filter((r) => r.success).length;
     logOrchestrationSummary(
       tasks.length,
       completedCount,
       totalTurns,
-      Array.from(agentsUsed)
+      Array.from(agentsUsed),
     );
 
     // Aggregate results
-    const allSuccess = results.every(r => r.success);
+    const allSuccess = results.every((r) => r.success);
     const aggregatedContent = results
-      .map(r => `## ${r.agentType} Result\n${r.content}`)
-      .join('\n\n');
+      .map((r) => `## ${r.agentType} Result\n${r.content}`)
+      .join("\n\n");
 
     return {
       success: allSuccess,
       content: aggregatedContent,
-      agentType: 'orchestrator',
-      terminateReason: allSuccess ? 'complete' : 'error',
+      agentType: "orchestrator",
+      terminateReason: allSuccess ? "complete" : "error",
       turnCount: totalTurns,
-      messages: results.flatMap(r => r.messages),
+      messages: results.flatMap((r) => r.messages),
     };
   }
 

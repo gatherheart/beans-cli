@@ -80,12 +80,16 @@ export const PLAN_MODE_POLICIES: ToolPolicy[] = [
   ...WRITE_TOOLS.map((name) => ({
     name,
     allowed: false,
-    blockMessage: "Write operations are blocked in Plan mode",
+    blockMessage:
+      "BLOCKED: Plan Mode is active (read-only). Cannot write files. " +
+      "Tell the user to exit Plan Mode with `/plan exit` or `/mode default` to enable writing.",
   })),
   ...EXECUTE_TOOLS.map((name) => ({
     name,
     allowed: false,
-    blockMessage: "Execute operations are blocked in Plan mode",
+    blockMessage:
+      "BLOCKED: Plan Mode is active (read-only). Cannot execute commands. " +
+      "Tell the user to exit Plan Mode with `/plan exit` or `/mode default` to enable execution.",
   })),
 ];
 
