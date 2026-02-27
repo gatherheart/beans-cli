@@ -201,17 +201,17 @@ export function ChatProvider({
               }
 
               case "agent_spawn_complete":
-                // Update content with final result if different
-                if (
-                  event.result.content &&
-                  event.result.content !== currentContent
-                ) {
+                // Only update if we have no streamed content but final result has content
+                // This handles edge cases where streaming didn't work
+                if (!currentContent && event.result.content) {
                   currentContent = event.result.content;
                   history.updateMessageContent(
                     assistantMessageId,
                     currentContent,
                   );
                 }
+                // Note: Don't replace streamed content - it may contain multi-turn
+                // context that rawContent (last message only) would lose
                 break;
 
               case "error":

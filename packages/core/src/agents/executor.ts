@@ -170,10 +170,9 @@ export class AgentExecutor {
           onActivity?.({ type: "thinking", content: response.thinking });
         }
 
-        // Handle content
+        // Handle content - emit chunk for streaming UI
         if (response.content) {
           onActivity?.({ type: "content_chunk", content: response.content });
-          messages.push({ role: "assistant", content: response.content });
         }
 
         // Handle tool calls
@@ -217,6 +216,7 @@ export class AgentExecutor {
             onApprovalRequest,
           );
 
+          // Push assistant message with content AND tool calls together
           messages.push({
             role: "assistant",
             content: response.content ?? "",
@@ -229,7 +229,10 @@ export class AgentExecutor {
             toolResults,
           });
         } else {
-          // No tool calls - agent is done
+          // No tool calls - push final assistant message and done
+          if (response.content) {
+            messages.push({ role: "assistant", content: response.content });
+          }
           onActivity?.({ type: "turn_end", turnNumber: turnCount });
           break;
         }
