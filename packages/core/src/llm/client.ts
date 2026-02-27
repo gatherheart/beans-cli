@@ -322,21 +322,36 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
   const baseUrl =
     config.baseUrl ?? "https://generativelanguage.googleapis.com/v1beta";
 
-  const buildRequestBody = (request: ChatRequest) => ({
-    contents: formatMessagesForGoogle(request),
-    systemInstruction: request.systemPrompt
-      ? { parts: [{ text: request.systemPrompt }] }
-      : undefined,
-    tools:
-      request.tools && request.tools.length > 0
-        ? [{ functionDeclarations: request.tools.map(formatToolForGoogle) }]
+  const buildRequestBody = (request: ChatRequest) => {
+    const contents = formatMessagesForGoogle(request);
+
+    // Google API requires at least one content item
+    // If no messages, create a placeholder from system prompt or empty user message
+    if (contents.length === 0) {
+      if (request.systemPrompt) {
+        // Use part of the system prompt as initial context
+        contents.push({ role: "user", parts: [{ text: "Please help me." }] });
+      } else {
+        contents.push({ role: "user", parts: [{ text: "Hello" }] });
+      }
+    }
+
+    return {
+      contents,
+      systemInstruction: request.systemPrompt
+        ? { parts: [{ text: request.systemPrompt }] }
         : undefined,
-    generationConfig: {
-      temperature: request.temperature,
-      maxOutputTokens: request.maxTokens,
-      topP: request.topP,
-    },
-  });
+      tools:
+        request.tools && request.tools.length > 0
+          ? [{ functionDeclarations: request.tools.map(formatToolForGoogle) }]
+          : undefined,
+      generationConfig: {
+        temperature: request.temperature,
+        maxOutputTokens: request.maxTokens,
+        topP: request.topP,
+      },
+    };
+  };
 
   return {
     async chat(request: ChatRequest): Promise<ChatResponse> {
