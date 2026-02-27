@@ -10,24 +10,32 @@
  * - Components that only need state won't re-render when actions are recreated
  */
 
-import React, { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
-import type { ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
+import type { ReactNode } from "react";
 import {
   Config,
   createAgentManager,
   clearTasks,
-} from '@beans/core';
+  inferProviderFromModel,
+} from "@beans/core";
 import type {
   AgentManager,
   MultiAgentEvent,
   Message as LLMMessage,
   AgentProfile,
-} from '@beans/core';
-import { useChatHistory } from '../hooks/useChatHistory.js';
-import type { Message, ToolCallInfo } from '../hooks/useChatHistory.js';
+} from "@beans/core";
+import { useChatHistory } from "../hooks/useChatHistory.js";
+import type { Message, ToolCallInfo } from "../hooks/useChatHistory.js";
 
 // Re-export types for convenience
-export type { Message, ToolCallInfo } from '../hooks/useChatHistory.js';
+export type { Message, ToolCallInfo } from "../hooks/useChatHistory.js";
 
 /**
  * Read-only state context
@@ -49,6 +57,9 @@ interface ChatActionsValue {
   clearHistory: () => void;
   getLLMHistory: () => LLMMessage[];
   getSystemPrompt: () => string;
+  switchModel: (model: string) => Promise<void>;
+  getCurrentModel: () => string;
+  listModels: () => Promise<void>;
 }
 
 const ChatStateContext = createContext<ChatStateValue | null>(null);
@@ -61,7 +72,12 @@ export interface ChatProviderProps {
   profile?: AgentProfile;
 }
 
-export function ChatProvider({ children, config, systemPrompt, profile }: ChatProviderProps): React.ReactElement {
+export function ChatProvider({
+  children,
+  config,
+  systemPrompt,
+  profile,
+}: ChatProviderProps): React.ReactElement {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentAgent, setCurrentAgent] = useState<string | null>(null);
@@ -84,121 +100,145 @@ export function ChatProvider({ children, config, systemPrompt, profile }: ChatPr
     return agentManagerRef.current;
   }, [config]);
 
-  const sendMessage = useCallback(async (content: string) => {
-    if (!content.trim()) return;
+  const sendMessage = useCallback(
+    async (content: string) => {
+      if (!content.trim()) return;
 
-    // Add user message
-    history.addUserMessage(content);
+      // Add user message
+      history.addUserMessage(content);
 
-    // Track in conversation history (before sending so agent has context)
-    const userMessage: LLMMessage = { role: 'user', content };
-    conversationHistoryRef.current.push(userMessage);
+      // Track in conversation history (before sending so agent has context)
+      const userMessage: LLMMessage = { role: "user", content };
+      conversationHistoryRef.current.push(userMessage);
 
-    // Add empty assistant message (will be filled via streaming)
-    const assistantMessageId = history.addAssistantMessage();
+      // Add empty assistant message (will be filled via streaming)
+      const assistantMessageId = history.addAssistantMessage();
 
-    setIsLoading(true);
-    setError(null);
-    setCurrentAgent(null);
-
-    try {
-      const agentManager = getAgentManager();
-      let currentContent = '';
-      const toolCalls: ToolCallInfo[] = [];
-
-      // Pass conversation history for context (exclude the current message since it's the query)
-      const historyForContext = conversationHistoryRef.current.slice(0, -1);
-
-      const result = await agentManager.processInput(content.trim(), {
-        conversationHistory: historyForContext.length > 0 ? historyForContext : undefined,
-        onActivity: (event: MultiAgentEvent) => {
-          switch (event.type) {
-            case 'input_analysis_complete':
-              // Show which agent is being used
-              if (event.analysis.suggestedAgent) {
-                setCurrentAgent(event.analysis.suggestedAgent);
-              }
-              break;
-
-            case 'agent_spawn_start':
-              setCurrentAgent(event.agentType);
-              // Update the assistant message with the agent type
-              history.updateMessageAgentType(assistantMessageId, event.agentType);
-              break;
-
-            case 'content_chunk':
-              currentContent += event.content;
-              history.updateMessageContent(assistantMessageId, currentContent);
-              break;
-
-            case 'tool_call_start': {
-              // Create a unique ID for this tool call
-              const toolId = `${event.agentType}_${event.toolName}_${Date.now()}`;
-              toolCalls.push({
-                id: toolId,
-                name: event.toolName,
-                args: {},
-                isComplete: false,
-              });
-              history.updateMessageToolCalls(assistantMessageId, [...toolCalls]);
-              break;
-            }
-
-            case 'tool_call_end': {
-              // Find and update the most recent incomplete tool call with matching name
-              const toolIndex = toolCalls.findIndex(
-                t => !t.isComplete && t.name === event.toolName
-              );
-              if (toolIndex !== -1) {
-                toolCalls[toolIndex] = {
-                  ...toolCalls[toolIndex],
-                  result: event.result.length > 200
-                    ? event.result.slice(0, 200) + '...'
-                    : event.result,
-                  isComplete: true,
-                };
-                history.updateMessageToolCalls(assistantMessageId, [...toolCalls]);
-              }
-              break;
-            }
-
-            case 'agent_spawn_complete':
-              // Update content with final result if different
-              if (event.result.content && event.result.content !== currentContent) {
-                currentContent = event.result.content;
-                history.updateMessageContent(assistantMessageId, currentContent);
-              }
-              break;
-
-            case 'error':
-              setError(event.error.message);
-              break;
-          }
-        },
-      });
-
-      // Track assistant response in conversation history
-      conversationHistoryRef.current.push({
-        role: 'assistant',
-        content: result.content,
-      });
-
-      // Mark streaming as complete
-      history.completeMessage(assistantMessageId);
+      setIsLoading(true);
+      setError(null);
       setCurrentAgent(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      // Remove the empty assistant message on error
-      history.removeMessage(assistantMessageId);
-    } finally {
-      setIsLoading(false);
-      setCurrentAgent(null);
-    }
-  }, [getAgentManager, history]);
 
-  const addSystemMessage = useCallback((content: string) => {
-    history.addSystemMessage(content);
-  }, [history]);
+      try {
+        const agentManager = getAgentManager();
+        let currentContent = "";
+        const toolCalls: ToolCallInfo[] = [];
+
+        // Pass conversation history for context (exclude the current message since it's the query)
+        const historyForContext = conversationHistoryRef.current.slice(0, -1);
+
+        const result = await agentManager.processInput(content.trim(), {
+          conversationHistory:
+            historyForContext.length > 0 ? historyForContext : undefined,
+          onActivity: (event: MultiAgentEvent) => {
+            switch (event.type) {
+              case "input_analysis_complete":
+                // Show which agent is being used
+                if (event.analysis.suggestedAgent) {
+                  setCurrentAgent(event.analysis.suggestedAgent);
+                }
+                break;
+
+              case "agent_spawn_start":
+                setCurrentAgent(event.agentType);
+                // Update the assistant message with the agent type
+                history.updateMessageAgentType(
+                  assistantMessageId,
+                  event.agentType,
+                );
+                break;
+
+              case "content_chunk":
+                currentContent += event.content;
+                history.updateMessageContent(
+                  assistantMessageId,
+                  currentContent,
+                );
+                break;
+
+              case "tool_call_start": {
+                // Create a unique ID for this tool call
+                const toolId = `${event.agentType}_${event.toolName}_${Date.now()}`;
+                toolCalls.push({
+                  id: toolId,
+                  name: event.toolName,
+                  args: {},
+                  isComplete: false,
+                });
+                history.updateMessageToolCalls(assistantMessageId, [
+                  ...toolCalls,
+                ]);
+                break;
+              }
+
+              case "tool_call_end": {
+                // Find and update the most recent incomplete tool call with matching name
+                const toolIndex = toolCalls.findIndex(
+                  (t) => !t.isComplete && t.name === event.toolName,
+                );
+                if (toolIndex !== -1) {
+                  toolCalls[toolIndex] = {
+                    ...toolCalls[toolIndex],
+                    result:
+                      event.result.length > 200
+                        ? event.result.slice(0, 200) + "..."
+                        : event.result,
+                    isComplete: true,
+                  };
+                  history.updateMessageToolCalls(assistantMessageId, [
+                    ...toolCalls,
+                  ]);
+                }
+                break;
+              }
+
+              case "agent_spawn_complete":
+                // Update content with final result if different
+                if (
+                  event.result.content &&
+                  event.result.content !== currentContent
+                ) {
+                  currentContent = event.result.content;
+                  history.updateMessageContent(
+                    assistantMessageId,
+                    currentContent,
+                  );
+                }
+                break;
+
+              case "error":
+                setError(event.error.message);
+                break;
+            }
+          },
+        });
+
+        // Track assistant response in conversation history
+        conversationHistoryRef.current.push({
+          role: "assistant",
+          content: result.content,
+        });
+
+        // Mark streaming as complete
+        history.completeMessage(assistantMessageId);
+        setCurrentAgent(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        // Remove the empty assistant message on error
+        history.removeMessage(assistantMessageId);
+      } finally {
+        setIsLoading(false);
+        setCurrentAgent(null);
+      }
+    },
+    [getAgentManager, history],
+  );
+
+  const addSystemMessage = useCallback(
+    (content: string) => {
+      history.addSystemMessage(content);
+    },
+    [history],
+  );
 
   const clearHistory = useCallback(() => {
     // Clear UI messages
@@ -220,23 +260,85 @@ export function ChatProvider({ children, config, systemPrompt, profile }: ChatPr
     return systemPrompt;
   }, [systemPrompt]);
 
+  const getCurrentModel = useCallback((): string => {
+    return config.getLLMConfig().model;
+  }, [config]);
+
+  const switchModel = useCallback(
+    async (model: string): Promise<void> => {
+      const provider = inferProviderFromModel(model);
+      await config.updateConfig({
+        llm: { ...config.getLLMConfig(), model, provider },
+      });
+      // Reset agent manager to use new model
+      agentManagerRef.current = null;
+      history.addSystemMessage(
+        `Switched to model: **${model}** (provider: ${provider})`,
+      );
+    },
+    [config, history],
+  );
+
+  const listModels = useCallback(async (): Promise<void> => {
+    const llmClient = config.getLLMClient();
+    if (llmClient.listModels) {
+      try {
+        const models = await llmClient.listModels();
+        const currentModel = config.getLLMConfig().model;
+        const modelList = models
+          .map((m) => {
+            const isCurrent = m.id === currentModel ? " ← current" : "";
+            return `- **${m.id}**${isCurrent}${m.description ? ` - ${m.description}` : ""}`;
+          })
+          .join("\n");
+        history.addSystemMessage(`## Available Models\n\n${modelList}`);
+      } catch (err) {
+        history.addSystemMessage(
+          `Error listing models: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    } else {
+      history.addSystemMessage(
+        "Model listing is not supported for the current provider.",
+      );
+    }
+  }, [config, history]);
+
   // Memoize state value to prevent unnecessary re-renders
-  const stateValue = useMemo<ChatStateValue>(() => ({
-    messages: history.messages,
-    isLoading,
-    error,
-    profile: profile || null,
-    currentAgent,
-  }), [history.messages, isLoading, error, profile, currentAgent]);
+  const stateValue = useMemo<ChatStateValue>(
+    () => ({
+      messages: history.messages,
+      isLoading,
+      error,
+      profile: profile || null,
+      currentAgent,
+    }),
+    [history.messages, isLoading, error, profile, currentAgent],
+  );
 
   // Memoize actions value to prevent unnecessary re-renders
-  const actionsValue = useMemo<ChatActionsValue>(() => ({
-    sendMessage,
-    addSystemMessage,
-    clearHistory,
-    getLLMHistory,
-    getSystemPrompt,
-  }), [sendMessage, addSystemMessage, clearHistory, getLLMHistory, getSystemPrompt]);
+  const actionsValue = useMemo<ChatActionsValue>(
+    () => ({
+      sendMessage,
+      addSystemMessage,
+      clearHistory,
+      getLLMHistory,
+      getSystemPrompt,
+      switchModel,
+      getCurrentModel,
+      listModels,
+    }),
+    [
+      sendMessage,
+      addSystemMessage,
+      clearHistory,
+      getLLMHistory,
+      getSystemPrompt,
+      switchModel,
+      getCurrentModel,
+      listModels,
+    ],
+  );
 
   return (
     <ChatStateContext.Provider value={stateValue}>
@@ -253,7 +355,7 @@ export function ChatProvider({ children, config, systemPrompt, profile }: ChatPr
 export function useChatState(): ChatStateValue {
   const context = useContext(ChatStateContext);
   if (!context) {
-    throw new Error('useChatState must be used within a ChatProvider');
+    throw new Error("useChatState must be used within a ChatProvider");
   }
   return context;
 }
@@ -264,7 +366,7 @@ export function useChatState(): ChatStateValue {
 export function useChatActions(): ChatActionsValue {
   const context = useContext(ChatActionsContext);
   if (!context) {
-    throw new Error('useChatActions must be used within a ChatProvider');
+    throw new Error("useChatActions must be used within a ChatProvider");
   }
   return context;
 }

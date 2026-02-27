@@ -1,22 +1,33 @@
 // Built-in tools for the agent
-export * from './read-file.js';
-export * from './write-file.js';
-export * from './shell.js';
-export * from './glob.js';
-export * from './grep.js';
-export * from './web-search.js';
-export * from './task-tools.js';
-export * from './save-memory.js';
+export * from "./read-file.js";
+export * from "./write-file.js";
+export * from "./shell.js";
+export * from "./glob.js";
+export * from "./grep.js";
+export * from "./web-search.js";
+export * from "./task-tools.js";
+export * from "./save-memory.js";
+export * from "./list-directory.js";
+export * from "./rename-file.js";
+export * from "./delete-file.js";
 
-import { ReadFileTool } from './read-file.js';
-import { WriteFileTool } from './write-file.js';
-import { ShellTool } from './shell.js';
-import { GlobTool } from './glob.js';
-import { GrepTool } from './grep.js';
-import { WebSearchTool } from './web-search.js';
-import { TaskCreateTool, TaskUpdateTool, TaskGetTool, TaskListTool } from './task-tools.js';
-import { SaveMemoryTool } from './save-memory.js';
-import type { Tool } from '../types.js';
+import { ReadFileTool } from "./read-file.js";
+import { WriteFileTool } from "./write-file.js";
+import { ShellTool } from "./shell.js";
+import { GlobTool } from "./glob.js";
+import { GrepTool } from "./grep.js";
+import { WebSearchTool } from "./web-search.js";
+import {
+  TaskCreateTool,
+  TaskUpdateTool,
+  TaskGetTool,
+  TaskListTool,
+} from "./task-tools.js";
+import { SaveMemoryTool } from "./save-memory.js";
+import { ListDirectoryTool } from "./list-directory.js";
+import { RenameFileTool } from "./rename-file.js";
+import { DeleteFileTool } from "./delete-file.js";
+import type { Tool } from "../types.js";
 
 /**
  * Create all built-in tools with default configuration
@@ -34,5 +45,8 @@ export function createBuiltinTools(): Tool[] {
     new TaskGetTool(),
     new TaskListTool(),
     new SaveMemoryTool(),
+    new ListDirectoryTool(),
+    new RenameFileTool(),
+    new DeleteFileTool(),
   ];
 }
