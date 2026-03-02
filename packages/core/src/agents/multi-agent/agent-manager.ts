@@ -81,8 +81,20 @@ export function createAgentManager(
     prompt: string,
     options: SpawnOptions = {},
   ): AgentDefinition {
-    // Build system prompt with mode information
-    let systemPrompt = agent.systemPrompt;
+    const cwd = options.cwd ?? defaultCwd;
+
+    // Build system prompt with environment and mode information
+    let systemPrompt = `## Environment
+
+Working directory: ${cwd}
+Platform: ${process.platform}
+Date: ${new Date().toISOString().split("T")[0]}
+
+IMPORTANT: All file operations should use paths relative to the working directory above. When the user mentions a file name without a path (e.g., "lottery.py"), assume it's in the working directory and use the full path (e.g., "${cwd}/lottery.py"). Do NOT use paths like /home/user/ or assume files are elsewhere.
+
+---
+
+${agent.systemPrompt}`;
 
     // Add Plan Mode restrictions to system prompt when active
     const currentMode = policyEngine.getMode();

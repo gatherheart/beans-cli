@@ -53,10 +53,8 @@ function hasDiffMetadata(tool: ToolCallInfo): boolean {
   );
 }
 
-// Individual tool display - no memoization to ensure updates
-function ToolCallItem({ tool }: { tool: ToolCallInfo }) {
-  const showDiff = hasDiffMetadata(tool);
-  // Use status-based colors: green for success, red for error, gray for in-progress
+// Individual tool name display (no diff, just the name with status icon)
+function ToolCallName({ tool }: { tool: ToolCallInfo }) {
   const hasError =
     tool.result?.startsWith("Error:") || tool.result?.includes("Access denied");
   const statusColor = tool.isComplete
@@ -65,51 +63,58 @@ function ToolCallItem({ tool }: { tool: ToolCallInfo }) {
       : colors.success
     : colors.muted;
 
-  // Extract metadata with type narrowing for DiffDisplay
-  const writeMetadata =
-    showDiff && isWriteFileMetadata(tool.metadata) ? tool.metadata : null;
-
   return (
-    <Box flexDirection="column">
-      <Box>
-        {tool.isComplete ? (
-          <Text color={hasError ? colors.error : colors.success}>
-            {hasError ? "✗ " : "✓ "}
-          </Text>
-        ) : (
-          <Text color={colors.warning}>⠋ </Text>
-        )}
-        <Text color={statusColor}>{tool.name}</Text>
-      </Box>
-      {writeMetadata && (
-        <DiffDisplay
-          originalContent={writeMetadata.originalContent}
-          newContent={writeMetadata.newContent}
-          filePath={writeMetadata.path}
-          isNewFile={writeMetadata.isNewFile}
-        />
+    <Box>
+      {tool.isComplete ? (
+        <Text color={hasError ? colors.error : colors.success}>
+          {hasError ? "✗ " : "✓ "}
+        </Text>
+      ) : (
+        <Text color={colors.warning}>⠋ </Text>
       )}
+      <Text color={statusColor}>{tool.name}</Text>
     </Box>
   );
 }
 
-// Tool calls display - single spinner for all in-progress tools
+// Tool calls display - tool names in a row, diffs below
 function ToolCalls({
   tools,
   messageId,
 }: ToolCallsProps & { messageId: string }): React.ReactElement {
   const hasInProgress = tools.some((t) => !t.isComplete);
 
+  // Collect all tools that have diff metadata
+  const toolsWithDiff = tools.filter(
+    (tool) => hasDiffMetadata(tool) && isWriteFileMetadata(tool.metadata),
+  );
+
   return (
-    <Box gap={1}>
-      {hasInProgress && (
-        <Text color={colors.warning}>
-          <Spinner type="dots" />
-        </Text>
-      )}
-      {tools.map((tool) => (
-        <ToolCallItem key={`${messageId}-${tool.id}`} tool={tool} />
-      ))}
+    <Box flexDirection="column">
+      {/* Tool names in a horizontal row */}
+      <Box gap={1}>
+        {hasInProgress && (
+          <Text color={colors.warning}>
+            <Spinner type="dots" />
+          </Text>
+        )}
+        {tools.map((tool) => (
+          <ToolCallName key={`${messageId}-${tool.id}`} tool={tool} />
+        ))}
+      </Box>
+      {/* Diffs below the tool names row */}
+      {toolsWithDiff.map((tool) => {
+        const metadata = tool.metadata as WriteFileMetadata;
+        return (
+          <DiffDisplay
+            key={`${messageId}-${tool.id}-diff`}
+            originalContent={metadata.originalContent}
+            newContent={metadata.newContent}
+            filePath={metadata.path}
+            isNewFile={metadata.isNewFile}
+          />
+        );
+      })}
     </Box>
   );
 }
