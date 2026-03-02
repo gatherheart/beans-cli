@@ -2,9 +2,9 @@
  * Diff display component for showing file changes
  *
  * Shows unified diff format with:
- * - Red background (-) for removed lines
- * - Green background (+) for added lines
- * - Gray for context lines
+ * - Light red background (-) for removed lines
+ * - Light blue background (+) for added lines
+ * - Line numbers for context
  */
 
 import React from "react";
@@ -18,6 +18,12 @@ interface DiffDisplayProps {
   filePath: string;
   isNewFile: boolean;
 }
+
+// Soft background colors
+const BG_ADDED = "#1a2a3a"; // soft blue
+const BG_REMOVED = "#3a1a1a"; // soft red
+const FG_ADDED = "#87CEEB"; // light blue text
+const FG_REMOVED = "#FFB6C1"; // light pink text
 
 export const DiffDisplay = React.memo(function DiffDisplay({
   originalContent,
@@ -33,9 +39,12 @@ export const DiffDisplay = React.memo(function DiffDisplay({
       return (
         <>
           {lines.map((line, i) => (
-            <Text key={i} backgroundColor="#1a3d1a" color="#98FB98">
-              +{line}
-            </Text>
+            <Box key={i}>
+              <Text color={colors.muted}>{String(i + 1).padStart(3)} </Text>
+              <Text backgroundColor={BG_ADDED} color={FG_ADDED}>
+                +{line}
+              </Text>
+            </Box>
           ))}
         </>
       );
@@ -53,6 +62,8 @@ export const DiffDisplay = React.memo(function DiffDisplay({
     // Parse the patch to extract changed lines
     const lines = diff.split("\n");
     const displayLines: React.ReactNode[] = [];
+    let oldLine = 0;
+    let newLine = 0;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -67,8 +78,13 @@ export const DiffDisplay = React.memo(function DiffDisplay({
         continue;
       }
 
-      // Hunk header
+      // Hunk header - extract line numbers
       if (line.startsWith("@@")) {
+        const match = line.match(/@@ -(\d+),?\d* \+(\d+),?\d* @@/);
+        if (match) {
+          oldLine = parseInt(match[1], 10);
+          newLine = parseInt(match[2], 10);
+        }
         displayLines.push(
           <Text key={i} color={colors.primary}>
             {line}
@@ -77,33 +93,47 @@ export const DiffDisplay = React.memo(function DiffDisplay({
         continue;
       }
 
-      // Added line - green background
+      // Added line - blue background
       if (line.startsWith("+")) {
         displayLines.push(
-          <Text key={i} backgroundColor="#1a3d1a" color="#98FB98">
-            {line}
-          </Text>,
+          <Box key={i}>
+            <Text color={colors.muted}>{"   ".padStart(3)} </Text>
+            <Text color={FG_ADDED}>{String(newLine).padStart(3)} </Text>
+            <Text backgroundColor={BG_ADDED} color={FG_ADDED}>
+              {line}
+            </Text>
+          </Box>,
         );
+        newLine++;
         continue;
       }
 
       // Removed line - red background
       if (line.startsWith("-")) {
         displayLines.push(
-          <Text key={i} backgroundColor="#3d1a1a" color="#FFB6C1">
-            {line}
-          </Text>,
+          <Box key={i}>
+            <Text color={FG_REMOVED}>{String(oldLine).padStart(3)} </Text>
+            <Text color={colors.muted}>{"   ".padStart(3)} </Text>
+            <Text backgroundColor={BG_REMOVED} color={FG_REMOVED}>
+              {line}
+            </Text>
+          </Box>,
         );
+        oldLine++;
         continue;
       }
 
       // Context line
       if (line.startsWith(" ")) {
         displayLines.push(
-          <Text key={i} color={colors.muted}>
-            {line}
-          </Text>,
+          <Box key={i}>
+            <Text color={colors.muted}>{String(oldLine).padStart(3)} </Text>
+            <Text color={colors.muted}>{String(newLine).padStart(3)} </Text>
+            <Text color={colors.muted}>{line}</Text>
+          </Box>,
         );
+        oldLine++;
+        newLine++;
         continue;
       }
 
@@ -121,7 +151,7 @@ export const DiffDisplay = React.memo(function DiffDisplay({
   };
 
   return (
-    <Box flexDirection="column" marginLeft={1}>
+    <Box flexDirection="column" marginY={1}>
       <Text color={colors.header} bold>
         {isNewFile ? "📄 New file:" : "📝 Modified:"} {filePath}
       </Text>
