@@ -2,22 +2,21 @@
  * Diff display component for showing file changes
  *
  * Shows unified diff format with:
- * - Red (-) for removed lines
- * - Green (+) for added lines
+ * - Red background (-) for removed lines
+ * - Green background (+) for added lines
  * - Gray for context lines
  */
 
-import React from 'react';
-import { Box, Text } from 'ink';
-import * as Diff from 'diff';
-import { colors } from '../theme/colors.js';
+import React from "react";
+import { Box, Text } from "ink";
+import * as Diff from "diff";
+import { colors } from "../theme/colors.js";
 
 interface DiffDisplayProps {
   originalContent: string | null;
   newContent: string;
   filePath: string;
   isNewFile: boolean;
-  maxLines?: number;
 }
 
 export const DiffDisplay = React.memo(function DiffDisplay({
@@ -25,25 +24,19 @@ export const DiffDisplay = React.memo(function DiffDisplay({
   newContent,
   filePath,
   isNewFile,
-  maxLines = 20,
 }: DiffDisplayProps): React.ReactElement {
   const renderDiff = () => {
     if (isNewFile) {
       // New file: show all lines as added
-      const lines = newContent.split('\n');
-      const displayLines = lines.slice(0, maxLines);
-      const hasMore = lines.length > maxLines;
+      const lines = newContent.split("\n");
 
       return (
         <>
-          {displayLines.map((line, i) => (
-            <Text key={i} color={colors.success}>
-              + {line}
+          {lines.map((line, i) => (
+            <Text key={i} backgroundColor="#1a3d1a" color="#98FB98">
+              +{line}
             </Text>
           ))}
-          {hasMore && (
-            <Text color={colors.muted}>... {lines.length - maxLines} more lines</Text>
-          )}
         </>
       );
     }
@@ -51,71 +44,66 @@ export const DiffDisplay = React.memo(function DiffDisplay({
     // Modified file: compute diff
     const diff = Diff.createPatch(
       filePath,
-      originalContent || '',
+      originalContent || "",
       newContent,
-      'original',
-      'modified'
+      "original",
+      "modified",
     );
 
     // Parse the patch to extract changed lines
-    const lines = diff.split('\n');
+    const lines = diff.split("\n");
     const displayLines: React.ReactNode[] = [];
-    let lineCount = 0;
 
-    for (let i = 0; i < lines.length && lineCount < maxLines; i++) {
+    for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
       // Skip header lines
       if (
-        line.startsWith('Index:') ||
-        line.startsWith('===') ||
-        line.startsWith('---') ||
-        line.startsWith('+++')
+        line.startsWith("Index:") ||
+        line.startsWith("===") ||
+        line.startsWith("---") ||
+        line.startsWith("+++")
       ) {
         continue;
       }
 
       // Hunk header
-      if (line.startsWith('@@')) {
+      if (line.startsWith("@@")) {
         displayLines.push(
           <Text key={i} color={colors.primary}>
             {line}
-          </Text>
+          </Text>,
         );
-        lineCount++;
         continue;
       }
 
-      // Added line
-      if (line.startsWith('+')) {
+      // Added line - green background
+      if (line.startsWith("+")) {
         displayLines.push(
-          <Text key={i} color={colors.success}>
+          <Text key={i} backgroundColor="#1a3d1a" color="#98FB98">
             {line}
-          </Text>
+          </Text>,
         );
-        lineCount++;
         continue;
       }
 
-      // Removed line
-      if (line.startsWith('-')) {
+      // Removed line - red background
+      if (line.startsWith("-")) {
         displayLines.push(
-          <Text key={i} color={colors.error}>
+          <Text key={i} backgroundColor="#3d1a1a" color="#FFB6C1">
             {line}
-          </Text>
+          </Text>,
         );
-        lineCount++;
         continue;
       }
 
       // Context line
-      if (line.startsWith(' ')) {
+      if (line.startsWith(" ")) {
         displayLines.push(
           <Text key={i} color={colors.muted}>
             {line}
-          </Text>
+          </Text>,
         );
-        lineCount++;
         continue;
       }
 
@@ -124,36 +112,20 @@ export const DiffDisplay = React.memo(function DiffDisplay({
         displayLines.push(
           <Text key={i} color={colors.muted}>
             {line}
-          </Text>
+          </Text>,
         );
-        lineCount++;
       }
     }
 
-    const totalChangedLines = lines.filter(
-      (l) => l.startsWith('+') || l.startsWith('-')
-    ).length;
-
-    return (
-      <>
-        {displayLines}
-        {totalChangedLines > maxLines && (
-          <Text color={colors.muted}>
-            ... {totalChangedLines - lineCount} more changes
-          </Text>
-        )}
-      </>
-    );
+    return <>{displayLines}</>;
   };
 
   return (
-    <Box flexDirection="column" marginLeft={2} marginY={1}>
+    <Box flexDirection="column" marginLeft={1}>
       <Text color={colors.header} bold>
-        {isNewFile ? '📄 New file:' : '📝 Modified:'} {filePath}
+        {isNewFile ? "📄 New file:" : "📝 Modified:"} {filePath}
       </Text>
-      <Box flexDirection="column" marginLeft={1}>
-        {renderDiff()}
-      </Box>
+      <Box flexDirection="column">{renderDiff()}</Box>
     </Box>
   );
 });

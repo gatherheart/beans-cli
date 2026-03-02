@@ -183,7 +183,7 @@ describe("Message", () => {
     expect(frame).toContain("write_file");
     expect(frame).toContain("New file:");
     expect(frame).toContain("/test/new-file.txt");
-    expect(frame).toContain("+ new line 1");
-    expect(frame).toContain("+ new line 2");
+    expect(frame).toContain("+new line 1");
+    expect(frame).toContain("+new line 2");
   });
 });
