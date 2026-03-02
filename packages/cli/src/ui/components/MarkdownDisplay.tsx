@@ -294,16 +294,23 @@ function convertLatexToUnicode(text: string): string {
     .replace(LATEX_TEXT, "$1")
     .replace(LATEX_UNKNOWN, "$1");
 
-  // Convert exponents to superscript
+  // Convert exponents to superscript (only if all chars can be converted)
+  const canConvert = (s: string) => s.split("").every((c) => SUPERSCRIPTS[c]);
   const toSuper = (s: string) =>
     s
       .split("")
-      .map((c) => SUPERSCRIPTS[c] || c)
+      .map((c) => SUPERSCRIPTS[c])
       .join("");
   result = result
-    .replace(EXPONENT_PAREN, (_, exp) => toSuper(exp))
-    .replace(EXPONENT_BRACE, (_, exp) => toSuper(exp))
-    .replace(EXPONENT_SIMPLE, (_, exp) => toSuper(exp));
+    .replace(EXPONENT_PAREN, (_, exp) =>
+      canConvert(exp) ? toSuper(exp) : `^${exp}`,
+    )
+    .replace(EXPONENT_BRACE, (_, exp) =>
+      canConvert(exp) ? toSuper(exp) : `^(${exp})`,
+    )
+    .replace(EXPONENT_SIMPLE, (_, exp) =>
+      canConvert(exp) ? toSuper(exp) : `^${exp}`,
+    );
 
   return result;
 }

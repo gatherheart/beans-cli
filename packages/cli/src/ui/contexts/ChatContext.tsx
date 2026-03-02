@@ -192,6 +192,7 @@ export function ChatProvider({
                         ? event.result.slice(0, 200) + "..."
                         : event.result,
                     isComplete: true,
+                    metadata: event.metadata,
                   };
                   history.updateMessageToolCalls(assistantMessageId, [
                     ...toolCalls,

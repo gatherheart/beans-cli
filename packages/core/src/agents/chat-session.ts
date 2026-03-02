@@ -645,6 +645,7 @@ export class ChatSession {
           onActivity?.({
             type: "tool_call_end",
             toolCallId: toolCall.id,
+            toolName: toolCall.name,
             result: result.error,
           });
           return result;
@@ -671,6 +672,7 @@ export class ChatSession {
             onActivity?.({
               type: "tool_call_end",
               toolCallId: toolCall.id,
+              toolName: toolCall.name,
               result: result.error,
             });
             return result;
@@ -693,6 +695,7 @@ export class ChatSession {
               onActivity?.({
                 type: "tool_call_end",
                 toolCallId: toolCall.id,
+                toolName: toolCall.name,
                 result: result.error,
               });
               return result;
@@ -707,6 +710,7 @@ export class ChatSession {
           onActivity?.({
             type: "tool_call_end",
             toolCallId: toolCall.id,
+            toolName: toolCall.name,
             result: result.content,
             metadata: result.metadata,
           });
@@ -720,6 +724,7 @@ export class ChatSession {
           onActivity?.({
             type: "tool_call_end",
             toolCallId: toolCall.id,
+            toolName: toolCall.name,
             result: errorMessage,
           });
           return {

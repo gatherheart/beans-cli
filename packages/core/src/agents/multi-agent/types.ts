@@ -2,7 +2,7 @@
  * Multi-agent system types
  */
 
-import type { Tool } from "../../tools/types.js";
+import type { Tool, ToolMetadata } from "../../tools/types.js";
 import type { Message, TerminateReason } from "../types.js";
 
 /**
@@ -188,6 +188,7 @@ export type MultiAgentEvent =
       toolName: string;
       result: string;
       agentType: string;
+      metadata?: ToolMetadata;
     }
   | { type: "error"; error: Error; agentType?: string };
 

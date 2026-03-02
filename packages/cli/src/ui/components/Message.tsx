@@ -9,6 +9,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 import Spinner from "ink-spinner";
+import type { WriteFileMetadata, ToolMetadata } from "@beans/core";
 import { MarkdownDisplay } from "./MarkdownDisplay.js";
 import { DiffDisplay } from "./DiffDisplay.js";
 import { colors } from "../theme/colors.js";
@@ -26,13 +27,29 @@ interface ToolCallsProps {
   tools: ToolCallInfo[];
 }
 
-// Check if tool call has diff metadata (from write_file)
+/**
+ * Type guard to check if metadata is WriteFileMetadata
+ */
+function isWriteFileMetadata(
+  metadata: ToolMetadata | undefined,
+): metadata is WriteFileMetadata {
+  if (!metadata) return false;
+  const m = metadata as WriteFileMetadata;
+  return (
+    typeof m.path === "string" &&
+    typeof m.newContent === "string" &&
+    typeof m.isNewFile === "boolean"
+  );
+}
+
+/**
+ * Check if tool call has diff metadata (from write_file)
+ */
 function hasDiffMetadata(tool: ToolCallInfo): boolean {
   return (
     tool.name === "write_file" &&
     tool.isComplete &&
-    tool.metadata !== undefined &&
-    typeof tool.metadata.newContent === "string"
+    isWriteFileMetadata(tool.metadata)
   );
 }
 
@@ -48,6 +65,10 @@ function ToolCallItem({ tool }: { tool: ToolCallInfo }) {
       : colors.success
     : colors.muted;
 
+  // Extract metadata with type narrowing for DiffDisplay
+  const writeMetadata =
+    showDiff && isWriteFileMetadata(tool.metadata) ? tool.metadata : null;
+
   return (
     <Box flexDirection="column">
       <Box>
@@ -60,12 +81,12 @@ function ToolCallItem({ tool }: { tool: ToolCallInfo }) {
         )}
         <Text color={statusColor}>{tool.name}</Text>
       </Box>
-      {showDiff && (
+      {writeMetadata && (
         <DiffDisplay
-          originalContent={tool.metadata?.originalContent as string | null}
-          newContent={tool.metadata?.newContent as string}
-          filePath={tool.metadata?.path as string}
-          isNewFile={tool.metadata?.isNewFile as boolean}
+          originalContent={writeMetadata.originalContent}
+          newContent={writeMetadata.newContent}
+          filePath={writeMetadata.path}
+          isNewFile={writeMetadata.isNewFile}
         />
       )}
     </Box>

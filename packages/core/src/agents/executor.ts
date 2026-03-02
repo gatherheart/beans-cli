@@ -9,6 +9,7 @@ import type { LLMClient } from "../llm/types.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import type { MemoryStore } from "../memory/index.js";
 import type { PolicyEngine } from "../policy/engine.js";
+import type { ToolMetadata } from "../tools/types.js";
 import { executeWithTimeout, DEFAULT_TOOL_TIMEOUT } from "../tools/utils.js";
 import { LoopDetector, type LoopDetectorConfig } from "./loop-detector.js";
 
@@ -48,8 +49,9 @@ export type AgentActivityEvent =
   | {
       type: "tool_call_end";
       toolCallId: string;
+      toolName: string;
       result: string;
-      metadata?: Record<string, unknown>;
+      metadata?: ToolMetadata;
     }
   | { type: "content_chunk"; content: string }
   | { type: "turn_end"; turnNumber: number }
@@ -381,6 +383,7 @@ export class AgentExecutor {
           onActivity?.({
             type: "tool_call_end",
             toolCallId: toolCall.id,
+            toolName: toolCall.name,
             result: result.error,
           });
           return result;
@@ -407,6 +410,7 @@ export class AgentExecutor {
             onActivity?.({
               type: "tool_call_end",
               toolCallId: toolCall.id,
+              toolName: toolCall.name,
               result: result.error,
             });
             return result;
@@ -429,6 +433,7 @@ export class AgentExecutor {
               onActivity?.({
                 type: "tool_call_end",
                 toolCallId: toolCall.id,
+                toolName: toolCall.name,
                 result: result.error,
               });
               return result;
@@ -447,6 +452,7 @@ export class AgentExecutor {
           onActivity?.({
             type: "tool_call_end",
             toolCallId: toolCall.id,
+            toolName: toolCall.name,
             result: result.content,
             metadata: result.metadata,
           });
@@ -461,6 +467,7 @@ export class AgentExecutor {
           onActivity?.({
             type: "tool_call_end",
             toolCallId: toolCall.id,
+            toolName: toolCall.name,
             result: errorMessage,
           });
           return {

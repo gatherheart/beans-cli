@@ -195,9 +195,10 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
             case "tool_call_end":
               options.onActivity?.({
                 type: "tool_call_end",
-                toolName: event.toolCallId,
+                toolName: event.toolName,
                 result: event.result,
                 agentType,
+                metadata: event.metadata,
               });
               break;
             case "error":

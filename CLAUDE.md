@@ -80,12 +80,14 @@ description: Expert code reviewer focusing on quality and security
 # Code Reviewer
 
 ## Purpose
+
 You are an expert code reviewer...
 
 ## Capabilities
+
 - Code quality analysis
 - Security review
-...
+  ...
 ```
 
 **YAML Frontmatter Fields:**
@@ -114,41 +116,50 @@ triggers:
 # Testing Patterns
 
 ## Use When
+
 User requests help with testing...
 
 ## Instructions
+
 ...
 ```
 
 ## Key Components
 
 ### AgentProfile (`packages/core/src/agents/profile.ts`)
+
 - Loads agent profiles from Markdown files
 - Parses YAML frontmatter for metadata (name, description)
 - Uses Markdown body as system prompt
 - `AgentProfileBuilder` generates profiles via LLM
 
 ### ChatSession (`packages/core/src/agents/chat-session.ts`)
+
 - Manages continuous chat with accumulated history
 - System prompt set once at session start
 
 ### AgentExecutor (`packages/core/src/agents/executor.ts`)
+
 - Runs the agent loop (LLM call → tool execution → repeat)
 - Handles streaming responses
 - Manages turn limits and timeouts
 
 ### LLM Client (`packages/core/src/llm/`)
+
 - Unified interface for multiple providers
 - Currently supports: Google (Gemini), Ollama
 - See `docs/prd/llm-interface.md` for request/response format
 
 ### Tool System (`packages/core/src/tools/`)
+
 - Built-in tools: `read_file`, `write_file`, `shell`, `glob`, `grep`
 - Extensible via `BaseTool` class
 - Tools registered in `ToolRegistry`
 
 ### CLI UI (`packages/cli/src/ui/`)
+
 Following gemini-cli patterns for state management:
+
 - **ChatStateContext**: Read-only state (messages, isLoading, error, profile)
 - **ChatActionsContext**: Action handlers (sendMessage, addSystemMessage, clearHistory)
 - **useChatHistory hook**: Encapsulates message management logic
@@ -193,25 +204,25 @@ See `docs/guides/ui-testing.md` for complete UI testing documentation.
 
 ## Interactive Commands
 
-| Command | Description |
-|---------|-------------|
-| `/help` | Show available commands |
+| Command    | Description                |
+| ---------- | -------------------------- |
+| `/help`    | Show available commands    |
 | `/profile` | View current agent profile |
-| `/history` | Show LLM message history |
-| `/memory` | Show current system prompt |
-| `/clear` | Clear chat history |
-| `/exit` | Exit application |
+| `/history` | Show LLM message history   |
+| `/memory`  | Show current system prompt |
+| `/clear`   | Clear chat history         |
+| `/exit`    | Exit application           |
 
 ## Input Controls
 
-| Key | Action |
-|-----|--------|
-| Enter | Submit message |
-| Shift+Enter, Ctrl+J | Insert newline |
-| Left/Right Arrow | Move cursor |
-| Ctrl+A / Ctrl+E | Move to start / end |
-| Ctrl+U | Clear input |
-| Ctrl+C | Exit |
+| Key                 | Action              |
+| ------------------- | ------------------- |
+| Enter               | Submit message      |
+| Shift+Enter, Ctrl+J | Insert newline      |
+| Left/Right Arrow    | Move cursor         |
+| Ctrl+A / Ctrl+E     | Move to start / end |
+| Ctrl+U              | Clear input         |
+| Ctrl+C              | Exit                |
 
 ## Debug Mode
 
@@ -226,13 +237,13 @@ Use `--debug` flag to log LLM requests/responses to `~/.beans/logs/debug.log`.
 
 ## Documentation Structure
 
-| Folder | Purpose |
-|--------|---------|
-| `docs/sop/` | Development guidelines, coding standards, testing |
-| `docs/prd/` | Feature specifications with task list tracking |
-| `docs/guides/` | Implementation explanations (how things work) |
-| `docs/issues/` | Problems encountered and solutions |
-| `docs/architecture/` | System design and component interactions |
+| Folder               | Purpose                                           |
+| -------------------- | ------------------------------------------------- |
+| `docs/sop/`          | Development guidelines, coding standards, testing |
+| `docs/prd/`          | Feature specifications with task list tracking    |
+| `docs/guides/`       | Implementation explanations (how things work)     |
+| `docs/issues/`       | Problems encountered and solutions                |
+| `docs/architecture/` | System design and component interactions          |
 
 When implementing features or fixing bugs, document issues in `docs/issues/`. See existing files for reference.
 
@@ -291,6 +302,77 @@ This project uses **Vitest** as its primary testing framework.
 - For timers, use `vi.useFakeTimers()`, `vi.advanceTimersByTimeAsync()`, `vi.runAllTimersAsync()`
 - Test promise rejections with `await expect(promise).rejects.toThrow(...)`
 
+## Strict Development Rules
+
+These rules apply strictly to all code modifications (adapted from gemini-cli).
+
+### Testing Guidelines
+
+- **Async/Await**: NEVER use fixed waits (e.g., `await delay(100)`). Always use `waitFor` with a predicate to ensure tests are stable and fast.
+- **React Testing**: Use `act` to wrap all blocks in tests that change component state. Use `render` from `ink-testing-library` with proper providers.
+- **Snapshots**: Use `toMatchSnapshot` to verify rendering. When modifying snapshots, verify changes are intentional.
+- **Parameterized Tests**: Use parameterized tests where it reduces duplicated lines. Give parameters explicit types.
+- **Mocks Management**:
+  - Mock critical dependencies (`fs`, `os`, `child_process`) ONLY at the top of the file
+  - Reuse existing mocks and fakes rather than creating new ones
+  - Avoid mocking the file system whenever possible
+  - Always call `vi.restoreAllMocks()` in `afterEach` to prevent test pollution
+  - Use `vi.useFakeTimers()` for tests involving time-based logic
+- **Typing in Tests**: Avoid using `any` in tests; prefer proper types or `unknown` with narrowing.
+
+### React Guidelines (`packages/cli`)
+
+- **`setState` and Side Effects**: NEVER trigger side effects from within the body of a `setState` callback. Use a reducer or `useRef` if necessary.
+- **Rendering**: Do not introduce infinite rendering loops. Avoid synchronous file I/O in React components as it will hang the UI.
+- **Logging**: Do not leave `console.log`, `console.warn`, or `console.error` in the code.
+- **State & Effects**: Ensure state initialization is explicit (e.g., use `undefined` rather than `true` as a default if the state is truly unknown). Carefully manage `useEffect` dependencies. Prefer a reducer whenever practical. NEVER disable `react-hooks/exhaustive-deps`.
+- **Context & Props**: Avoid excessive property drilling. Leverage existing providers, extend them, or propose a new one if necessary.
+- **Code Structure**: Avoid complex `if` statements where `switch` statements could be used. Keep root components minimal; refactor complex logic into React hooks.
+
+### Core Guidelines (`packages/core`)
+
+- **Services**: Implement services as classes with clear lifecycle management (e.g., `initialize()` methods). Services should be stateless where possible.
+- **Exports & Tooling**: Add new tools to `packages/core/src/tools/` and register them in `packages/core/src/tools/builtin/index.ts`. Export all new public services, utilities, and types from `packages/core/src/index.ts`.
+
+### Architectural Audit (Package Boundaries)
+
+- **Logic Placement**: Non-UI logic (e.g., model orchestration, tool implementation, git/filesystem operations) MUST reside in `packages/core`. `packages/cli` should ONLY contain UI/Ink components, command-line argument parsing, and user interaction logic.
+- **Environment Isolation**: Core logic must not assume a TUI environment.
+
+### TypeScript Best Practices
+
+- Use `checkExhaustive` in the `default` clause of `switch` statements to ensure all cases are handled.
+- Avoid using the non-null assertion operator (`!`) unless absolutely necessary.
+- **STRICT TYPING**: Strictly forbid `any` and `unknown` in both CLI and Core packages. `unknown` is only allowed if it is immediately narrowed using type guards or Zod validation.
+- NEVER disable `@typescript-eslint/no-floating-promises`.
+- Avoid making types nullable unless strictly necessary, as it hurts readability.
+
+### Type Guards Pattern
+
+When narrowing union types, use type guard functions:
+
+```typescript
+function isWriteFileMetadata(
+  metadata: ToolMetadata | undefined,
+): metadata is WriteFileMetadata {
+  if (!metadata) return false;
+  const m = metadata as WriteFileMetadata;
+  return (
+    typeof m.path === "string" &&
+    typeof m.newContent === "string" &&
+    typeof m.isNewFile === "boolean"
+  );
+}
+```
+
+### TUI Best Practices
+
+- **Terminal Compatibility**: Consider how changes might behave differently across terminals (e.g., VSCode terminal, SSH, Kitty, default Mac terminal, iTerm2, Windows terminal).
+
+### Code Cleanup
+
+- **Refactoring**: Actively clean up code duplication, technical debt, and boilerplate when working in the codebase.
+
 ## JavaScript/TypeScript Guidelines
 
 ### Prefer Plain Objects over Classes
@@ -308,30 +390,6 @@ Instead of Java-esque private/public class members, use ES module `import`/`expo
 - Exported items are the public API; unexported items are private
 - Encourages testing the public API rather than internal implementation
 - If you need to test a private function, consider extracting it to a separate module
-
-### Avoid `any` Types
-
-- **Use `unknown` instead**: Forces explicit type narrowing before operations
-- **Type Assertions (`as Type`)**: Use sparingly and with caution
-- Needing `any` or type assertions for testing often indicates a code smell
-
-```typescript
-function processValue(value: unknown) {
-  if (typeof value === 'string') {
-    console.log(value.toUpperCase());
-  } else if (typeof value === 'number') {
-    console.log(value * 2);
-  }
-}
-```
-
-### Type Narrowing in Switch Statements
-
-Use the `checkExhaustive` helper in the default clause to ensure all options are handled:
-
-```typescript
-// Helper in packages/cli/src/utils/checks.ts
-```
 
 ### Embrace Array Operators
 

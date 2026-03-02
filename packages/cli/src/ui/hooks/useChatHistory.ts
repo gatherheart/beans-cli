@@ -7,7 +7,8 @@
  * - Streaming state updates
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from "react";
+import type { ToolMetadata } from "@beans/core";
 
 export interface ToolCallInfo {
   id: string;
@@ -15,12 +16,12 @@ export interface ToolCallInfo {
   args: Record<string, unknown>;
   result?: string;
   isComplete: boolean;
-  metadata?: Record<string, unknown>;
+  metadata?: ToolMetadata;
 }
 
 export interface Message {
   id: string;
-  role: 'user' | 'assistant' | 'system';
+  role: "user" | "assistant" | "system";
   content: string;
   isStreaming: boolean;
   toolCalls?: ToolCallInfo[];
@@ -49,67 +50,93 @@ export function useChatHistory(): UseChatHistoryReturn {
     return `${prefix}-${Date.now()}-${messageIdCounter.current}`;
   }, []);
 
-  const addUserMessage = useCallback((content: string): string => {
-    const id = generateId('user');
-    setMessages(prev => [...prev, {
-      id,
-      role: 'user',
-      content: content.trim(),
-      isStreaming: false,
-    }]);
-    return id;
-  }, [generateId]);
+  const addUserMessage = useCallback(
+    (content: string): string => {
+      const id = generateId("user");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id,
+          role: "user",
+          content: content.trim(),
+          isStreaming: false,
+        },
+      ]);
+      return id;
+    },
+    [generateId],
+  );
 
-  const addAssistantMessage = useCallback((agentType?: string): string => {
-    const id = generateId('assistant');
-    setMessages(prev => [...prev, {
-      id,
-      role: 'assistant',
-      content: '',
-      isStreaming: true,
-      toolCalls: [],
-      agentType,
-    }]);
-    return id;
-  }, [generateId]);
+  const addAssistantMessage = useCallback(
+    (agentType?: string): string => {
+      const id = generateId("assistant");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id,
+          role: "assistant",
+          content: "",
+          isStreaming: true,
+          toolCalls: [],
+          agentType,
+        },
+      ]);
+      return id;
+    },
+    [generateId],
+  );
 
-  const addSystemMessage = useCallback((content: string): string => {
-    const id = generateId('system');
-    setMessages(prev => [...prev, {
-      id,
-      role: 'system',
-      content,
-      isStreaming: false,
-    }]);
-    return id;
-  }, [generateId]);
+  const addSystemMessage = useCallback(
+    (content: string): string => {
+      const id = generateId("system");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id,
+          role: "system",
+          content,
+          isStreaming: false,
+        },
+      ]);
+      return id;
+    },
+    [generateId],
+  );
 
   const updateMessageContent = useCallback((id: string, content: string) => {
-    setMessages(prev => prev.map(msg =>
-      msg.id === id ? { ...msg, content } : msg
-    ));
+    setMessages((prev) =>
+      prev.map((msg) => (msg.id === id ? { ...msg, content } : msg)),
+    );
   }, []);
 
-  const updateMessageToolCalls = useCallback((id: string, toolCalls: ToolCallInfo[]) => {
-    setMessages(prev => prev.map(msg =>
-      msg.id === id ? { ...msg, toolCalls: [...toolCalls] } : msg
-    ));
-  }, []);
+  const updateMessageToolCalls = useCallback(
+    (id: string, toolCalls: ToolCallInfo[]) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === id ? { ...msg, toolCalls: [...toolCalls] } : msg,
+        ),
+      );
+    },
+    [],
+  );
 
-  const updateMessageAgentType = useCallback((id: string, agentType: string) => {
-    setMessages(prev => prev.map(msg =>
-      msg.id === id ? { ...msg, agentType } : msg
-    ));
-  }, []);
+  const updateMessageAgentType = useCallback(
+    (id: string, agentType: string) => {
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === id ? { ...msg, agentType } : msg)),
+      );
+    },
+    [],
+  );
 
   const completeMessage = useCallback((id: string) => {
-    setMessages(prev => prev.map(msg =>
-      msg.id === id ? { ...msg, isStreaming: false } : msg
-    ));
+    setMessages((prev) =>
+      prev.map((msg) => (msg.id === id ? { ...msg, isStreaming: false } : msg)),
+    );
   }, []);
 
   const removeMessage = useCallback((id: string) => {
-    setMessages(prev => prev.filter(msg => msg.id !== id));
+    setMessages((prev) => prev.filter((msg) => msg.id !== id));
   }, []);
 
   const clearMessages = useCallback(() => {
