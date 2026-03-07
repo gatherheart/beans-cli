@@ -131,6 +131,7 @@ export function ChatProvider({
         const agentManager = getAgentManager();
         let currentContent = "";
         const toolCalls: ToolCallInfo[] = [];
+        let toolCallCounter = 0;
 
         // Pass conversation history for context (exclude the current message since it's the query)
         const historyForContext = conversationHistoryRef.current.slice(0, -1);
@@ -156,6 +157,24 @@ export function ChatProvider({
                 );
                 break;
 
+              case "planning_start":
+                // Initialize planning content
+                history.updatePlanningContent(assistantMessageId, "");
+                break;
+
+              case "planning_content":
+                // Append to planning content
+                history.updatePlanningContent(
+                  assistantMessageId,
+                  event.content,
+                );
+                break;
+
+              case "planning_end":
+                // Mark planning as complete
+                history.completePlanning(assistantMessageId);
+                break;
+
               case "content_chunk":
                 currentContent += event.content;
                 history.updateMessageContent(
@@ -165,12 +184,14 @@ export function ChatProvider({
                 break;
 
               case "tool_call_start": {
-                // Create a unique ID for this tool call
-                const toolId = `${event.agentType}_${event.toolName}_${Date.now()}`;
+                // Create a unique ID for this tool call using counter to avoid collisions
+                toolCallCounter++;
+                const toolId = `${event.agentType}_${event.toolName}_${toolCallCounter}`;
                 toolCalls.push({
                   id: toolId,
                   name: event.toolName,
-                  args: {},
+                  args: event.toolArgs,
+                  argsSummary: event.argsSummary,
                   isComplete: false,
                 });
                 history.updateMessageToolCalls(assistantMessageId, [
@@ -191,6 +212,7 @@ export function ChatProvider({
                       event.result.length > 200
                         ? event.result.slice(0, 200) + "..."
                         : event.result,
+                    resultSummary: event.resultSummary,
                     isComplete: true,
                     metadata: event.metadata,
                   };

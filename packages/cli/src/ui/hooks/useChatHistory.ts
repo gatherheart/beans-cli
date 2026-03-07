@@ -14,7 +14,9 @@ export interface ToolCallInfo {
   id: string;
   name: string;
   args: Record<string, unknown>;
+  argsSummary?: string;
   result?: string;
+  resultSummary?: string;
   isComplete: boolean;
   metadata?: ToolMetadata;
 }
@@ -26,6 +28,8 @@ export interface Message {
   isStreaming: boolean;
   toolCalls?: ToolCallInfo[];
   agentType?: string;
+  planningContent?: string;
+  isPlanningComplete?: boolean;
 }
 
 export interface UseChatHistoryReturn {
@@ -36,6 +40,13 @@ export interface UseChatHistoryReturn {
   updateMessageContent: (id: string, content: string) => void;
   updateMessageToolCalls: (id: string, toolCalls: ToolCallInfo[]) => void;
   updateMessageAgentType: (id: string, agentType: string) => void;
+  updatePlanningContent: (id: string, content: string) => void;
+  completePlanning: (id: string) => void;
+  updateToolResultSummary: (
+    id: string,
+    toolId: string,
+    resultSummary: string,
+  ) => void;
   completeMessage: (id: string) => void;
   removeMessage: (id: string) => void;
   clearMessages: () => void;
@@ -129,6 +140,37 @@ export function useChatHistory(): UseChatHistoryReturn {
     [],
   );
 
+  const updatePlanningContent = useCallback((id: string, content: string) => {
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === id ? { ...msg, planningContent: content } : msg,
+      ),
+    );
+  }, []);
+
+  const completePlanning = useCallback((id: string) => {
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === id ? { ...msg, isPlanningComplete: true } : msg,
+      ),
+    );
+  }, []);
+
+  const updateToolResultSummary = useCallback(
+    (id: string, toolId: string, resultSummary: string) => {
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.id !== id || !msg.toolCalls) return msg;
+          const updatedToolCalls = msg.toolCalls.map((tool) =>
+            tool.id === toolId ? { ...tool, resultSummary } : tool,
+          );
+          return { ...msg, toolCalls: updatedToolCalls };
+        }),
+      );
+    },
+    [],
+  );
+
   const completeMessage = useCallback((id: string) => {
     setMessages((prev) =>
       prev.map((msg) => (msg.id === id ? { ...msg, isStreaming: false } : msg)),
@@ -152,6 +194,9 @@ export function useChatHistory(): UseChatHistoryReturn {
     updateMessageContent,
     updateMessageToolCalls,
     updateMessageAgentType,
+    updatePlanningContent,
+    completePlanning,
+    updateToolResultSummary,
     completeMessage,
     removeMessage,
     clearMessages,

@@ -181,12 +181,22 @@ export type MultiAgentEvent =
   | { type: "agent_spawn_complete"; result: AgentExecutionResult }
   | { type: "turn_start"; turnNumber: number; agentType: string }
   | { type: "turn_end"; turnNumber: number; agentType: string }
+  | { type: "planning_start"; agentType: string }
+  | { type: "planning_content"; content: string; agentType: string }
+  | { type: "planning_end"; agentType: string }
   | { type: "content_chunk"; content: string; agentType: string }
-  | { type: "tool_call_start"; toolName: string; agentType: string }
+  | {
+      type: "tool_call_start";
+      toolName: string;
+      toolArgs: Record<string, unknown>;
+      argsSummary?: string;
+      agentType: string;
+    }
   | {
       type: "tool_call_end";
       toolName: string;
       result: string;
+      resultSummary?: string;
       agentType: string;
       metadata?: ToolMetadata;
     }

@@ -19,6 +19,7 @@ import {
   logMultiAgentEvent,
   logConversationHistory,
 } from "./debug-logger.js";
+import { formatArgsSummary } from "../../tools/utils/result-summary.js";
 
 /**
  * Create an agent manager for multi-agent orchestration
@@ -190,6 +191,25 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
                 agentType,
               });
               break;
+            case "planning_start":
+              options.onActivity?.({
+                type: "planning_start",
+                agentType,
+              });
+              break;
+            case "planning_content":
+              options.onActivity?.({
+                type: "planning_content",
+                content: event.content,
+                agentType,
+              });
+              break;
+            case "planning_end":
+              options.onActivity?.({
+                type: "planning_end",
+                agentType,
+              });
+              break;
             case "content_chunk":
               options.onActivity?.({
                 type: "content_chunk",
@@ -201,6 +221,8 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
               options.onActivity?.({
                 type: "tool_call_start",
                 toolName: event.toolCall.name,
+                toolArgs: event.toolCall.arguments,
+                argsSummary: formatArgsSummary(event.toolCall.arguments),
                 agentType,
               });
               break;
@@ -209,6 +231,7 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
                 type: "tool_call_end",
                 toolName: event.toolName,
                 result: event.result,
+                resultSummary: event.resultSummary,
                 agentType,
                 metadata: event.metadata,
               });

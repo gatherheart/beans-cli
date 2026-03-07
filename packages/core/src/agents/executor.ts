@@ -11,6 +11,7 @@ import type { MemoryStore } from "../memory/index.js";
 import type { PolicyEngine } from "../policy/engine.js";
 import type { ToolMetadata } from "../tools/types.js";
 import { executeWithTimeout, DEFAULT_TOOL_TIMEOUT } from "../tools/utils.js";
+import { generateResultSummary } from "../tools/utils/result-summary.js";
 import { LoopDetector, type LoopDetectorConfig } from "./loop-detector.js";
 
 /**
@@ -45,12 +46,16 @@ export interface ExecuteOptions {
 export type AgentActivityEvent =
   | { type: "turn_start"; turnNumber: number }
   | { type: "thinking"; content: string }
+  | { type: "planning_start" }
+  | { type: "planning_content"; content: string }
+  | { type: "planning_end" }
   | { type: "tool_call_start"; toolCall: ToolCall }
   | {
       type: "tool_call_end";
       toolCallId: string;
       toolName: string;
       result: string;
+      resultSummary?: string;
       metadata?: ToolMetadata;
     }
   | { type: "content_chunk"; content: string }
@@ -203,9 +208,26 @@ export class AgentExecutor {
           onActivity?.({ type: "thinking", content: response.thinking });
         }
 
-        // Handle content - emit chunk for streaming UI
+        // Detect planning content: content + tool calls = planning
+        const hasContent = Boolean(response.content);
+        const hasToolCalls =
+          response.toolCalls && response.toolCalls.length > 0;
+        const isPlanningContent = hasContent && hasToolCalls;
+
+        // Handle content - emit as planning or regular content
         if (response.content) {
-          onActivity?.({ type: "content_chunk", content: response.content });
+          if (isPlanningContent) {
+            // Emit planning events for content that precedes tool calls
+            onActivity?.({ type: "planning_start" });
+            onActivity?.({
+              type: "planning_content",
+              content: response.content,
+            });
+            onActivity?.({ type: "planning_end" });
+          } else {
+            // Regular content chunk (final response)
+            onActivity?.({ type: "content_chunk", content: response.content });
+          }
         }
 
         // Handle tool calls
@@ -375,16 +397,18 @@ export class AgentExecutor {
 
         const tool = this.toolRegistry.getTool(toolCall.name);
         if (!tool) {
+          const errorMsg = `Tool not found: ${toolCall.name}`;
           const result = {
             toolCallId: toolCall.id,
             content: "",
-            error: `Tool not found: ${toolCall.name}`,
+            error: errorMsg,
           };
           onActivity?.({
             type: "tool_call_end",
             toolCallId: toolCall.id,
             toolName: toolCall.name,
-            result: result.error,
+            result: errorMsg,
+            resultSummary: "Tool not found",
           });
           return result;
         }
@@ -400,18 +424,19 @@ export class AgentExecutor {
 
           // Tool is blocked
           if (!decision.allowed) {
+            const errorMsg =
+              decision.reason || `Tool '${toolCall.name}' is blocked by policy`;
             const result = {
               toolCallId: toolCall.id,
               content: "",
-              error:
-                decision.reason ||
-                `Tool '${toolCall.name}' is blocked by policy`,
+              error: errorMsg,
             };
             onActivity?.({
               type: "tool_call_end",
               toolCallId: toolCall.id,
               toolName: toolCall.name,
-              result: result.error,
+              result: errorMsg,
+              resultSummary: "Blocked by policy",
             });
             return result;
           }
@@ -425,16 +450,18 @@ export class AgentExecutor {
             );
 
             if (!approved) {
+              const errorMsg = `Tool '${toolCall.name}' was rejected by user`;
               const result = {
                 toolCallId: toolCall.id,
                 content: "",
-                error: `Tool '${toolCall.name}' was rejected by user`,
+                error: errorMsg,
               };
               onActivity?.({
                 type: "tool_call_end",
                 toolCallId: toolCall.id,
                 toolName: toolCall.name,
-                result: result.error,
+                result: errorMsg,
+                resultSummary: "Rejected by user",
               });
               return result;
             }
@@ -449,11 +476,17 @@ export class AgentExecutor {
               tool.execute(toolCall.arguments, { cwd, timeout: toolTimeout }),
             toolTimeout,
           );
+          const resultSummary = generateResultSummary(
+            toolCall.name,
+            result.content,
+            result.metadata,
+          );
           onActivity?.({
             type: "tool_call_end",
             toolCallId: toolCall.id,
             toolName: toolCall.name,
             result: result.content,
+            resultSummary,
             metadata: result.metadata,
           });
           return {
@@ -464,11 +497,16 @@ export class AgentExecutor {
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : String(error);
+          const resultSummary = generateResultSummary(
+            toolCall.name,
+            errorMessage,
+          );
           onActivity?.({
             type: "tool_call_end",
             toolCallId: toolCall.id,
             toolName: toolCall.name,
             result: errorMessage,
+            resultSummary,
           });
           return {
             toolCallId: toolCall.id,

@@ -12,6 +12,8 @@ import Spinner from "ink-spinner";
 import type { WriteFileMetadata, ToolMetadata } from "@beans/core";
 import { MarkdownDisplay } from "./MarkdownDisplay.js";
 import { DiffDisplay } from "./DiffDisplay.js";
+import { PlanningDisplay } from "./PlanningDisplay.js";
+import { ToolCallDisplay } from "./ToolCallDisplay.js";
 import { colors } from "../theme/colors.js";
 import type {
   Message as MessageType,
@@ -53,37 +55,11 @@ function hasDiffMetadata(tool: ToolCallInfo): boolean {
   );
 }
 
-// Individual tool name display (no diff, just the name with status icon)
-function ToolCallName({ tool }: { tool: ToolCallInfo }) {
-  const hasError =
-    tool.result?.startsWith("Error:") || tool.result?.includes("Access denied");
-  const statusColor = tool.isComplete
-    ? hasError
-      ? colors.error
-      : colors.success
-    : colors.muted;
-
-  return (
-    <Box>
-      {tool.isComplete ? (
-        <Text color={hasError ? colors.error : colors.success}>
-          {hasError ? "✗ " : "✓ "}
-        </Text>
-      ) : (
-        <Text color={colors.warning}>⠋ </Text>
-      )}
-      <Text color={statusColor}>{tool.name}</Text>
-    </Box>
-  );
-}
-
-// Tool calls display - tool names in a row, diffs below
+// Tool calls display - vertical list with args and summaries
 function ToolCalls({
   tools,
   messageId,
 }: ToolCallsProps & { messageId: string }): React.ReactElement {
-  const hasInProgress = tools.some((t) => !t.isComplete);
-
   // Collect all tools that have diff metadata
   const toolsWithDiff = tools.filter(
     (tool) => hasDiffMetadata(tool) && isWriteFileMetadata(tool.metadata),
@@ -91,18 +67,11 @@ function ToolCalls({
 
   return (
     <Box flexDirection="column">
-      {/* Tool names in a horizontal row */}
-      <Box gap={1}>
-        {hasInProgress && (
-          <Text color={colors.warning}>
-            <Spinner type="dots" />
-          </Text>
-        )}
-        {tools.map((tool) => (
-          <ToolCallName key={`${messageId}-${tool.id}`} tool={tool} />
-        ))}
-      </Box>
-      {/* Diffs below the tool names row */}
+      {/* Tool calls in vertical list with args and summaries */}
+      {tools.map((tool) => (
+        <ToolCallDisplay key={`${messageId}-${tool.id}`} tool={tool} />
+      ))}
+      {/* Diffs below the tool calls */}
       {toolsWithDiff.map((tool) => {
         const metadata = tool.metadata as WriteFileMetadata;
         return (
@@ -126,18 +95,35 @@ export const Message = React.memo(function Message({
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
   const hasTools = message.toolCalls && message.toolCalls.length > 0;
+  const hasPlanning = Boolean(message.planningContent);
   // Account for the prefix (2 chars: symbol + space)
   const textWidth = width ? width - 2 : undefined;
 
+  // Show final response content (separate from planning content)
+  // Planning content is shown via PlanningDisplay, content is the final response
+  const showContent = Boolean(message.content);
+  const showStreamingSpinner =
+    message.isStreaming && !message.content && !hasTools && !hasPlanning;
+
   return (
     <Box flexDirection="column" marginBottom={1}>
-      {/* Tool calls inline */}
+      {/* 1. Tool calls (shown first) */}
       {hasTools && (
         <ToolCalls tools={message.toolCalls!} messageId={message.id} />
       )}
 
-      {/* Message content */}
-      {(message.content || (!hasTools && message.isStreaming)) && (
+      {/* 2. Planning content (shown after tools, with spacing) */}
+      {hasPlanning && (
+        <Box marginTop={hasTools ? 1 : 0}>
+          <PlanningDisplay
+            content={message.planningContent!}
+            isComplete={message.isPlanningComplete ?? false}
+          />
+        </Box>
+      )}
+
+      {/* 3. Final response */}
+      {(showContent || showStreamingSpinner) && (
         <Box>
           {isUser ? (
             <Text color={colors.user} bold>
@@ -145,11 +131,11 @@ export const Message = React.memo(function Message({
             </Text>
           ) : isSystem ? (
             <Text color={colors.system} bold>
-              {"ℹ "}
+              {"\u2139 "}
             </Text>
           ) : (
             <Text color={colors.assistant} bold>
-              {"✦ "}
+              {"\u2726 "}
             </Text>
           )}
 
