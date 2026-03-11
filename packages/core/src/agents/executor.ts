@@ -30,6 +30,8 @@ export interface ExecuteOptions {
   memoryStore?: MemoryStore;
   /** Policy engine for tool approval */
   policyEngine?: PolicyEngine;
+  /** Context to pass to tools (e.g., agentManager for spawn_agent) */
+  toolContext?: Record<string, unknown>;
   /** Callback to request user approval for tools */
   onApprovalRequest?: (
     toolName: string,
@@ -89,6 +91,7 @@ export class AgentExecutor {
       policyEngine,
       onApprovalRequest,
       loopDetection,
+      toolContext,
     } = options;
     const messages: Message[] = [];
     let turnCount = 0;
@@ -269,6 +272,7 @@ export class AgentExecutor {
             DEFAULT_TOOL_TIMEOUT,
             policyEngine,
             onApprovalRequest,
+            toolContext,
           );
 
           // Push assistant message with content AND tool calls together
@@ -390,6 +394,7 @@ export class AgentExecutor {
       params: Record<string, unknown>,
       message: string,
     ) => Promise<boolean>,
+    toolContext?: Record<string, unknown>,
   ) {
     const results = await Promise.all(
       toolCalls.map(async (toolCall) => {
@@ -473,7 +478,11 @@ export class AgentExecutor {
           const result = await executeWithTimeout(
             toolCall.name,
             () =>
-              tool.execute(toolCall.arguments, { cwd, timeout: toolTimeout }),
+              tool.execute(toolCall.arguments, {
+                cwd,
+                timeout: toolTimeout,
+                context: toolContext,
+              }),
             toolTimeout,
           );
           const resultSummary = generateResultSummary(

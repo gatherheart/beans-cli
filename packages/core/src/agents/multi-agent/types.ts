@@ -152,6 +152,20 @@ export interface AgentExecutionResult {
 }
 
 /**
+ * Extracted intent from user query
+ */
+export interface ExtractedIntent {
+  /** Main action the user wants */
+  action: "find" | "read" | "understand" | "show" | "search" | "other";
+  /** Target path or directory */
+  targetPath?: string;
+  /** Keywords to search for */
+  keywords: string[];
+  /** Original query */
+  originalQuery: string;
+}
+
+/**
  * Options for spawning an agent
  */
 export interface SpawnOptions {
@@ -167,6 +181,8 @@ export interface SpawnOptions {
   onActivity?: (event: MultiAgentEvent) => void;
   /** Conversation history to provide context */
   conversationHistory?: Message[];
+  /** Extracted intent from user query */
+  extractedIntent?: ExtractedIntent;
 }
 
 /**

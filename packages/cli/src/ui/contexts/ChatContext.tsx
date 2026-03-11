@@ -97,6 +97,9 @@ export function ChatProvider({
   // Track conversation history for getLLMHistory
   const conversationHistoryRef = useRef<LLMMessage[]>([]);
 
+  // Track last used path for context (so "show me the code" knows where to look)
+  const lastUsedPathRef = useRef<string | null>(null);
+
   const agentManagerRef = useRef<AgentManager | null>(null);
 
   // Initialize agent manager lazily
@@ -134,7 +137,18 @@ export function ChatProvider({
         let toolCallCounter = 0;
 
         // Pass conversation history for context (exclude the current message since it's the query)
-        const historyForContext = conversationHistoryRef.current.slice(0, -1);
+        let historyForContext = conversationHistoryRef.current.slice(0, -1);
+
+        // Add path context hint if we have a last used path
+        if (lastUsedPathRef.current) {
+          historyForContext = [
+            ...historyForContext,
+            {
+              role: "system" as const,
+              content: `[Context: Last explored path was "${lastUsedPathRef.current}". Use this path when user refers to "the code" or files without specifying a path.]`,
+            },
+          ];
+        }
 
         const result = await agentManager.processInput(content.trim(), {
           conversationHistory:
@@ -157,7 +171,17 @@ export function ChatProvider({
                 );
                 break;
 
+              case "turn_start":
+                // Don't clear thinking here - we clear it when content/tools arrive
+                break;
+
+              case "turn_end":
+                // Don't set thinking here - we set it when tools complete
+                break;
+
               case "planning_start":
+                // Clear thinking when planning content starts
+                history.setMessageThinking(assistantMessageId, false);
                 // Initialize planning content
                 history.updatePlanningContent(assistantMessageId, "");
                 break;
@@ -176,6 +200,8 @@ export function ChatProvider({
                 break;
 
               case "content_chunk":
+                // Clear thinking state when content starts
+                history.setMessageThinking(assistantMessageId, false);
                 currentContent += event.content;
                 history.updateMessageContent(
                   assistantMessageId,
@@ -184,19 +210,38 @@ export function ChatProvider({
                 break;
 
               case "tool_call_start": {
+                // Clear thinking state - tools starting means LLM responded
+                history.setMessageThinking(assistantMessageId, false);
+
+                // Track path context from tool calls (for "show me the code" to know where)
+                if (event.toolName === "glob" && event.toolArgs.path) {
+                  lastUsedPathRef.current = event.toolArgs.path as string;
+                } else if (
+                  event.toolName === "read_file" &&
+                  event.toolArgs.path
+                ) {
+                  // Extract directory from file path
+                  const filePath = event.toolArgs.path as string;
+                  const dirPath = filePath.substring(
+                    0,
+                    filePath.lastIndexOf("/"),
+                  );
+                  if (dirPath) lastUsedPathRef.current = dirPath;
+                }
+
                 // Create a unique ID for this tool call using counter to avoid collisions
                 toolCallCounter++;
                 const toolId = `${event.agentType}_${event.toolName}_${toolCallCounter}`;
-                toolCalls.push({
+                const newTool: ToolCallInfo = {
                   id: toolId,
                   name: event.toolName,
                   args: event.toolArgs,
                   argsSummary: event.argsSummary,
                   isComplete: false,
-                });
-                history.updateMessageToolCalls(assistantMessageId, [
-                  ...toolCalls,
-                ]);
+                };
+                toolCalls.push(newTool);
+                // Use granular add instead of replacing entire array (reduces flickering)
+                history.addToolCall(assistantMessageId, newTool);
                 break;
               }
 
@@ -206,8 +251,8 @@ export function ChatProvider({
                   (t) => !t.isComplete && t.name === event.toolName,
                 );
                 if (toolIndex !== -1) {
-                  toolCalls[toolIndex] = {
-                    ...toolCalls[toolIndex],
+                  const toolId = toolCalls[toolIndex].id;
+                  const updates = {
                     result:
                       event.result.length > 200
                         ? event.result.slice(0, 200) + "..."
@@ -216,9 +261,18 @@ export function ChatProvider({
                     isComplete: true,
                     metadata: event.metadata,
                   };
-                  history.updateMessageToolCalls(assistantMessageId, [
-                    ...toolCalls,
-                  ]);
+                  toolCalls[toolIndex] = {
+                    ...toolCalls[toolIndex],
+                    ...updates,
+                  };
+                  // Use granular update instead of replacing entire array (reduces flickering)
+                  history.updateToolCall(assistantMessageId, toolId, updates);
+
+                  // Check if all tools are complete - if so, show thinking indicator
+                  const allComplete = toolCalls.every((t) => t.isComplete);
+                  if (allComplete) {
+                    history.setMessageThinking(assistantMessageId, true);
+                  }
                 }
                 break;
               }

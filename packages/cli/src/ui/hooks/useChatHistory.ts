@@ -30,6 +30,8 @@ export interface Message {
   agentType?: string;
   planningContent?: string;
   isPlanningComplete?: boolean;
+  /** True when waiting for LLM response after tools complete */
+  isThinking?: boolean;
 }
 
 export interface UseChatHistoryReturn {
@@ -39,9 +41,16 @@ export interface UseChatHistoryReturn {
   addSystemMessage: (content: string) => string;
   updateMessageContent: (id: string, content: string) => void;
   updateMessageToolCalls: (id: string, toolCalls: ToolCallInfo[]) => void;
+  addToolCall: (id: string, toolCall: ToolCallInfo) => void;
+  updateToolCall: (
+    id: string,
+    toolId: string,
+    updates: Partial<ToolCallInfo>,
+  ) => void;
   updateMessageAgentType: (id: string, agentType: string) => void;
   updatePlanningContent: (id: string, content: string) => void;
   completePlanning: (id: string) => void;
+  setMessageThinking: (id: string, isThinking: boolean) => void;
   updateToolResultSummary: (
     id: string,
     toolId: string,
@@ -131,6 +140,33 @@ export function useChatHistory(): UseChatHistoryReturn {
     [],
   );
 
+  // Add a single tool call (more efficient than replacing entire array)
+  const addToolCall = useCallback((id: string, toolCall: ToolCallInfo) => {
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === id
+          ? { ...msg, toolCalls: [...(msg.toolCalls || []), toolCall] }
+          : msg,
+      ),
+    );
+  }, []);
+
+  // Update a single tool call by toolId (more efficient)
+  const updateToolCall = useCallback(
+    (id: string, toolId: string, updates: Partial<ToolCallInfo>) => {
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.id !== id || !msg.toolCalls) return msg;
+          const updatedTools = msg.toolCalls.map((tool) =>
+            tool.id === toolId ? { ...tool, ...updates } : tool,
+          );
+          return { ...msg, toolCalls: updatedTools };
+        }),
+      );
+    },
+    [],
+  );
+
   const updateMessageAgentType = useCallback(
     (id: string, agentType: string) => {
       setMessages((prev) =>
@@ -156,6 +192,12 @@ export function useChatHistory(): UseChatHistoryReturn {
     );
   }, []);
 
+  const setMessageThinking = useCallback((id: string, isThinking: boolean) => {
+    setMessages((prev) =>
+      prev.map((msg) => (msg.id === id ? { ...msg, isThinking } : msg)),
+    );
+  }, []);
+
   const updateToolResultSummary = useCallback(
     (id: string, toolId: string, resultSummary: string) => {
       setMessages((prev) =>
@@ -173,7 +215,9 @@ export function useChatHistory(): UseChatHistoryReturn {
 
   const completeMessage = useCallback((id: string) => {
     setMessages((prev) =>
-      prev.map((msg) => (msg.id === id ? { ...msg, isStreaming: false } : msg)),
+      prev.map((msg) =>
+        msg.id === id ? { ...msg, isStreaming: false, isThinking: false } : msg,
+      ),
     );
   }, []);
 
@@ -193,9 +237,12 @@ export function useChatHistory(): UseChatHistoryReturn {
     addSystemMessage,
     updateMessageContent,
     updateMessageToolCalls,
+    addToolCall,
+    updateToolCall,
     updateMessageAgentType,
     updatePlanningContent,
     completePlanning,
+    setMessageThinking,
     updateToolResultSummary,
     completeMessage,
     removeMessage,

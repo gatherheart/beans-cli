@@ -11,6 +11,7 @@ import type {
   AgentExecutionResult,
   SpawnOptions,
   AgentManagerConfig,
+  MultiAgentEvent,
 } from "./types.js";
 import { specializedAgents, getAgentDefinition } from "./specialized/index.js";
 import {
@@ -20,6 +21,7 @@ import {
   logConversationHistory,
 } from "./debug-logger.js";
 import { formatArgsSummary } from "../../tools/utils/result-summary.js";
+import { extractIntent } from "./intent-extractor.js";
 
 /**
  * Create an agent manager for multi-agent orchestration
@@ -169,11 +171,48 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
     options.onActivity?.(spawnStartEvent);
     logMultiAgentEvent(spawnStartEvent);
 
+    // Create toolContext for tools (includes extracted intent for smart suggestions)
+    const toolContext: Record<string, unknown> = {
+      originalQuery: prompt,
+      extractedIntent: options.extractedIntent, // LLM-extracted keywords and intent
+      agentManager: {
+        spawn: async (
+          subAgentType: string,
+          subPrompt: string,
+          subOptions?: {
+            maxTurns?: number;
+            cwd?: string;
+            onActivity?: (event: MultiAgentEvent) => void;
+          },
+        ) => {
+          // Recursive call to spawn sub-agents
+          return spawn(subAgentType, subPrompt, {
+            ...options,
+            maxTurns: subOptions?.maxTurns,
+            cwd: subOptions?.cwd ?? options.cwd,
+            onActivity: subOptions?.onActivity
+              ? (event: MultiAgentEvent) => {
+                  // Forward to sub-agent's onActivity
+                  subOptions.onActivity?.(event);
+                  // Also forward to parent's onActivity (for UI updates)
+                  options.onActivity?.(event);
+                }
+              : options.onActivity,
+          });
+        },
+      },
+      onSubAgentActivity: (event: MultiAgentEvent) => {
+        // Forward sub-agent events to parent
+        options.onActivity?.(event);
+      },
+    };
+
     try {
       const result = await executor.execute(definition, {
         signal: options.signal,
         cwd: options.cwd ?? defaultCwd,
         policyEngine,
+        toolContext,
         onActivity: (event: AgentActivityEvent) => {
           // Map executor events to multi-agent events
           switch (event.type) {
@@ -312,10 +351,15 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
       return "math";
     }
 
-    // Code exploration: find, search, where is, how does
+    // Code exploration: read/find/search + path or code terms
+    // Use explore agent for codebase navigation
     if (
-      /\b(find|search|where is|how does|show me|list all)\b/i.test(input) &&
-      /\b(file|code|function|class|method|variable)\b/i.test(input)
+      /\b(read|find|search|analyze|understand|explain|where is|show me|list)\b/i.test(
+        input,
+      ) &&
+      /\b(project|code|codebase|directory|folder|file|function|class|method|\.\.\/|\.\/)\b/i.test(
+        input,
+      )
     ) {
       return "explore";
     }
@@ -335,26 +379,46 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
 
   /**
    * Process user input through the multi-agent system
-   * Uses simple keyword routing instead of LLM-based analysis (cost efficient)
+   * Extracts intent using LLM, then routes to appropriate agent
    */
   async function processInput(
     userInput: string,
     options: SpawnOptions = {},
   ): Promise<AgentExecutionResult> {
-    // Simple keyword-based routing (no LLM call)
+    // Extract intent and keywords using LLM
+    const extractedIntent = await extractIntent(
+      llmClient,
+      defaultModel,
+      userInput,
+    );
+
+    // Route based on extracted intent or keywords
     const agentType = routeToAgent(userInput);
+
+    // Map extracted action to UserIntent
+    const intentMap: Record<string, "code_exploration" | "unknown"> = {
+      find: "code_exploration",
+      read: "code_exploration",
+      understand: "code_exploration",
+      show: "code_exploration",
+      search: "code_exploration",
+      other: "unknown",
+    };
 
     logMultiAgentEvent({
       type: "input_analysis_complete" as const,
       analysis: {
-        intent: "unknown",
+        intent: intentMap[extractedIntent.action] || "unknown",
         requiresPlanning: false,
         suggestedAgent: agentType,
         originalInput: userInput,
       },
     });
 
-    return spawn(agentType, userInput, options);
+    return spawn(agentType, userInput, {
+      ...options,
+      extractedIntent, // Pass extracted intent to tools
+    });
   }
   return {
     register,

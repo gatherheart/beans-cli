@@ -17,6 +17,7 @@ const AGENT_TYPES = [
   "coder",
   "general",
   "critic",
+  "orchestrator",
 ] as const;
 
 /**
@@ -29,6 +30,7 @@ const RESTRICTED_TOOL_SETS: Record<string, string[]> = {
   coder: ["read_file", "write_file", "glob", "grep", "shell", "list_directory"],
   general: [], // Uses all tools
   critic: ["read_file", "glob", "grep"],
+  orchestrator: [], // Uses all tools including spawn_agent
 };
 
 const SpawnAgentSchema = z.object({
@@ -50,8 +52,13 @@ const SpawnAgentSchema = z.object({
 
 type SpawnAgentParams = z.infer<typeof SpawnAgentSchema>;
 
+import type {
+  MultiAgentEvent,
+  AgentExecutionResult,
+} from "../../agents/multi-agent/types.js";
+
 /**
- * Store for the agent manager - injected via context
+ * Context expected for spawn_agent tool
  */
 interface SpawnAgentContext {
   agentManager?: {
@@ -61,14 +68,11 @@ interface SpawnAgentContext {
       options?: {
         maxTurns?: number;
         cwd?: string;
+        onActivity?: (event: MultiAgentEvent) => void;
       },
-    ) => Promise<{
-      success: boolean;
-      content: string;
-      error?: string;
-      turnCount: number;
-    }>;
+    ) => Promise<AgentExecutionResult>;
   };
+  onSubAgentActivity?: (event: MultiAgentEvent) => void;
 }
 
 /**
@@ -84,7 +88,8 @@ Available agent types:
 - **bash**: Shell command execution specialist
 - **coder**: Code writing and modification specialist
 - **general**: General-purpose agent with all capabilities
-- **critic**: Code review and analysis specialist
+- **critic**: Code review and critique specialist
+- **orchestrator**: Multi-agent coordinator for complex analysis with iterative refinement
 
 Each agent has access to a restricted set of tools appropriate for its specialty.`;
   readonly schema = SpawnAgentSchema;
@@ -121,20 +126,42 @@ Each agent has access to a restricted set of tools appropriate for its specialty
       };
     }
 
+    // Track partial results for timeout handling
+    let partialContent = "";
+    let lastToolResult = "";
+
     try {
-      // Spawn the sub-agent
+      // Spawn the sub-agent with activity forwarding
       const result = await context.agentManager.spawn(
         params.agent_type,
         params.task,
         {
           maxTurns: params.max_turns,
           cwd: options?.cwd,
+          onActivity: (event: MultiAgentEvent) => {
+            // Forward activity events to parent if handler available
+            if (context.onSubAgentActivity) {
+              context.onSubAgentActivity(event);
+            }
+            // Track partial content for timeout recovery
+            if (event.type === "content_chunk") {
+              partialContent += event.content;
+            }
+            if (event.type === "tool_call_end") {
+              lastToolResult = event.result.slice(0, 500);
+            }
+          },
         },
       );
 
       if (!result.success) {
+        // Include partial results if available
+        const errorContent = partialContent
+          ? `Sub-agent failed: ${result.error || "Unknown error"}\n\nPartial results:\n${partialContent}`
+          : `Sub-agent failed: ${result.error || "Unknown error"}`;
+
         return {
-          content: `Sub-agent failed: ${result.error || "Unknown error"}`,
+          content: errorContent,
           isError: true,
           metadata: {
             agentType: params.agent_type,
@@ -157,6 +184,18 @@ Each agent has access to a restricted set of tools appropriate for its specialty
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
+
+      // Handle timeout specifically
+      const isTimeout =
+        errorMessage.includes("timeout") || errorMessage.includes("aborted");
+
+      if (isTimeout && (partialContent || lastToolResult)) {
+        return {
+          content: `Sub-agent timed out.\n\nPartial results gathered:\n${partialContent || lastToolResult}`,
+          isError: true,
+        };
+      }
+
       return {
         content: `Failed to spawn sub-agent: ${errorMessage}`,
         isError: true,

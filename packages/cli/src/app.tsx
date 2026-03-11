@@ -123,8 +123,10 @@ export async function runApp(args: CLIArgs): Promise<void> {
   // Load or generate agent profile
   const agentProfile = await resolveAgentProfile(config, args);
 
+  const llmConfig = config.getLLMConfig();
   console.log(`\n🤖 ${agentProfile.displayName} v${agentProfile.version}`);
   console.log(`📁 Workspace: ${workspaceContext.rootPath}`);
+  console.log(`🧠 Model: ${llmConfig.model} (${llmConfig.provider})`);
   console.log(`📋 ${agentProfile.description}`);
 
   // Initialize memory system and discover memory files

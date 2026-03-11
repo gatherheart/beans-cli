@@ -14,6 +14,7 @@ import { MarkdownDisplay } from "./MarkdownDisplay.js";
 import { DiffDisplay } from "./DiffDisplay.js";
 import { PlanningDisplay } from "./PlanningDisplay.js";
 import { ToolCallDisplay } from "./ToolCallDisplay.js";
+import { ThinkingIndicator } from "./ThinkingIndicator.js";
 import { colors } from "../theme/colors.js";
 import type {
   Message as MessageType,
@@ -55,23 +56,38 @@ function hasDiffMetadata(tool: ToolCallInfo): boolean {
   );
 }
 
-// Tool calls display - vertical list with args and summaries
+// Tool calls display - only show running tools, completed tools shown as summary
 function ToolCalls({
   tools,
   messageId,
 }: ToolCallsProps & { messageId: string }): React.ReactElement {
-  // Collect all tools that have diff metadata
-  const toolsWithDiff = tools.filter(
+  // Separate running and completed tools
+  const runningTools = tools.filter((tool) => !tool.isComplete);
+  const completedTools = tools.filter((tool) => tool.isComplete);
+
+  // Collect tools with diff metadata (for write_file)
+  const toolsWithDiff = completedTools.filter(
     (tool) => hasDiffMetadata(tool) && isWriteFileMetadata(tool.metadata),
   );
 
   return (
     <Box flexDirection="column">
-      {/* Tool calls in vertical list with args and summaries */}
-      {tools.map((tool) => (
+      {/* Completed tools summary - collapsed into one line */}
+      {completedTools.length > 0 && (
+        <Box>
+          <Text color={colors.success}>✓ </Text>
+          <Text color={colors.muted}>
+            {completedTools.map((t) => t.name).join(", ")}
+          </Text>
+        </Box>
+      )}
+
+      {/* Only show currently running tools with spinner */}
+      {runningTools.map((tool) => (
         <ToolCallDisplay key={`${messageId}-${tool.id}`} tool={tool} />
       ))}
-      {/* Diffs below the tool calls */}
+
+      {/* Diffs below (for write_file operations) */}
       {toolsWithDiff.map((tool) => {
         const metadata = tool.metadata as WriteFileMetadata;
         return (
@@ -110,6 +126,13 @@ export const Message = React.memo(function Message({
       {/* 1. Tool calls (shown first) */}
       {hasTools && (
         <ToolCalls tools={message.toolCalls!} messageId={message.id} />
+      )}
+
+      {/* 1.5. Thinking indicator (when waiting for LLM after tools) */}
+      {message.isThinking && (
+        <Box marginTop={1}>
+          <ThinkingIndicator />
+        </Box>
       )}
 
       {/* 2. Planning content (shown after tools, with spacing) */}
