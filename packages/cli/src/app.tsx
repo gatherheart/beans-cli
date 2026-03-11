@@ -89,23 +89,24 @@ export async function runApp(args: CLIArgs): Promise<void> {
   }
 
   // Override model if specified (also infers provider from model name)
+  // Use applySessionOverrides to avoid persisting CLI flags to settings
   if (args.model) {
     const provider = inferProviderFromModel(args.model);
-    await config.updateConfig({
+    config.applySessionOverrides({
       llm: { ...config.getLLMConfig(), model: args.model, provider },
     });
   }
 
   // Override auto-approve if yolo mode
   if (args.yolo) {
-    await config.updateConfig({
+    config.applySessionOverrides({
       agent: { ...config.getAgentConfig(), autoApprove: "all" },
     });
   }
 
   // Enable debug mode if specified
   if (isDebug()) {
-    await config.updateConfig({
+    config.applySessionOverrides({
       debug: { ...config.getDebugConfig(), enabled: true },
     });
     console.log(

@@ -592,7 +592,7 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
 
   // Regex patterns
   const headerRegex = /^(#{1,6})\s+(.*)$/;
-  const codeFenceRegex = /^(`{3,}|~{3,})(\w*)$/;
+  const codeFenceRegex = /^\s*(`{3,}|~{3,})(\w*)\s*$/;
   const ulItemRegex = /^(\s*)([-*+])\s+(.*)$/;
   const olItemRegex = /^(\s*)(\d+)\.\s+(.*)$/;
   const blockquoteRegex = /^>\s?(.*)$/;

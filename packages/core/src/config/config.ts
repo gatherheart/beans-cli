@@ -267,7 +267,9 @@ export class Config {
         apiKey,
         baseUrl: this.config.llm.baseUrl,
         defaultModel: this.config.llm.model,
+        timeout: this.config.llm.timeout,
         debug: debugConfig,
+        rateLimit: this.config.llm.rateLimit,
       });
     }
     return this._llmClient;
@@ -327,6 +329,32 @@ export class Config {
    */
   setRuntimeConfig(updates: Partial<RuntimeConfig>): void {
     this.config.runtime = { ...this.config.runtime, ...updates };
+  }
+
+  /**
+   * Apply session-only overrides (never persisted to disk)
+   *
+   * Use this for CLI flags like --model, --yolo, --debug that should only
+   * apply to the current session and not modify the user's saved settings.
+   */
+  applySessionOverrides(updates: Partial<Omit<AppConfig, "runtime">>): void {
+    this.config = {
+      ...this.config,
+      llm: { ...this.config.llm, ...updates.llm },
+      agent: { ...this.config.agent, ...updates.agent },
+      tools: { ...this.config.tools, ...updates.tools },
+      policy: { ...this.config.policy, ...updates.policy },
+      telemetry: { ...this.config.telemetry, ...updates.telemetry },
+      ui: { ...this.config.ui, ...updates.ui },
+      debug: { ...this.config.debug, ...updates.debug },
+      memory: { ...this.config.memory, ...updates.memory },
+    };
+
+    // Invalidate LLM client cache if llm config changed
+    // It will be recreated on next getLLMClient() call with new config
+    if (updates.llm) {
+      this._llmClient = null;
+    }
   }
 
   /**

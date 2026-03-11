@@ -145,6 +145,15 @@ export interface ProviderConfig {
     /** Optional callback for debug events (used by UI) */
     onDebugEvent?: (event: DebugEvent) => void;
   };
+  /** Rate limiting configuration (for providers with rate limits) */
+  rateLimit?: {
+    /** Max requests per minute (default: 60 for paid tier) */
+    requestsPerMinute?: number;
+    /** Max retries on 429 error (default: 3) */
+    maxRetries?: number;
+    /** Initial backoff in ms (default: 1000, doubles each retry) */
+    initialBackoffMs?: number;
+  };
 }
 
 /**

@@ -47,6 +47,155 @@ export function inferProviderFromModel(model: string): LLMProvider {
 const DEBUG_LOG_DIR = join(homedir(), ".beans", "logs");
 const DEBUG_LOG_FILE = join(DEBUG_LOG_DIR, "debug.log");
 
+// ============================================================================
+// Rate Limiter for API calls
+// ============================================================================
+
+interface RateLimiterConfig {
+  requestsPerMinute: number;
+  maxRetries: number;
+  initialBackoffMs: number;
+}
+
+const DEFAULT_RATE_LIMIT_CONFIG: RateLimiterConfig = {
+  requestsPerMinute: 60, // Default for paid tier (free tier is 15 RPM)
+  maxRetries: 3,
+  initialBackoffMs: 1000,
+};
+
+/**
+ * Simple token bucket rate limiter
+ */
+class RateLimiter {
+  private tokens: number;
+  private lastRefill: number;
+  private readonly maxTokens: number;
+  private readonly refillRate: number; // tokens per ms
+
+  constructor(requestsPerMinute: number) {
+    this.maxTokens = requestsPerMinute;
+    this.tokens = requestsPerMinute;
+    this.lastRefill = Date.now();
+    this.refillRate = requestsPerMinute / 60000; // per millisecond
+  }
+
+  private refill(): void {
+    const now = Date.now();
+    const elapsed = now - this.lastRefill;
+    const tokensToAdd = elapsed * this.refillRate;
+    this.tokens = Math.min(this.maxTokens, this.tokens + tokensToAdd);
+    this.lastRefill = now;
+  }
+
+  async acquire(): Promise<void> {
+    this.refill();
+
+    if (this.tokens >= 1) {
+      this.tokens -= 1;
+      return;
+    }
+
+    // Calculate wait time until we have a token
+    const waitMs = Math.ceil((1 - this.tokens) / this.refillRate);
+    await sleep(waitMs);
+    this.refill();
+    this.tokens -= 1;
+  }
+
+  getAvailableTokens(): number {
+    this.refill();
+    return this.tokens;
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Wraps a fetch call with rate limiting and retry logic
+ */
+async function fetchWithRateLimit(
+  rateLimiter: RateLimiter,
+  config: RateLimiterConfig,
+  fetchFn: () => Promise<Response>,
+  onRetry?: (attempt: number, waitMs: number) => void,
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
+    // Wait for rate limiter before making request
+    await rateLimiter.acquire();
+
+    try {
+      const response = await fetchFn();
+
+      if (response.status === 429) {
+        // Rate limited - extract retry-after if available
+        const retryAfter = response.headers.get("retry-after");
+        let waitMs = config.initialBackoffMs * Math.pow(2, attempt);
+
+        if (retryAfter) {
+          // Retry-After can be seconds or a date
+          const parsed = parseInt(retryAfter, 10);
+          if (!isNaN(parsed)) {
+            waitMs = parsed * 1000;
+          }
+        }
+
+        // Cap wait time at 60 seconds
+        waitMs = Math.min(waitMs, 60000);
+
+        if (attempt < config.maxRetries) {
+          onRetry?.(attempt + 1, waitMs);
+          await sleep(waitMs);
+          continue;
+        }
+
+        // Final attempt failed
+        const errorBody = await response.text();
+        throw new Error(
+          `Rate limit exceeded after ${config.maxRetries} retries: ${errorBody}`,
+        );
+      }
+
+      return response;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Don't retry non-rate-limit errors
+      if (
+        !lastError.message.includes("429") &&
+        !lastError.message.includes("rate")
+      ) {
+        throw lastError;
+      }
+
+      if (attempt < config.maxRetries) {
+        const waitMs = config.initialBackoffMs * Math.pow(2, attempt);
+        onRetry?.(attempt + 1, waitMs);
+        await sleep(waitMs);
+      }
+    }
+  }
+
+  throw lastError ?? new Error("Rate limit exceeded");
+}
+
+// Global rate limiter instance for Google API (shared across all requests)
+let googleRateLimiter: RateLimiter | null = null;
+
+function getGoogleRateLimiter(
+  config?: Partial<RateLimiterConfig>,
+): RateLimiter {
+  if (!googleRateLimiter) {
+    const rpm =
+      config?.requestsPerMinute ?? DEFAULT_RATE_LIMIT_CONFIG.requestsPerMinute;
+    googleRateLimiter = new RateLimiter(rpm);
+  }
+  return googleRateLimiter;
+}
+
 function ensureLogDir(): void {
   if (!existsSync(DEBUG_LOG_DIR)) {
     mkdirSync(DEBUG_LOG_DIR, { recursive: true });
@@ -322,6 +471,19 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
   const baseUrl =
     config.baseUrl ?? "https://generativelanguage.googleapis.com/v1beta";
 
+  // Initialize rate limiter with config or defaults
+  const rateLimitConfig: RateLimiterConfig = {
+    ...DEFAULT_RATE_LIMIT_CONFIG,
+    ...config.rateLimit,
+  };
+  const rateLimiter = getGoogleRateLimiter(rateLimitConfig);
+
+  const logRetry = config.debug?.enabled
+    ? (attempt: number, waitMs: number) => {
+        writeDebugLog(`⏳ Rate limited, retry ${attempt} after ${waitMs}ms`);
+      }
+    : undefined;
+
   const buildRequestBody = (request: ChatRequest) => {
     const contents = formatMessagesForGoogle(request);
 
@@ -357,15 +519,21 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
     async chat(request: ChatRequest): Promise<ChatResponse> {
       const url = `${baseUrl}/models/${request.model}:generateContent?key=${config.apiKey}`;
 
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...config.headers,
-        },
-        body: JSON.stringify(buildRequestBody(request)),
-        signal: AbortSignal.timeout(config.timeout ?? 60000),
-      });
+      const response = await fetchWithRateLimit(
+        rateLimiter,
+        rateLimitConfig,
+        () =>
+          fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...config.headers,
+            },
+            body: JSON.stringify(buildRequestBody(request)),
+            signal: AbortSignal.timeout(config.timeout ?? 60000),
+          }),
+        logRetry,
+      );
 
       if (!response.ok) {
         const errorBody = await response.text();
@@ -396,15 +564,21 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
     ): AsyncGenerator<import("./types.js").ChatStreamChunk, void, unknown> {
       const url = `${baseUrl}/models/${request.model}:streamGenerateContent?key=${config.apiKey}&alt=sse`;
 
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...config.headers,
-        },
-        body: JSON.stringify(buildRequestBody(request)),
-        signal: AbortSignal.timeout(config.timeout ?? 120000),
-      });
+      const response = await fetchWithRateLimit(
+        rateLimiter,
+        rateLimitConfig,
+        () =>
+          fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...config.headers,
+            },
+            body: JSON.stringify(buildRequestBody(request)),
+            signal: AbortSignal.timeout(config.timeout ?? 120000),
+          }),
+        logRetry,
+      );
 
       if (!response.ok) {
         const errorBody = await response.text();

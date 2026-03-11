@@ -30,11 +30,39 @@ export class GlobTool extends BaseTool<GlobParams> {
   ): Promise<ToolExecutionResult> {
     try {
       const cwd = options?.cwd ?? process.cwd();
-      const expandedPath = params.path ? expandTilde(params.path) : undefined;
+
+      // Extract relative path prefixes (../, ./, or path/) from pattern
+      // e.g., "../sword-macro/**/*" -> path="../sword-macro", pattern="**/*"
+      const { extractedPath, cleanPattern } = this.extractPathFromPattern(
+        params.pattern,
+      );
+
+      // Combine explicit path param with extracted path
+      const combinedPath = params.path
+        ? path.join(params.path, extractedPath)
+        : extractedPath;
+
+      const expandedPath = combinedPath ? expandTilde(combinedPath) : undefined;
       const searchPath = expandedPath ? path.resolve(cwd, expandedPath) : cwd;
 
+      // Check if directory exists
+      try {
+        const stat = await fs.stat(searchPath);
+        if (!stat.isDirectory()) {
+          return {
+            content: `Path is not a directory: ${searchPath}`,
+            isError: true,
+          };
+        }
+      } catch {
+        return {
+          content: `Directory not found: ${searchPath}\nCurrent working directory: ${cwd}`,
+          isError: true,
+        };
+      }
+
       // Simple glob implementation - in production use fast-glob
-      const matches = await this.simpleGlob(searchPath, params.pattern);
+      const matches = await this.simpleGlob(searchPath, cleanPattern);
 
       if (matches.length === 0) {
         return {
@@ -119,6 +147,39 @@ export class GlobTool extends BaseTool<GlobParams> {
         results.push(relativePath);
       }
     }
+  }
+
+  /**
+   * Extract path prefix from glob pattern
+   * e.g., "../sword-macro/**\/*.ts" -> { extractedPath: "../sword-macro", cleanPattern: "**\/*.ts" }
+   * e.g., "src/components/*.tsx" -> { extractedPath: "src/components", cleanPattern: "*.tsx" }
+   * e.g., "**\/*.ts" -> { extractedPath: "", cleanPattern: "**\/*.ts" }
+   */
+  private extractPathFromPattern(pattern: string): {
+    extractedPath: string;
+    cleanPattern: string;
+  } {
+    // Find the last segment that doesn't contain glob special characters
+    const parts = pattern.split("/");
+    const pathParts: string[] = [];
+    let patternStartIndex = 0;
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      // Check if this part contains glob special characters
+      if (/[*?[\]{}]/.test(part)) {
+        patternStartIndex = i;
+        break;
+      }
+      // This is a regular path segment (including .., ., or directory names)
+      pathParts.push(part);
+      patternStartIndex = i + 1;
+    }
+
+    const extractedPath = pathParts.join("/");
+    const cleanPattern = parts.slice(patternStartIndex).join("/") || "**/*";
+
+    return { extractedPath, cleanPattern };
   }
 
   private globToRegex(pattern: string): RegExp {

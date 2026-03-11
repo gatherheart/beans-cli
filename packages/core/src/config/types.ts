@@ -60,8 +60,16 @@ export interface LLMConfig {
   maxTokens?: number;
   /** Custom base URL */
   baseUrl?: string;
+  /** Request timeout in ms */
+  timeout?: number;
   /** Model routing configuration */
   routing?: RoutingConfig;
+  /** Rate limiting configuration */
+  rateLimit?: {
+    requestsPerMinute?: number;
+    maxRetries?: number;
+    initialBackoffMs?: number;
+  };
 }
 
 /**
