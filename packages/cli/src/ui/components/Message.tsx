@@ -70,13 +70,13 @@ function formatCompletedToolsSummary(tools: ToolCallInfo[]): string {
     .join(", ");
 }
 
-// Tool calls display - only show running tools, completed tools shown as summary
+// Tool calls display - show completed tools with checkmark, spinner when processing
 function ToolCalls({
   tools,
   messageId,
 }: ToolCallsProps & { messageId: string }): React.ReactElement {
   // Separate running and completed tools
-  const runningTools = tools.filter((tool) => !tool.isComplete);
+  const hasRunningTools = tools.some((tool) => !tool.isComplete);
   const completedTools = tools.filter((tool) => tool.isComplete);
 
   // Collect tools with diff metadata (for write_file)
@@ -84,36 +84,26 @@ function ToolCalls({
     (tool) => hasDiffMetadata(tool) && isWriteFileMetadata(tool.metadata),
   );
 
-  // Get the most recent running tool (if any)
-  const currentRunningTool =
-    runningTools.length > 0 ? runningTools[runningTools.length - 1] : null;
-
   return (
     <Box flexDirection="column">
-      {/* Single line: completed summary + current running tool */}
-      {(completedTools.length > 0 || currentRunningTool) && (
+      {/* Single line: spinner (if running) + completed summary */}
+      {(completedTools.length > 0 || hasRunningTools) && (
         <Box>
-          {completedTools.length > 0 && (
-            <>
-              <Text color={colors.success}>✓ </Text>
-              <Text color={colors.muted}>
-                {formatCompletedToolsSummary(completedTools)}
-              </Text>
-            </>
+          {/* Show spinner first when tools are running */}
+          {hasRunningTools && (
+            <Text color={colors.warning}>
+              <Spinner type="dots" />{" "}
+            </Text>
           )}
-          {currentRunningTool && (
-            <>
-              {completedTools.length > 0 && <Text color={colors.muted}> </Text>}
-              <Text color={colors.warning}>
-                <Spinner type="dots" />
-              </Text>
-              <Text color={colors.primary}> {currentRunningTool.name}</Text>
-              {currentRunningTool.argsSummary && (
-                <Text color={colors.muted}>
-                  ({currentRunningTool.argsSummary})
-                </Text>
-              )}
-            </>
+          {/* Show checkmark when tools completed and none running */}
+          {completedTools.length > 0 && !hasRunningTools && (
+            <Text color={colors.success}>✓ </Text>
+          )}
+          {/* Show completed tools summary */}
+          {completedTools.length > 0 && (
+            <Text color={colors.muted}>
+              {formatCompletedToolsSummary(completedTools)}
+            </Text>
           )}
         </Box>
       )}
