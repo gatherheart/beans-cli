@@ -155,7 +155,14 @@ export const DiffDisplay = React.memo(function DiffDisplay({
       <Text color={colors.header} bold>
         {isNewFile ? "📄 New file:" : "📝 Modified:"} {filePath}
       </Text>
-      <Box flexDirection="column">{renderDiff()}</Box>
+      <Box
+        flexDirection="column"
+        borderStyle="round"
+        borderColor={colors.muted}
+        paddingX={1}
+      >
+        {renderDiff()}
+      </Box>
     </Box>
   );
 });
