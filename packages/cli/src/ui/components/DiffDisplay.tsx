@@ -34,16 +34,16 @@ export const DiffDisplay = React.memo(function DiffDisplay({
   const renderDiff = () => {
     if (isNewFile) {
       // New file: show all lines as added
-      // Format: [   ] [NEW] + content
+      // Format: [    ] [NEW] + content (blank OLD column)
       const lines = newContent.split("\n");
 
       return (
         <>
           {lines.map((line, i) => (
             <Box key={i}>
-              <Text color={colors.muted}>{"    "}</Text>
-              <Text color={FG_ADDED}>{String(i + 1).padStart(4)}</Text>
-              <Text color={FG_ADDED}> + </Text>
+              <Text color={colors.muted}>{"     "}</Text>
+              <Text color={FG_ADDED}>{String(i + 1).padStart(4)} </Text>
+              <Text color={FG_ADDED}>+</Text>
               <Text backgroundColor={BG_ADDED} color={FG_ADDED}>
                 {line}
               </Text>
@@ -97,14 +97,14 @@ export const DiffDisplay = React.memo(function DiffDisplay({
       }
 
       // Added line - blue background
-      // Format: [   ] [NEW] + content
+      // Format: [    ] [NEW] + content (blank OLD column)
       if (line.startsWith("+")) {
         const content = line.slice(1); // Remove the + prefix
         displayLines.push(
           <Box key={i}>
-            <Text color={colors.muted}>{"    "}</Text>
-            <Text color={FG_ADDED}>{String(newLine).padStart(4)}</Text>
-            <Text color={FG_ADDED}> + </Text>
+            <Text color={colors.muted}>{"     "}</Text>
+            <Text color={FG_ADDED}>{String(newLine).padStart(4)} </Text>
+            <Text color={FG_ADDED}>+</Text>
             <Text backgroundColor={BG_ADDED} color={FG_ADDED}>
               {content}
             </Text>
@@ -115,14 +115,14 @@ export const DiffDisplay = React.memo(function DiffDisplay({
       }
 
       // Removed line - red background
-      // Format: [OLD] [   ] - content
+      // Format: [OLD] [    ] - content (blank NEW column)
       if (line.startsWith("-")) {
         const content = line.slice(1); // Remove the - prefix
         displayLines.push(
           <Box key={i}>
-            <Text color={FG_REMOVED}>{String(oldLine).padStart(4)}</Text>
-            <Text color={colors.muted}>{"    "}</Text>
-            <Text color={FG_REMOVED}> - </Text>
+            <Text color={FG_REMOVED}>{String(oldLine).padStart(4)} </Text>
+            <Text color={colors.muted}>{"     "}</Text>
+            <Text color={FG_REMOVED}>-</Text>
             <Text backgroundColor={BG_REMOVED} color={FG_REMOVED}>
               {content}
             </Text>
@@ -138,8 +138,8 @@ export const DiffDisplay = React.memo(function DiffDisplay({
         const content = line.slice(1); // Remove the leading space
         displayLines.push(
           <Box key={i}>
-            <Text color={colors.muted}>{String(oldLine).padStart(4)}</Text>
-            <Text color={colors.muted}>{String(newLine).padStart(4)}</Text>
+            <Text color={colors.muted}>{String(oldLine).padStart(4)} </Text>
+            <Text color={colors.muted}>{String(newLine).padStart(4)} </Text>
             <Text color={colors.muted}> {content}</Text>
           </Box>,
         );
