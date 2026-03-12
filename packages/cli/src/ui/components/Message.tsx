@@ -13,7 +13,6 @@ import type { WriteFileMetadata, ToolMetadata } from "@beans/core";
 import { MarkdownDisplay } from "./MarkdownDisplay.js";
 import { DiffDisplay } from "./DiffDisplay.js";
 import { PlanningDisplay } from "./PlanningDisplay.js";
-import { ToolCallDisplay } from "./ToolCallDisplay.js";
 import { ThinkingIndicator } from "./ThinkingIndicator.js";
 import { colors } from "../theme/colors.js";
 import type {
@@ -56,6 +55,21 @@ function hasDiffMetadata(tool: ToolCallInfo): boolean {
   );
 }
 
+/**
+ * Format completed tools summary - group by name with count
+ * e.g., "read_file (5), glob (2), grep" instead of "read_file, read_file, read_file..."
+ */
+function formatCompletedToolsSummary(tools: ToolCallInfo[]): string {
+  const counts = new Map<string, number>();
+  for (const tool of tools) {
+    counts.set(tool.name, (counts.get(tool.name) || 0) + 1);
+  }
+
+  return Array.from(counts.entries())
+    .map(([name, count]) => (count > 1 ? `${name} (${count})` : name))
+    .join(", ");
+}
+
 // Tool calls display - only show running tools, completed tools shown as summary
 function ToolCalls({
   tools,
@@ -70,22 +84,39 @@ function ToolCalls({
     (tool) => hasDiffMetadata(tool) && isWriteFileMetadata(tool.metadata),
   );
 
+  // Get the most recent running tool (if any)
+  const currentRunningTool =
+    runningTools.length > 0 ? runningTools[runningTools.length - 1] : null;
+
   return (
     <Box flexDirection="column">
-      {/* Completed tools summary - collapsed into one line */}
-      {completedTools.length > 0 && (
+      {/* Single line: completed summary + current running tool */}
+      {(completedTools.length > 0 || currentRunningTool) && (
         <Box>
-          <Text color={colors.success}>✓ </Text>
-          <Text color={colors.muted}>
-            {completedTools.map((t) => t.name).join(", ")}
-          </Text>
+          {completedTools.length > 0 && (
+            <>
+              <Text color={colors.success}>✓ </Text>
+              <Text color={colors.muted}>
+                {formatCompletedToolsSummary(completedTools)}
+              </Text>
+            </>
+          )}
+          {currentRunningTool && (
+            <>
+              {completedTools.length > 0 && <Text color={colors.muted}> </Text>}
+              <Text color={colors.warning}>
+                <Spinner type="dots" />
+              </Text>
+              <Text color={colors.primary}> {currentRunningTool.name}</Text>
+              {currentRunningTool.argsSummary && (
+                <Text color={colors.muted}>
+                  ({currentRunningTool.argsSummary})
+                </Text>
+              )}
+            </>
+          )}
         </Box>
       )}
-
-      {/* Only show currently running tools with spinner */}
-      {runningTools.map((tool) => (
-        <ToolCallDisplay key={`${messageId}-${tool.id}`} tool={tool} />
-      ))}
 
       {/* Diffs below (for write_file operations) */}
       {toolsWithDiff.map((tool) => {
@@ -145,9 +176,9 @@ export const Message = React.memo(function Message({
         </Box>
       )}
 
-      {/* 3. Final response */}
+      {/* 3. Final response (with spacing from previous sections) */}
       {(showContent || showStreamingSpinner) && (
-        <Box>
+        <Box marginTop={hasTools || hasPlanning ? 1 : 0}>
           {isUser ? (
             <Text color={colors.user} bold>
               {"> "}

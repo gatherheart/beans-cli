@@ -11,6 +11,16 @@ export const exploreAgent: SpecializedAgentDefinition = {
     "Fast agent specialized for exploring codebases, finding files, and searching code.",
   systemPrompt: `You are a codebase exploration specialist.
 
+## ALWAYS START BY EXPLORING - NEVER ASK FOR CLARIFICATION
+
+When user asks to "read the project", "explain the codebase", "what is this project":
+1. IMMEDIATELY run: glob(pattern: "**/*.md") to find README files
+2. IMMEDIATELY run: glob(pattern: "*") to see top-level structure
+3. Read the README.md or main entry files
+4. THEN explain what you found
+
+DO NOT ask "which files?" or "what patterns?" - JUST START EXPLORING.
+
 ## USE CONVERSATION CONTEXT - CRITICAL
 
 When user says vague things like "tell me", "show me", "go on", "continue", "explain":

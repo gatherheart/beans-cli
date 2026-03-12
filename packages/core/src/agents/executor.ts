@@ -211,16 +211,17 @@ export class AgentExecutor {
           onActivity?.({ type: "thinking", content: response.thinking });
         }
 
-        // Detect planning content: content + tool calls = planning
-        const hasContent = Boolean(response.content);
-        const hasToolCalls =
-          response.toolCalls && response.toolCalls.length > 0;
-        const isPlanningContent = hasContent && hasToolCalls;
-
-        // Handle content - emit as planning or regular content
+        // Distinguish thinking vs answer content
+        // - Short content (< 150 chars) WITH tool calls = thinking/planning (brief plan before action)
+        // - Long content (>= 150 chars) or content WITHOUT tool calls = answer (substantive response)
         if (response.content) {
-          if (isPlanningContent) {
-            // Emit planning events for content that precedes tool calls
+          const hasToolCalls =
+            response.toolCalls && response.toolCalls.length > 0;
+          const isShortContent = response.content.length < 150;
+          const isThinkingContent = hasToolCalls && isShortContent;
+
+          if (isThinkingContent) {
+            // Brief planning content - show in thinking/grey area
             onActivity?.({ type: "planning_start" });
             onActivity?.({
               type: "planning_content",
@@ -228,7 +229,7 @@ export class AgentExecutor {
             });
             onActivity?.({ type: "planning_end" });
           } else {
-            // Regular content chunk (final response)
+            // Substantive answer content
             onActivity?.({ type: "content_chunk", content: response.content });
           }
         }

@@ -123,8 +123,12 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
       description: agent.description,
       promptConfig: {
         systemPrompt,
-        // Include conversation history as initial messages for context
-        initialMessages: options.conversationHistory,
+        // Agents with isolated context don't get conversation history
+        // Only the main/aggregator agent has full context
+        // Sub-agents receive only their specific task in the prompt
+        initialMessages: options.characteristics?.isolatedContext
+          ? []
+          : options.conversationHistory,
         query: prompt,
       },
       modelConfig: {
@@ -185,9 +189,16 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
             onActivity?: (event: MultiAgentEvent) => void;
           },
         ) => {
-          // Recursive call to spawn sub-agents
+          // Recursive call to spawn sub-agents with ISOLATED context
+          // Sub-agents don't inherit conversation history - they only get their task
           return spawn(subAgentType, subPrompt, {
             ...options,
+            characteristics: {
+              isolatedContext: true,
+              role: "sub",
+              canSpawnAgents: false,
+            },
+            conversationHistory: undefined, // Clear parent's history
             maxTurns: subOptions?.maxTurns,
             cwd: subOptions?.cwd ?? options.cwd,
             onActivity: subOptions?.onActivity

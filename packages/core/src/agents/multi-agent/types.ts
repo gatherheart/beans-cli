@@ -168,6 +168,25 @@ export interface ExtractedIntent {
 /**
  * Options for spawning an agent
  */
+/**
+ * Agent role types
+ */
+export type AgentRole = "main" | "sub" | "orchestrator" | "worker";
+
+/**
+ * Agent characteristics that define behavior
+ */
+export interface AgentCharacteristics {
+  /** Whether agent has isolated context (no conversation history from parent) */
+  isolatedContext?: boolean;
+  /** Whether agent can spawn sub-agents */
+  canSpawnAgents?: boolean;
+  /** Whether agent aggregates results from sub-agents */
+  isAggregator?: boolean;
+  /** Role description for logging/debugging */
+  role?: AgentRole;
+}
+
 export interface SpawnOptions {
   /** Task ID to associate with this execution */
   taskId?: string;
@@ -179,10 +198,12 @@ export interface SpawnOptions {
   signal?: AbortSignal;
   /** Activity callback */
   onActivity?: (event: MultiAgentEvent) => void;
-  /** Conversation history to provide context */
+  /** Conversation history to provide context (only for main agent) */
   conversationHistory?: Message[];
   /** Extracted intent from user query */
   extractedIntent?: ExtractedIntent;
+  /** Agent characteristics defining behavior */
+  characteristics?: AgentCharacteristics;
 }
 
 /**

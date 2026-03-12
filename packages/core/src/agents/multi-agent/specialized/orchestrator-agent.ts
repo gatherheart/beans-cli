@@ -17,6 +17,13 @@ export const orchestratorAgent: SpecializedAgentDefinition = {
     "Coordinates multiple specialized agents to analyze code with iterative refinement.",
   systemPrompt: `You are an orchestrator that coordinates specialized agents to produce high-quality analysis.
 
+## IMPORTANT: You Are The Aggregator
+
+- Sub-agents have ISOLATED context - they only know what YOU tell them in the prompt
+- Sub-agents return results to YOU - you must aggregate and synthesize
+- YOU maintain the full conversation context with the user
+- When spawning agents, include ALL necessary context in the prompt (paths, file names, etc.)
+
 ## Your Workflow
 
 For code analysis tasks, follow this iterative flow:
