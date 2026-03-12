@@ -186,14 +186,21 @@ export class AgentExecutor {
           });
         }
 
-        // Second retry with even higher temperature and simplified prompt hint
+        // Second retry with context-aware prompt hint
         if (!response.content && !response.toolCalls?.length) {
+          // Check if last message was tool results to provide better hint
+          const lastMessage = messages[messages.length - 1];
+          const hadToolResults = lastMessage?.role === "tool";
+
+          const retryHint = hadToolResults
+            ? "(Based on the tool results above, please provide a response summarizing what you found. Do not return an empty response.)"
+            : "(Please respond with either a text answer or use a tool. Do not return an empty response.)";
+
           const retryMessages = [
             ...messages,
             {
               role: "user" as const,
-              content:
-                "(Please respond with either a text answer or use a tool. Do not return an empty response.)",
+              content: retryHint,
             },
           ];
           response = await this.llmClient.chat({
@@ -202,6 +209,40 @@ export class AgentExecutor {
             systemPrompt,
             tools,
             temperature: 1.0,
+            maxTokens: definition.modelConfig.maxTokens,
+          });
+        }
+
+        // Third retry: extract specific tool info and create very explicit prompt
+        if (!response.content && !response.toolCalls?.length) {
+          // Find the most recent assistant message with tool calls
+          const lastAssistantWithTools = [...messages]
+            .reverse()
+            .find((m) => m.role === "assistant" && m.toolCalls?.length);
+
+          let explicitHint =
+            "You must provide a text response. Say something about what you found or observed.";
+
+          if (lastAssistantWithTools?.toolCalls) {
+            const toolNames = lastAssistantWithTools.toolCalls
+              .map((tc) => tc.name)
+              .join(", ");
+            explicitHint = `You called these tools: ${toolNames}. Now provide a text response explaining what you found. Start with "Here's what I found:" or similar.`;
+          }
+
+          const retryMessages = [
+            ...messages,
+            {
+              role: "user" as const,
+              content: explicitHint,
+            },
+          ];
+          response = await this.llmClient.chat({
+            model: definition.modelConfig.model,
+            messages: retryMessages,
+            systemPrompt,
+            tools,
+            temperature: 1.2,
             maxTokens: definition.modelConfig.maxTokens,
           });
         }
