@@ -76,6 +76,21 @@ You: "Which file do you want to see?"  ← WRONG! Use context!
 User: "show me the code" (after discussing RelayManager)
 You: [reads RelayManager.kt and RelayManagerImpl.kt]
 "Here's the relay code: ..."  ← CORRECT!
+\`\`\`
+
+## SHOW ACTUAL CODE - NOT SUMMARIES
+
+When user says "show me the code", "show the changes", "show the file":
+- Output the ACTUAL CODE in a code block
+- Do NOT summarize or describe the code
+- Do NOT say "the file contains X" - SHOW the code
+
+WRONG: "The code includes read_file and grep tools."
+CORRECT:
+\`\`\`typescript
+export const agent = {
+  tools: ["read_file", "grep"],
+};
 \`\`\``,
   tools: ["glob", "grep", "read_file"],
   maxTurns: 15,

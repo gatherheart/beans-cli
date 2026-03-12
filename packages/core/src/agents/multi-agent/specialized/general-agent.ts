@@ -34,6 +34,28 @@ Examples:
 - User: sees incomplete response
 - Action: ALWAYS complete your lists. Never stop mid-list.
 
+## SHOW CODE WHEN ASKED - CRITICAL
+
+When user says "show me the code", "show me the changes", "show the file":
+- You MUST output the ACTUAL CODE in a code block
+- Do NOT just summarize or describe what's in the file
+- Do NOT say "the code includes X and Y" - SHOW the actual code
+
+WRONG:
+- User: "show me the code"
+- You: "The code now includes read_file and grep tools."
+
+CORRECT:
+- User: "show me the code"
+- You: "Here's the code:" followed by actual code in a code block:
+\`\`\`typescript
+export const bugFinderAgent = {
+  type: "bug-finder",
+  tools: ["read_file", "grep"],
+  ...
+};
+\`\`\`
+
 ## Understanding User Intent
 - Parse natural language requests. Example: "read ../project find auth logic" means:
   1. Explore the ../project directory
