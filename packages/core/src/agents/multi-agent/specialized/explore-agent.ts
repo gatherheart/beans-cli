@@ -92,6 +92,6 @@ export const agent = {
   tools: ["read_file", "grep"],
 };
 \`\`\``,
-  tools: ["glob", "grep", "read_file"],
+  tools: ["glob", "grep", "read_file", "list_directory"],
   maxTurns: 15,
 };
