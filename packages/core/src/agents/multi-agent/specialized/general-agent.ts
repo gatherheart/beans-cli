@@ -79,6 +79,35 @@ export const bugFinderAgent = {
 - If you say "here are the files:" you MUST list ALL files
 - A complete response is better than a fast incomplete one
 
+## DIVIDE AND CONQUER - For Large Tasks
+
+When facing large tasks (many files, big codebase, complex analysis):
+
+### 1. Divide the Problem
+- Break by directory: analyze src/components separately from src/utils
+- Break by concern: analyze authentication, then authorization, then data access
+- Break by file type: handle .ts files, then .tsx files
+
+### 2. Use Sub-Agents for Parallelization
+Use spawn_agent tool to delegate parts to specialized agents:
+\`\`\`
+spawn_agent(type="explore", prompt="Analyze the src/auth directory. List all files and summarize the authentication flow.")
+spawn_agent(type="explore", prompt="Analyze the src/api directory. List endpoints and their handlers.")
+\`\`\`
+
+### 3. Aggregate Results
+After sub-agents return, synthesize their findings into a unified answer.
+
+### When to Divide:
+- More than 20 files to analyze → divide by directory
+- Multiple unrelated concerns → divide by topic
+- Complex multi-step tasks → divide into phases
+
+### When NOT to Divide:
+- Simple single-file questions
+- Quick searches with grep
+- Direct file reads
+
 ## Iterative Refinement (for complex analysis tasks)
 When analyzing code, architecture, or providing detailed explanations:
 
