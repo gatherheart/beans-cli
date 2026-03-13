@@ -9,29 +9,7 @@ import chalk from "chalk";
 import { useChatState, useChatActions } from "../contexts/ChatContext.js";
 import { formatHistoryForDisplay } from "../utils/formatHistory.js";
 import { colors, theme } from "../theme/colors.js";
-
-const HELP_TEXT = `## Available Commands
-
-- **/help** - Show this help message
-- **/clear** - Clear chat history
-- **/profile** - Show current agent profile
-- **/history** - Show LLM message history
-- **/memory** - Show the current system prompt
-- **/model** - Show current model or switch models
-- **/plan** - Enter plan mode (read-only, blocks writes)
-- **/plan exit** - Exit plan mode
-- **/mode** - Show or set approval mode (default/auto/yolo/plan)
-- **/exit** - Exit the application
-
-**Multi-line input:**
-- Shift+Enter or Ctrl+J to insert newline
-- Type \\ at end of line then Enter
-
-**Cursor navigation:**
-- Left/Right arrows to move cursor
-- Up/Down arrows to navigate input history
-- Ctrl+A to move to start, Ctrl+E to move to end
-- Ctrl+U to clear line`;
+import { KNOWN_COMMANDS, KNOWN_COMMANDS_SET, HELP_TEXT } from "./constants.js";
 
 // --- Input State and Actions (following gemini-cli reducer pattern) ---
 
@@ -161,27 +139,42 @@ export const InputArea = React.memo(function InputArea({
       setHistoryIndex(-1);
 
       // Handle slash commands
+      // Only treat as command if first word is a known command
+      // This prevents file paths like /Users/... from being treated as commands
       if (trimmed.startsWith("/")) {
         const command = trimmed.slice(1).toLowerCase();
+        const firstWord = command.split(/\s+/)[0];
 
-        if (command === "exit" || command === "quit" || command === "q") {
+        // If first word is not a known command, treat as regular message
+        // This prevents file paths like /Users/... from being treated as commands
+        if (!KNOWN_COMMANDS_SET.has(firstWord)) {
+          dispatch({ type: "clear" });
+          await sendMessage(trimmed);
+          return;
+        }
+
+        if (
+          command === KNOWN_COMMANDS.EXIT ||
+          command === KNOWN_COMMANDS.QUIT ||
+          command === KNOWN_COMMANDS.Q
+        ) {
           onExit();
           return;
         }
 
-        if (command === "clear") {
+        if (command === KNOWN_COMMANDS.CLEAR) {
           clearHistory();
           dispatch({ type: "clear" });
           return;
         }
 
-        if (command === "help") {
+        if (command === KNOWN_COMMANDS.HELP) {
           addSystemMessage(HELP_TEXT);
           dispatch({ type: "clear" });
           return;
         }
 
-        if (command === "profile") {
+        if (command === KNOWN_COMMANDS.PROFILE) {
           if (profile) {
             const profileText = `## Current Agent Profile
 
@@ -197,14 +190,14 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ""}`;
           return;
         }
 
-        if (command === "history") {
+        if (command === KNOWN_COMMANDS.HISTORY) {
           const llmHistory = getLLMHistory();
           addSystemMessage(formatHistoryForDisplay(llmHistory));
           dispatch({ type: "clear" });
           return;
         }
 
-        if (command === "memory") {
+        if (command === KNOWN_COMMANDS.MEMORY) {
           const systemPrompt = getSystemPrompt();
           const memoryText = `## System Prompt\n\n\`\`\`\n${systemPrompt}\n\`\`\``;
           addSystemMessage(memoryText);
@@ -212,7 +205,10 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ""}`;
           return;
         }
 
-        if (command === "model" || command.startsWith("model ")) {
+        if (
+          command === KNOWN_COMMANDS.MODEL ||
+          command.startsWith(`${KNOWN_COMMANDS.MODEL} `)
+        ) {
           const modelArg = command.slice(6).trim();
           if (modelArg) {
             // Switch to specified model
@@ -229,19 +225,25 @@ ${profile.purpose ? `- **Purpose:** ${profile.purpose}` : ""}`;
           return;
         }
 
-        if (command === "plan") {
+        if (command === KNOWN_COMMANDS.PLAN) {
           enterPlanMode();
           dispatch({ type: "clear" });
           return;
         }
 
-        if (command === "plan exit" || command === "plan off") {
+        if (
+          command === `${KNOWN_COMMANDS.PLAN} exit` ||
+          command === `${KNOWN_COMMANDS.PLAN} off`
+        ) {
           exitPlanMode();
           dispatch({ type: "clear" });
           return;
         }
 
-        if (command === "mode" || command.startsWith("mode ")) {
+        if (
+          command === KNOWN_COMMANDS.MODE ||
+          command.startsWith(`${KNOWN_COMMANDS.MODE} `)
+        ) {
           const modeArg = command.slice(5).trim().toUpperCase();
           if (modeArg) {
             if (["DEFAULT", "AUTO_EDIT", "PLAN", "YOLO"].includes(modeArg)) {

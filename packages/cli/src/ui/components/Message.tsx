@@ -6,7 +6,7 @@
  * - Uses wrap="wrap" on Text components
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import { Box, Text } from "ink";
 import Spinner from "ink-spinner";
 import type { WriteFileMetadata, ToolMetadata } from "@beans/core";
@@ -71,18 +71,26 @@ function formatCompletedToolsSummary(tools: ToolCallInfo[]): string {
 }
 
 // Tool calls display - show completed tools with checkmark, spinner when processing
-function ToolCalls({
+const ToolCalls = React.memo(function ToolCalls({
   tools,
   messageId,
 }: ToolCallsProps & { messageId: string }): React.ReactElement {
-  // Separate running and completed tools
-  const hasRunningTools = tools.some((tool) => !tool.isComplete);
-  const completedTools = tools.filter((tool) => tool.isComplete);
-
-  // Collect tools with diff metadata (for write_file)
-  const toolsWithDiff = completedTools.filter(
-    (tool) => hasDiffMetadata(tool) && isWriteFileMetadata(tool.metadata),
-  );
+  // Memoize computed values to avoid re-computation on every render
+  const { hasRunningTools, completedTools, toolsWithDiff, toolsSummary } =
+    useMemo(() => {
+      const running = tools.some((tool) => !tool.isComplete);
+      const completed = tools.filter((tool) => tool.isComplete);
+      const withDiff = completed.filter(
+        (tool) => hasDiffMetadata(tool) && isWriteFileMetadata(tool.metadata),
+      );
+      const summary = formatCompletedToolsSummary(completed);
+      return {
+        hasRunningTools: running,
+        completedTools: completed,
+        toolsWithDiff: withDiff,
+        toolsSummary: summary,
+      };
+    }, [tools]);
 
   return (
     <Box flexDirection="column">
@@ -101,9 +109,7 @@ function ToolCalls({
           )}
           {/* Show completed tools summary */}
           {completedTools.length > 0 && (
-            <Text color={colors.muted}>
-              {formatCompletedToolsSummary(completedTools)}
-            </Text>
+            <Text color={colors.muted}>{toolsSummary}</Text>
           )}
         </Box>
       )}
@@ -123,7 +129,7 @@ function ToolCalls({
       })}
     </Box>
   );
-}
+});
 
 export const Message = React.memo(function Message({
   message,

@@ -65,7 +65,7 @@ function renderHastNode(
 ): React.ReactNode {
   if (node.type === "text") {
     const textNode = node as HastText;
-    const color = inheritedColor || theme.text.code;
+    const color = inheritedColor || theme.text.primary;
     const key = `hast-${hastKeyCounter++}`;
     return (
       <Text key={key} color={color}>
@@ -110,7 +110,7 @@ function renderHighlightedCode(
       </React.Fragment>
     ));
   } catch {
-    return <Text color={theme.text.code}>{code}</Text>;
+    return <Text color={theme.text.primary}>{code}</Text>;
   }
 }
 
@@ -141,24 +141,18 @@ const CodeBlockInternal: React.FC<CodeBlockProps> = ({
     <Box flexDirection="column" marginY={1}>
       {language && (
         <Text color={theme.text.secondary} dimColor>
-          {" "}
           {language}
         </Text>
       )}
-      <Box
-        flexDirection="column"
-        borderStyle="round"
-        borderColor={theme.border.code}
-        paddingX={1}
-      >
+      <Box flexDirection="column">
         {lines.map((line, i) => (
           <Box key={i}>
             {showLineNumbers && (
               <Text color={theme.text.secondary}>
-                {String(i + 1).padStart(padWidth, " ")}
+                {String(i + 1).padStart(padWidth, " ")}{" "}
               </Text>
             )}
-            <Text color={theme.text.code}>
+            <Text>
               {line === "" ? " " : renderHighlightedCode(line, language)}
             </Text>
           </Box>
