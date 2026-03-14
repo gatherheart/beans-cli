@@ -20,11 +20,12 @@ interface DiffDisplayProps {
 }
 
 // Soft background colors
-// Soft background colors
 const BG_ADDED = "#1a2a3a"; // soft blue
 const BG_REMOVED = "#3a1a1a"; // soft red
-const FG_ADDED = "#87CEEB"; // light blue text
-const FG_REMOVED = "#FFB6C1"; // light pink text
+// Use white text for content - only background color indicates change
+const FG_CONTENT = "#FFFFFF"; // white text for content
+const FG_LINE_NUM_ADDED = "#87CEEB"; // light blue for line numbers
+const FG_LINE_NUM_REMOVED = "#FFB6C1"; // light pink for line numbers
 
 // Fixed width for line numbers (handles up to 999999 lines)
 const LINE_NUM_WIDTH = 6;
@@ -37,19 +38,18 @@ export const DiffDisplay = React.memo(function DiffDisplay({
 }: DiffDisplayProps): React.ReactElement {
   const renderDiff = () => {
     if (isNewFile) {
-      // New file: show all lines as added
-      // Format: [    ] [NEW] + content (blank OLD column)
+      // New file: show all lines as added with new line numbers
       const lines = newContent.split("\n");
 
       return (
         <>
           {lines.map((line, i) => (
             <Box key={i}>
-              <Text color={FG_ADDED}>
+              <Text color={FG_LINE_NUM_ADDED}>
                 {String(i + 1).padStart(LINE_NUM_WIDTH)}{" "}
               </Text>
-              <Text color={FG_ADDED}>+</Text>
-              <Text backgroundColor={BG_ADDED} color={FG_ADDED}>
+              <Text color={FG_LINE_NUM_ADDED}>+</Text>
+              <Text backgroundColor={BG_ADDED} color={FG_CONTENT}>
                 {line}
               </Text>
             </Box>
@@ -70,100 +70,54 @@ export const DiffDisplay = React.memo(function DiffDisplay({
     let keyIndex = 0;
 
     for (const hunk of patches.hunks) {
-      // Collect lines by type for grouped display
-      const addedLines: { lineNum: number; content: string }[] = [];
-      const removedLines: { lineNum: number; content: string }[] = [];
-      const contextBefore: {
-        oldNum: number;
-        newNum: number;
-        content: string;
-      }[] = [];
-      const contextAfter: {
-        oldNum: number;
-        newNum: number;
-        content: string;
-      }[] = [];
-
       let oldLine = hunk.oldStart;
       let newLine = hunk.newStart;
-      let inChanges = false;
 
+      // Render lines in order (not grouped)
       for (const line of hunk.lines) {
         if (line.startsWith("+")) {
-          inChanges = true;
-          addedLines.push({ lineNum: newLine, content: line.slice(1) });
+          // Added line: show new line number
+          displayLines.push(
+            <Box key={keyIndex++}>
+              <Text color={FG_LINE_NUM_ADDED}>
+                {String(newLine).padStart(LINE_NUM_WIDTH)}{" "}
+              </Text>
+              <Text color={FG_LINE_NUM_ADDED}>+</Text>
+              <Text backgroundColor={BG_ADDED} color={FG_CONTENT}>
+                {line.slice(1)}
+              </Text>
+            </Box>,
+          );
           newLine++;
         } else if (line.startsWith("-")) {
-          inChanges = true;
-          removedLines.push({ lineNum: oldLine, content: line.slice(1) });
+          // Removed line: show old line number
+          displayLines.push(
+            <Box key={keyIndex++}>
+              <Text color={FG_LINE_NUM_REMOVED}>
+                {String(oldLine).padStart(LINE_NUM_WIDTH)}{" "}
+              </Text>
+              <Text color={FG_LINE_NUM_REMOVED}>-</Text>
+              <Text backgroundColor={BG_REMOVED} color={FG_CONTENT}>
+                {line.slice(1)}
+              </Text>
+            </Box>,
+          );
           oldLine++;
-        } else {
-          // Context line
-          const content = line.startsWith(" ") ? line.slice(1) : line;
-          if (!inChanges) {
-            contextBefore.push({ oldNum: oldLine, newNum: newLine, content });
-          } else {
-            contextAfter.push({ oldNum: oldLine, newNum: newLine, content });
-          }
+        } else if (line.startsWith(" ")) {
+          // Context line: show new line number
+          displayLines.push(
+            <Box key={keyIndex++}>
+              <Text color={colors.muted}>
+                {String(newLine).padStart(LINE_NUM_WIDTH)}{" "}
+              </Text>
+              <Text color={colors.muted}> </Text>
+              <Text color={colors.muted}>{line.slice(1)}</Text>
+            </Box>,
+          );
           oldLine++;
           newLine++;
         }
-      }
-
-      // Render context before changes
-      for (const ctx of contextBefore) {
-        displayLines.push(
-          <Box key={keyIndex++}>
-            <Text color={colors.muted}>
-              {String(ctx.oldNum).padStart(LINE_NUM_WIDTH)}{" "}
-            </Text>
-            <Text color={colors.muted}> </Text>
-            <Text color={colors.muted}>{ctx.content}</Text>
-          </Box>,
-        );
-      }
-
-      // Render added lines first (with new line numbers)
-      for (const added of addedLines) {
-        displayLines.push(
-          <Box key={keyIndex++}>
-            <Text color={FG_ADDED}>
-              {String(added.lineNum).padStart(LINE_NUM_WIDTH)}{" "}
-            </Text>
-            <Text color={FG_ADDED}>+</Text>
-            <Text backgroundColor={BG_ADDED} color={FG_ADDED}>
-              {added.content}
-            </Text>
-          </Box>,
-        );
-      }
-
-      // Render removed lines (with old line numbers)
-      for (const removed of removedLines) {
-        displayLines.push(
-          <Box key={keyIndex++}>
-            <Text color={FG_REMOVED}>
-              {String(removed.lineNum).padStart(LINE_NUM_WIDTH)}{" "}
-            </Text>
-            <Text color={FG_REMOVED}>-</Text>
-            <Text backgroundColor={BG_REMOVED} color={FG_REMOVED}>
-              {removed.content}
-            </Text>
-          </Box>,
-        );
-      }
-
-      // Render context after changes
-      for (const ctx of contextAfter) {
-        displayLines.push(
-          <Box key={keyIndex++}>
-            <Text color={colors.muted}>
-              {String(ctx.newNum).padStart(LINE_NUM_WIDTH)}{" "}
-            </Text>
-            <Text color={colors.muted}> </Text>
-            <Text color={colors.muted}>{ctx.content}</Text>
-          </Box>,
-        );
+        // Skip other lines like "\ No newline at end of file"
       }
     }
 
