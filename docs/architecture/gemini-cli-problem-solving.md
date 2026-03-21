@@ -190,13 +190,13 @@ The prompt is **composable and conditional**, built from modular sections:
 
 ### Key Decision Policies
 
-| Policy                               | Description                                           |
-| ------------------------------------ | ----------------------------------------------------- |
-| **Engineering Standards Precedence** | Local GEMINI.md/CLAUDE.md files override defaults     |
-| **Expertise & Intent Alignment**     | Distinguish Directives (do) vs Inquiries (analyze)    |
-| **Context Efficiency**               | Minimize extra turns; prefer combining operations     |
-| **Proactiveness**                    | Persist through errors; backtrack and adjust strategy |
-| **Validation Rigor**                 | Never assume success; exhaustive verification         |
+| Policy                               | Description                                                |
+| ------------------------------------ | ---------------------------------------------------------- |
+| **Engineering Standards Precedence** | Local GEMINI.md/CLAUDE.md/CODEX.md files override defaults |
+| **Expertise & Intent Alignment**     | Distinguish Directives (do) vs Inquiries (analyze)         |
+| **Context Efficiency**               | Minimize extra turns; prefer combining operations          |
+| **Proactiveness**                    | Persist through errors; backtrack and adjust strategy      |
+| **Validation Rigor**                 | Never assume success; exhaustive verification              |
 
 ### Intent Classification
 

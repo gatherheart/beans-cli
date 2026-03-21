@@ -1,6 +1,6 @@
-# @beans/core - AI Agent Framework Core
+# Codex Instructions — @beans/core
 
-> `packages/core/CODEX.md` mirrors this content so Codex and Claude share the same reference. Maintain both together.
+> Mirrors the content of `packages/core/CLAUDE.md` so Codex and Claude receive identical guidance. Update both when core architecture changes.
 
 ## Overview
 

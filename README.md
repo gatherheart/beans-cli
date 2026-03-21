@@ -28,6 +28,7 @@ cp .env.example .env
 ```
 
 Edit `.env`:
+
 ```
 # Google AI (default provider)
 GOOGLE_API_KEY=AIza...
@@ -36,16 +37,19 @@ GOOGLE_API_KEY=AIza...
 ### Settings File
 
 **User settings** (applies globally):
+
 ```
 ~/.config/beans-agent/settings.json
 ```
 
 **Project settings** (overrides user settings):
+
 ```
 .beans/settings.json
 ```
 
 Example settings:
+
 ```json
 {
   "llm": {
@@ -134,14 +138,15 @@ Options:
 
 ## Supported Providers
 
-| Provider | Models | API Key |
-|----------|--------|---------|
+| Provider | Models                               | API Key          |
+| -------- | ------------------------------------ | ---------------- |
 | `google` | `gemini-2.0-flash`, `gemini-2.5-pro` | `GOOGLE_API_KEY` |
-| `ollama` | Any local model | (none required) |
+| `ollama` | Any local model                      | (none required)  |
 
 ### Provider Examples
 
 **Google (default):**
+
 ```json
 {
   "llm": {
@@ -152,6 +157,7 @@ Options:
 ```
 
 **Ollama (local):**
+
 ```json
 {
   "llm": {
@@ -164,13 +170,13 @@ Options:
 
 ## Built-in Tools
 
-| Tool | Description |
-|------|-------------|
-| `read_file` | Read file contents |
-| `write_file` | Create or modify files |
-| `shell` | Execute shell commands |
-| `glob` | Find files matching patterns |
-| `grep` | Search file contents |
+| Tool         | Description                  |
+| ------------ | ---------------------------- |
+| `read_file`  | Read file contents           |
+| `write_file` | Create or modify files       |
+| `shell`      | Execute shell commands       |
+| `glob`       | Find files matching patterns |
+| `grep`       | Search file contents         |
 
 ## Project Structure
 
@@ -197,7 +203,7 @@ beans-code/
 │   ├── guides/               # Implementation guides
 │   ├── issues/               # Problems and solutions
 │   └── architecture/         # System design
-└── CLAUDE.md                 # AI assistant instructions
+└── CLAUDE.md / CODEX.md      # AI assistant instructions (Claude + Codex)
 ```
 
 ## Development
@@ -218,13 +224,13 @@ npm run preflight
 
 ## Documentation
 
-| Folder | Purpose |
-|--------|---------|
-| [docs/sop/](docs/sop/) | Development guidelines, coding standards |
-| [docs/prd/](docs/prd/) | Feature specifications with status tracking |
-| [docs/guides/](docs/guides/) | Implementation explanations |
-| [docs/issues/](docs/issues/) | Problems encountered and solutions |
-| [docs/architecture/](docs/architecture/) | System design documentation |
+| Folder                                   | Purpose                                     |
+| ---------------------------------------- | ------------------------------------------- |
+| [docs/sop/](docs/sop/)                   | Development guidelines, coding standards    |
+| [docs/prd/](docs/prd/)                   | Feature specifications with status tracking |
+| [docs/guides/](docs/guides/)             | Implementation explanations                 |
+| [docs/issues/](docs/issues/)             | Problems encountered and solutions          |
+| [docs/architecture/](docs/architecture/) | System design documentation                 |
 
 ## License
 

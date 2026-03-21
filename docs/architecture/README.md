@@ -6,8 +6,8 @@ This directory contains architecture documentation for the Beans Agent project.
 
 ## Files
 
-| File | Description |
-|------|-------------|
+| File          | Description                                                |
+| ------------- | ---------------------------------------------------------- |
 | `overview.md` | Complete system architecture, data flows, design decisions |
 
 ## Architecture Summary
@@ -35,11 +35,11 @@ plugins/              → Agent definitions (Markdown)
 
 ## Related Documentation
 
-| Document | Location | Content |
-|----------|----------|---------|
-| LLM Interface | `../prd/llm-interface.md` | Request/response format |
-| CLI UI Architecture | `../guides/cli-ui-architecture.md` | UI components and data flow |
-| Development Guidelines | `../sop/` | Coding standards, testing |
+| Document               | Location                           | Content                     |
+| ---------------------- | ---------------------------------- | --------------------------- |
+| LLM Interface          | `../prd/llm-interface.md`          | Request/response format     |
+| CLI UI Architecture    | `../guides/cli-ui-architecture.md` | UI components and data flow |
+| Development Guidelines | `../sop/`                          | Coding standards, testing   |
 
 ## Guidelines
 
@@ -54,5 +54,5 @@ When adding new architectural components:
 
 1. Update `overview.md` with component overview
 2. Create new file for detailed component docs if needed
-3. Update relevant CLAUDE.md files in code directories
+3. Update relevant CLAUDE.md/CODEX.md files in code directories
 4. Add entry to this file's Files table

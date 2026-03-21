@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document provides research-backed recommendations for implementing a memory system in beans-code, drawing from analysis of Claude Code's CLAUDE.md, Gemini CLI's GEMINI.md, Cursor's .cursorrules (now .mdc), and GitHub Copilot's workspace indexing systems.
+This document provides research-backed recommendations for implementing a memory system in beans-code, drawing from analysis of Claude Code's CLAUDE.md/CODEX.md pair, Gemini CLI's GEMINI.md, Cursor's .cursorrules (now .mdc), and GitHub Copilot's workspace indexing systems.
 
 ## 1. Recommended Architecture
 
@@ -42,12 +42,12 @@ Load memory in this order (lower priority first, higher specificity wins):
 
 ### 1.3 Memory Types
 
-| Type | Scope | Loading | Typical Content |
-|------|-------|---------|-----------------|
-| **Instruction Memory** | Global/Project | Startup | Coding standards, preferences, persona |
-| **Fact Memory** | Global/Project | Startup | "Database port is 5432", API keys (encrypted) |
-| **Session Memory** | Session | Runtime | Conversation context, recent actions |
-| **JIT Memory** | Directory | On-demand | Component-specific instructions |
+| Type                   | Scope          | Loading   | Typical Content                               |
+| ---------------------- | -------------- | --------- | --------------------------------------------- |
+| **Instruction Memory** | Global/Project | Startup   | Coding standards, preferences, persona        |
+| **Fact Memory**        | Global/Project | Startup   | "Database port is 5432", API keys (encrypted) |
+| **Session Memory**     | Session        | Runtime   | Conversation context, recent actions          |
+| **JIT Memory**         | Directory      | On-demand | Component-specific instructions               |
 
 ## 2. File Format and Naming Conventions
 
@@ -56,10 +56,17 @@ Load memory in this order (lower priority first, higher specificity wins):
 **Recommendation**: `BEANS.md`
 
 **Alternatives to support** (via configuration):
+
 ```json
 {
   "memory": {
-    "fileNames": ["BEANS.md", "CLAUDE.md", "GEMINI.md", "CONTEXT.md"]
+    "fileNames": [
+      "BEANS.md",
+      "CLAUDE.md",
+      "CODEX.md",
+      "GEMINI.md",
+      "CONTEXT.md"
+    ]
   }
 }
 ```
@@ -79,6 +86,7 @@ priority: high
 # Testing Standards
 
 ## Rules
+
 - All new code must have unit tests
 - Use Vitest for testing
 - Minimum 80% coverage for new files
@@ -86,12 +94,12 @@ priority: high
 
 **YAML Frontmatter Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | string | Identifier for the rule (optional) |
-| `triggers` | string[] | Keywords that activate this rule (for conditional loading) |
-| `priority` | `low\|medium\|high` | Conflict resolution priority |
-| `globs` | string[] | File patterns this rule applies to |
+| Field      | Type                | Description                                                |
+| ---------- | ------------------- | ---------------------------------------------------------- |
+| `name`     | string              | Identifier for the rule (optional)                         |
+| `triggers` | string[]            | Keywords that activate this rule (for conditional loading) |
+| `priority` | `low\|medium\|high` | Conflict resolution priority                               |
+| `globs`    | string[]            | File patterns this rule applies to                         |
 
 ### 2.3 Import Syntax
 
@@ -106,6 +114,7 @@ Support modular imports using `@` syntax:
 ```
 
 **Safety Features**:
+
 - Circular import detection
 - Maximum import depth (default: 5)
 - Path validation (prevent path traversal)
@@ -117,18 +126,19 @@ Support modular imports using `@` syntax:
 
 ```typescript
 interface MemoryLoadResult {
-  global: string;      // Combined global memory
-  project: string;     // Combined project memory
-  extension: string;   // MCP/extension provided memory
+  global: string; // Combined global memory
+  project: string; // Combined project memory
+  extension: string; // MCP/extension provided memory
 }
 
 async function loadHierarchicalMemory(
   workingDir: string,
-  options: MemoryOptions
-): Promise<MemoryLoadResult>
+  options: MemoryOptions,
+): Promise<MemoryLoadResult>;
 ```
 
 **Algorithm**:
+
 1. Find global memory at `~/.beans/BEANS.md`
 2. Walk upward from CWD to project root (detected by `.git`)
 3. Collect all BEANS.md files in order (root to CWD)
@@ -143,11 +153,12 @@ When tools access files in new directories, check for local BEANS.md:
 async function loadJitMemory(
   targetPath: string,
   trustedRoots: string[],
-  alreadyLoaded: Set<string>
-): Promise<MemoryLoadResult>
+  alreadyLoaded: Set<string>,
+): Promise<MemoryLoadResult>;
 ```
 
 **Benefits**:
+
 - Reduces initial context size
 - Provides component-specific guidance exactly when needed
 - Scales to large monorepos
@@ -158,11 +169,11 @@ Implement `/memory refresh` command and tool-triggered refresh:
 
 ```typescript
 interface MemoryManager {
-  load(): Promise<void>;           // Initial load
-  refresh(): Promise<void>;        // Reload all files
-  add(content: string): Promise<void>;  // Add to global memory
-  show(): string;                  // Display current memory
-  list(): string[];                // List loaded files
+  load(): Promise<void>; // Initial load
+  refresh(): Promise<void>; // Reload all files
+  add(content: string): Promise<void>; // Add to global memory
+  show(): string; // Display current memory
+  list(): string[]; // List loaded files
 }
 ```
 
@@ -172,11 +183,11 @@ interface MemoryManager {
 
 Based on research, enforce these limits:
 
-| Constraint | Recommended Value | Rationale |
-|------------|-------------------|-----------|
-| Max lines loaded at startup | 200 lines | Claude reports 92% rule application under 200 lines vs 71% over 400 |
-| Max total memory tokens | 10% of context window | Reserve 90% for conversation and file content |
-| Per-file limit | 500 lines | Cursor best practice |
+| Constraint                  | Recommended Value     | Rationale                                                           |
+| --------------------------- | --------------------- | ------------------------------------------------------------------- |
+| Max lines loaded at startup | 200 lines             | Claude reports 92% rule application under 200 lines vs 71% over 400 |
+| Max total memory tokens     | 10% of context window | Reserve 90% for conversation and file content                       |
+| Per-file limit              | 500 lines             | Cursor best practice                                                |
 
 ### 4.2 Token Optimization Strategies
 
@@ -187,13 +198,13 @@ Based on research, enforce these limits:
 
 ### 4.3 RAG vs Direct Injection Decision Matrix
 
-| Scenario | Approach | Rationale |
-|----------|----------|-----------|
-| < 100 files, < 50K tokens | Direct injection | Simpler, lower latency |
-| Frequently accessed facts | Direct injection | Always available |
-| Large knowledge bases | RAG | Cost-effective for large corpora |
-| Dynamic/updated content | RAG | No need to reload context |
-| Code search | Hybrid | Index for search, inject for context |
+| Scenario                  | Approach         | Rationale                            |
+| ------------------------- | ---------------- | ------------------------------------ |
+| < 100 files, < 50K tokens | Direct injection | Simpler, lower latency               |
+| Frequently accessed facts | Direct injection | Always available                     |
+| Large knowledge bases     | RAG              | Cost-effective for large corpora     |
+| Dynamic/updated content   | RAG              | No need to reload context            |
+| Code search               | Hybrid           | Index for search, inject for context |
 
 **Recommendation for beans-code**: Start with direct injection. Add RAG only if memory exceeds 50K tokens.
 
@@ -206,12 +217,14 @@ Based on research, enforce these limits:
 **Mitigations**:
 
 1. **Folder Trust System** (like Gemini CLI):
+
    ```typescript
    interface TrustConfig {
      enabled: boolean;
      trustedFolders: string[];
    }
    ```
+
    - Prompt user to trust new folders
    - Untrusted folders: load only global memory
 
@@ -229,19 +242,19 @@ Based on research, enforce these limits:
 function validateImportPath(
   importPath: string,
   basePath: string,
-  allowedDirectories: string[]
+  allowedDirectories: string[],
 ): boolean {
   const resolved = path.resolve(basePath, importPath);
   const normalized = path.normalize(resolved);
 
   // Prevent path traversal
-  if (normalized.includes('..')) {
+  if (normalized.includes("..")) {
     return false;
   }
 
   // Must be within allowed directories
-  return allowedDirectories.some(dir =>
-    normalized.startsWith(path.normalize(dir))
+  return allowedDirectories.some((dir) =>
+    normalized.startsWith(path.normalize(dir)),
   );
 }
 ```
@@ -249,6 +262,7 @@ function validateImportPath(
 ### 5.3 Sensitive File Protection
 
 Never load memory from or allow imports to:
+
 - `.env`, `.env.*`
 - `credentials.json`, `secrets.*`
 - `~/.ssh/`, `~/.aws/`
@@ -272,16 +286,17 @@ This folder contains project-specific configuration:
 
 ### 6.1 Memory Commands
 
-| Command | Description |
-|---------|-------------|
-| `/memory show` | Display full concatenated memory |
-| `/memory refresh` | Reload all memory files |
-| `/memory add <text>` | Append to global memory |
-| `/memory list` | List loaded memory files with sources |
+| Command              | Description                           |
+| -------------------- | ------------------------------------- |
+| `/memory show`       | Display full concatenated memory      |
+| `/memory refresh`    | Reload all memory files               |
+| `/memory add <text>` | Append to global memory               |
+| `/memory list`       | List loaded memory files with sources |
 
 ### 6.2 Visual Feedback
 
 Display memory status in footer/status bar:
+
 ```
 [3 memory files] [Session: 12 turns, 8.5k tokens]
 ```
@@ -292,16 +307,17 @@ Allow LLM to save facts via tool call:
 
 ```typescript
 interface SaveMemoryTool {
-  name: 'save_memory';
-  description: 'Save a fact to persistent memory';
+  name: "save_memory";
+  description: "Save a fact to persistent memory";
   parameters: {
     fact: string;
-    scope: 'global' | 'project';
+    scope: "global" | "project";
   };
 }
 ```
 
 **Flow**:
+
 1. LLM calls `save_memory` with fact
 2. System shows diff preview
 3. User approves/rejects
@@ -311,6 +327,7 @@ interface SaveMemoryTool {
 ### 6.4 Private Memory (.local.md)
 
 Support `BEANS.local.md` files:
+
 - Auto-added to `.gitignore`
 - User-specific preferences not shared with team
 - Loaded after main BEANS.md (higher priority)
@@ -318,6 +335,7 @@ Support `BEANS.local.md` files:
 ## 7. Implementation Roadmap
 
 ### Phase 1: Core Memory (MVP)
+
 - [ ] Global memory loading (`~/.beans/BEANS.md`)
 - [ ] Project memory loading (single file)
 - [ ] Concatenation with provenance markers
@@ -325,6 +343,7 @@ Support `BEANS.local.md` files:
 - [ ] Basic token counting
 
 ### Phase 2: Hierarchical Loading
+
 - [ ] Upward directory traversal
 - [ ] Import processing (`@file.md` syntax)
 - [ ] Circular import detection
@@ -332,6 +351,7 @@ Support `BEANS.local.md` files:
 - [ ] `/memory list` command
 
 ### Phase 3: Advanced Features
+
 - [ ] JIT memory loading
 - [ ] Modular rules with triggers
 - [ ] Folder trust system
@@ -339,6 +359,7 @@ Support `BEANS.local.md` files:
 - [ ] Memory file count in status bar
 
 ### Phase 4: Optimization
+
 - [ ] Token budget enforcement
 - [ ] Priority-based truncation
 - [ ] Memory deduplication
@@ -367,25 +388,25 @@ packages/core/src/
 ```typescript
 interface MemoryConfig {
   // File discovery
-  fileNames: string[];          // Default: ['BEANS.md']
-  searchParents: boolean;       // Default: true
-  searchChildren: boolean;      // Default: false
-  maxDepth: number;             // Default: 5
+  fileNames: string[]; // Default: ['BEANS.md']
+  searchParents: boolean; // Default: true
+  searchChildren: boolean; // Default: false
+  maxDepth: number; // Default: 5
 
   // Token management
-  maxLines: number;             // Default: 200
-  maxTokens: number;            // Default: 10000
+  maxLines: number; // Default: 200
+  maxTokens: number; // Default: 10000
 
   // Security
   folderTrust: {
-    enabled: boolean;           // Default: false
+    enabled: boolean; // Default: false
     trustedFolders: string[];
   };
 
   // Import processing
   imports: {
-    enabled: boolean;           // Default: true
-    maxDepth: number;           // Default: 5
+    enabled: boolean; // Default: true
+    maxDepth: number; // Default: 5
   };
 }
 ```
@@ -393,6 +414,7 @@ interface MemoryConfig {
 ## References
 
 ### Sources
+
 - [Claude Code Memory Documentation](https://code.claude.com/docs/en/memory)
 - [SFEIR Institute - CLAUDE.md Memory System](https://institute.sfeir.com/en/claude-code/claude-code-memory-system-claude-md/)
 - [Cursor Rules Documentation](https://cursor.com/docs/context/rules)

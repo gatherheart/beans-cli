@@ -1,6 +1,6 @@
-# Claude Instructions for Beans Agent
+# Codex Instructions for Beans Agent
 
-> These instructions are mirrored in `CODEX.md` so both assistants share an identical understanding. Keep the files synchronized when updating project guidance.
+> These instructions mirror the long-form `CLAUDE.md` guidance so Codex and Claude stay in sync. Update both files when the project conventions change.
 
 ## Reference Projects
 

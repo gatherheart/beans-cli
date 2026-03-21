@@ -1,6 +1,6 @@
-# @beans/cli - Command Line Interface
+# Codex Instructions — @beans/cli
 
-> Codex now uses `packages/cli/CODEX.md`, which mirrors this file. Always update both so assistants stay aligned.
+> Same guidance as `packages/cli/CLAUDE.md`; keep both files synchronized so either assistant can rely on them.
 
 ## Overview
 
