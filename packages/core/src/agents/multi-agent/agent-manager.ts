@@ -6,12 +6,15 @@ import type { Config } from "../../config/config.js";
 import type { AgentDefinition } from "../types.js";
 import { AgentExecutor } from "../executor.js";
 import type { AgentActivityEvent } from "../executor.js";
+import { ChatCompressor, DEFAULT_COMPRESSION_CONFIG } from "../compression.js";
 import type {
+  ExtractedIntent,
   SpecializedAgentDefinition,
   AgentExecutionResult,
   SpawnOptions,
   AgentManagerConfig,
   MultiAgentEvent,
+  InputAnalysis,
 } from "./types.js";
 import { specializedAgents, getAgentDefinition } from "./specialized/index.js";
 import {
@@ -21,7 +24,7 @@ import {
   logConversationHistory,
 } from "./debug-logger.js";
 import { formatArgsSummary } from "../../tools/utils/result-summary.js";
-import { extractIntent } from "./intent-extractor.js";
+import { analyzeUserInput } from "./user-input-agent.js";
 
 /**
  * Create an agent manager for multi-agent orchestration
@@ -52,6 +55,12 @@ export function createAgentManager(
   const defaultMaxTurns = options.maxTurns ?? agentConfig.maxTurns;
   const defaultCwd = options.cwd ?? process.cwd();
   const baseSystemPrompt = options.baseSystemPrompt?.trim();
+  const memoryStore = config.getMemoryStore(defaultCwd);
+  const compressor = new ChatCompressor({
+    ...DEFAULT_COMPRESSION_CONFIG,
+    ...agentConfig.compression,
+  });
+  compressor.setLLMClient(llmClient, defaultModel);
 
   // Enable debug logging based on config
   setMultiAgentDebug(debugConfig.enabled);
@@ -155,6 +164,56 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
     };
   }
 
+  function resolveAgentType(analysis: InputAnalysis): string {
+    const suggestedAgent = analysis.suggestedAgent?.trim();
+    if (suggestedAgent && getAgent(suggestedAgent)) {
+      return suggestedAgent;
+    }
+
+    if (analysis.requiresPlanning || analysis.intent === "multi_step_task") {
+      return getAgent("orchestrator") ? "orchestrator" : "general";
+    }
+
+    switch (analysis.intent) {
+      case "math_problem":
+        return "math";
+      case "bash_execution":
+        return "bash";
+      case "planning":
+        return "plan";
+      case "code_exploration":
+        return "explore";
+      default:
+        return "general";
+    }
+  }
+
+  async function compressConversationHistory(
+    conversationHistory?: AgentDefinition["promptConfig"]["initialMessages"],
+  ) {
+    if (!conversationHistory?.length) {
+      return conversationHistory;
+    }
+
+    const turnCount = conversationHistory.filter(
+      (message) => message.role === "user",
+    ).length;
+
+    if (!compressor.shouldCompress(conversationHistory, turnCount)) {
+      return conversationHistory;
+    }
+
+    const result = await compressor.compress(conversationHistory);
+
+    if (debugConfig.enabled) {
+      console.log(
+        `[AgentManager] Compressed ${result.messagesCompressed} history messages, saved ~${result.tokensSaved} tokens`,
+      );
+    }
+
+    return result.messages;
+  }
+
   /**
    * Spawn a specialized agent to handle a prompt
    */
@@ -234,6 +293,7 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
       const result = await executor.execute(definition, {
         signal: options.signal,
         cwd: options.cwd ?? defaultCwd,
+        memoryStore,
         policyEngine,
         toolContext,
         onActivity: (event: AgentActivityEvent) => {
@@ -359,88 +419,49 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
   }
 
   /**
-   * Simple keyword-based agent routing (no LLM call)
-   * Following gemini-cli pattern: avoid costly LLM calls for routing
-   */
-  function routeToAgent(userInput: string): string {
-    const input = userInput.toLowerCase();
-
-    // Math problems: probability, calculate, equation, formula, etc.
-    if (
-      /\b(probability|calculate|equation|formula|solve|math|integral|derivative|statistics|p\(|e\^)\b/i.test(
-        input,
-      )
-    ) {
-      return "math";
-    }
-
-    // Code exploration: read/find/search + path or code terms
-    // Use explore agent for codebase navigation
-    if (
-      /\b(read|find|search|analyze|understand|explain|where is|show me|list)\b/i.test(
-        input,
-      ) &&
-      /\b(project|code|codebase|directory|folder|file|function|class|method|\.\.\/|\.\/)\b/i.test(
-        input,
-      )
-    ) {
-      return "explore";
-    }
-
-    // Bash/shell commands: run, execute, git, npm, build
-    if (
-      /^(run|execute|git|npm|yarn|pnpm|make|docker|kubectl)\b/i.test(
-        input.trim(),
-      )
-    ) {
-      return "bash";
-    }
-
-    // Default to general agent (has all tools)
-    return "general";
-  }
-
-  /**
    * Process user input through the multi-agent system
-   * Extracts intent using LLM, then routes to appropriate agent
+   * Analyzes input using RAG + LLM, then routes to the best agent
    */
   async function processInput(
     userInput: string,
     options: SpawnOptions = {},
   ): Promise<AgentExecutionResult> {
-    // Extract intent and keywords using LLM
-    const extractedIntent = await extractIntent(
-      llmClient,
-      defaultModel,
-      userInput,
-    );
+    options.onActivity?.({
+      type: "input_analysis_start",
+      input: userInput,
+    });
 
-    // Route based on extracted intent or keywords
-    const agentType = routeToAgent(userInput);
-
-    // Map extracted action to UserIntent
-    const intentMap: Record<string, "code_exploration" | "unknown"> = {
-      find: "code_exploration",
-      read: "code_exploration",
-      understand: "code_exploration",
-      show: "code_exploration",
-      search: "code_exploration",
-      other: "unknown",
+    const analysis = await analyzeUserInput(userInput, llmClient, defaultModel);
+    const agentType = resolveAgentType(analysis);
+    const conversationHistory = options.characteristics?.isolatedContext
+      ? undefined
+      : await compressConversationHistory(options.conversationHistory);
+    const extractedIntent: ExtractedIntent = analysis.extractedIntent ?? {
+      action: "other",
+      keywords: [],
+      originalQuery: userInput,
     };
 
     logMultiAgentEvent({
       type: "input_analysis_complete" as const,
       analysis: {
-        intent: intentMap[extractedIntent.action] || "unknown",
-        requiresPlanning: false,
+        ...analysis,
         suggestedAgent: agentType,
-        originalInput: userInput,
+      },
+    });
+
+    options.onActivity?.({
+      type: "input_analysis_complete",
+      analysis: {
+        ...analysis,
+        suggestedAgent: agentType,
       },
     });
 
     return spawn(agentType, userInput, {
       ...options,
-      extractedIntent, // Pass extracted intent to tools
+      conversationHistory,
+      extractedIntent,
     });
   }
   return {

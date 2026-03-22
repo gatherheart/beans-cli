@@ -6,7 +6,12 @@
  */
 
 import type { LLMClient } from "../../llm/types.js";
-import type { InputAnalysis, TaskSuggestion, UserIntent } from "./types.js";
+import type {
+  ExtractedIntent,
+  InputAnalysis,
+  TaskSuggestion,
+  UserIntent,
+} from "./types.js";
 import {
   initializeToolRAG,
   retrieveTools,
@@ -72,6 +77,11 @@ Respond with valid JSON only, no other text:
   "requiresPlanning": false,
   "suggestedAgent": "<agent_type>",
   "suggestedTools": ["tool1", "tool2"],
+  "extractedIntent": {
+    "action": "find|read|understand|show|search|other",
+    "targetPath": "path if explicitly mentioned, or null",
+    "keywords": ["keyword1", "keyword2"]
+  },
   "tasks": []
 }
 
@@ -97,6 +107,11 @@ interface AnalysisResponse {
   requiresPlanning: boolean;
   suggestedAgent?: string;
   suggestedTools?: string[];
+  extractedIntent?: {
+    action?: ExtractedIntent["action"];
+    targetPath?: string | null;
+    keywords?: string[];
+  };
   tasks?: Array<{
     subject: string;
     description: string;
@@ -147,6 +162,8 @@ export async function analyzeUserInput(
       intent: parsed.intent,
       requiresPlanning: parsed.requiresPlanning,
       suggestedAgent: parsed.suggestedAgent,
+      suggestedTools: parsed.suggestedTools,
+      extractedIntent: normalizeExtractedIntent(input, parsed.extractedIntent),
       tasks: parsed.tasks?.map(
         (task): TaskSuggestion => ({
           subject: task.subject,
@@ -211,6 +228,7 @@ function createRAGFallbackAnalysis(
       intent: "unknown",
       requiresPlanning: false,
       suggestedAgent: "general",
+      extractedIntent: buildSimpleExtractedIntent(input, "unknown"),
       originalInput: input,
     };
   }
@@ -233,6 +251,8 @@ function createRAGFallbackAnalysis(
     intent,
     requiresPlanning: false,
     suggestedAgent: best.suggestedAgent || "general",
+    suggestedTools: [best.toolName],
+    extractedIntent: buildSimpleExtractedIntent(input, intent),
     originalInput: input,
   };
 }
@@ -252,9 +272,145 @@ async function createRAGOnlyAnalysis(input: string): Promise<InputAnalysis> {
       intent: "unknown",
       requiresPlanning: false,
       suggestedAgent: "general",
+      extractedIntent: buildSimpleExtractedIntent(input, "unknown"),
       originalInput: input,
     };
   }
+}
+
+function normalizeExtractedIntent(
+  input: string,
+  extracted?: AnalysisResponse["extractedIntent"],
+): ExtractedIntent {
+  if (!extracted) {
+    return buildSimpleExtractedIntent(input, "unknown");
+  }
+
+  const validActions: ExtractedIntent["action"][] = [
+    "find",
+    "read",
+    "understand",
+    "show",
+    "search",
+    "other",
+  ];
+
+  const action = validActions.includes(extracted.action ?? "other")
+    ? (extracted.action as ExtractedIntent["action"])
+    : "other";
+
+  const normalizedKeywords = Array.isArray(extracted.keywords)
+    ? extracted.keywords
+        .map((keyword) => keyword.trim().toLowerCase())
+        .filter((keyword) => keyword.length > 1)
+        .slice(0, 3)
+    : [];
+
+  return {
+    action,
+    targetPath: extracted.targetPath?.trim() || detectTargetPath(input),
+    keywords:
+      normalizedKeywords.length > 0
+        ? normalizedKeywords
+        : extractKeywordsFromInput(input),
+    originalQuery: input,
+  };
+}
+
+function buildSimpleExtractedIntent(
+  input: string,
+  intent: UserIntent,
+): ExtractedIntent {
+  return {
+    action: inferActionFromIntent(input, intent),
+    targetPath: detectTargetPath(input),
+    keywords: extractKeywordsFromInput(input),
+    originalQuery: input,
+  };
+}
+
+function inferActionFromIntent(
+  input: string,
+  intent: UserIntent,
+): ExtractedIntent["action"] {
+  const normalizedInput = input.toLowerCase();
+
+  if (/\b(show|display|open)\b/.test(normalizedInput)) {
+    return "show";
+  }
+  if (/\b(read)\b/.test(normalizedInput)) {
+    return "read";
+  }
+  if (/\b(search|grep|lookup)\b/.test(normalizedInput)) {
+    return "search";
+  }
+  if (/\b(find|where)\b/.test(normalizedInput)) {
+    return "find";
+  }
+  if (/\b(explain|understand|analyze)\b/.test(normalizedInput)) {
+    return "understand";
+  }
+  if (intent === "code_exploration") {
+    return "find";
+  }
+  return "other";
+}
+
+function detectTargetPath(input: string): string | undefined {
+  const pathMatch = input.match(
+    /(?:(?:\.{1,2}|~)?\/[^\s,;]+|(?:\.{1,2}\/)[^\s,;]+|[A-Za-z0-9_.-]+\/[^\s,;]+)/,
+  );
+
+  return pathMatch?.[0];
+}
+
+function extractKeywordsFromInput(input: string): string[] {
+  const stopWords = new Set([
+    "read",
+    "find",
+    "search",
+    "show",
+    "list",
+    "get",
+    "the",
+    "a",
+    "an",
+    "in",
+    "on",
+    "at",
+    "to",
+    "for",
+    "of",
+    "and",
+    "or",
+    "is",
+    "are",
+    "this",
+    "that",
+    "me",
+    "my",
+    "i",
+    "you",
+    "your",
+    "we",
+    "project",
+    "code",
+    "file",
+    "files",
+  ]);
+
+  return input
+    .toLowerCase()
+    .replace(/[^\w/.-]/g, " ")
+    .split(/\s+/)
+    .filter(
+      (word) =>
+        word.length > 2 &&
+        !stopWords.has(word) &&
+        !word.includes("/") &&
+        !/^\.+$/.test(word),
+    )
+    .slice(0, 3);
 }
 
 /**

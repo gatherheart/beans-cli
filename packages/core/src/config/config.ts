@@ -14,6 +14,7 @@ import { loadEnv } from "./env.js";
 import { ToolRegistry } from "../tools/registry.js";
 import { createBuiltinTools } from "../tools/builtin/index.js";
 import { AgentRegistry } from "../agents/registry.js";
+import { DEFAULT_COMPRESSION_CONFIG } from "../agents/compression.js";
 import { createLLMClient } from "../llm/client.js";
 import type { LLMClient, LLMProvider, DebugEvent } from "../llm/types.js";
 import { MemoryStore, DEFAULT_MEMORY_CONFIG } from "../memory/index.js";
@@ -35,6 +36,7 @@ const defaults: AppConfig = {
     timeoutMs: 300000, // 5 minutes
     streaming: true,
     autoApprove: "none",
+    compression: { ...DEFAULT_COMPRESSION_CONFIG },
   },
   tools: {
     enabled: [

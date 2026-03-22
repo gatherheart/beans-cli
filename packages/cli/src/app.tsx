@@ -19,10 +19,10 @@ import {
   DEFAULT_AGENT_PROFILE,
   MockLLMClient,
   inferProviderFromModel,
-  MemoryStore,
   type AgentProfile,
   type WorkspaceContext,
   type ApprovalMode,
+  type MemoryStore,
 } from "@beans/core";
 import { App } from "./ui/App.js";
 import { Mode, setMode, isDebug } from "./mode.js";
@@ -132,14 +132,10 @@ export async function runApp(args: CLIArgs): Promise<void> {
 
   // Initialize memory system and discover memory files
   const memoryConfig = config.getMemoryConfig();
-  let memoryContent = "";
+  let memoryStore: MemoryStore | undefined;
   if (memoryConfig.enabled) {
-    const memoryStore = new MemoryStore(
-      memoryConfig,
-      workspaceContext.rootPath,
-    );
+    memoryStore = config.getMemoryStore(workspaceContext.rootPath);
     const discoveryResult = await memoryStore.discover();
-    memoryContent = discoveryResult.content;
     if (discoveryResult.loadedPaths.length > 0) {
       console.log(
         `📝 Memory: ${discoveryResult.loadedPaths.length} file(s), ~${discoveryResult.totalTokens} tokens`,
@@ -152,7 +148,6 @@ export async function runApp(args: CLIArgs): Promise<void> {
   const systemPrompt = buildSystemPrompt(
     agentProfile.systemPrompt,
     workspaceContext,
-    memoryContent,
   );
 
   // Determine initial approval mode from CLI flags
@@ -186,6 +181,7 @@ export async function runApp(args: CLIArgs): Promise<void> {
       args.prompt,
       sessionManager,
       agentProfile,
+      memoryStore,
     );
   } else {
     // Interactive continuous chat mode - use ChatSession
@@ -230,6 +226,7 @@ async function runSinglePrompt(
   prompt: string,
   sessionManager: SessionManager,
   profile: AgentProfile,
+  memoryStore?: MemoryStore,
 ): Promise<void> {
   console.log(`> ${prompt}\n`);
 
@@ -248,6 +245,7 @@ async function runSinglePrompt(
       },
     },
     {
+      memoryStore,
       onActivity: (event) => {
         switch (event.type) {
           case "content_chunk":
@@ -457,17 +455,8 @@ async function resolveAgentProfile(
 function buildSystemPrompt(
   basePrompt: string,
   workspace: WorkspaceContext,
-  memoryContent?: string,
 ): string {
   const sections: string[] = [basePrompt];
-
-  // Add memory content if present (before environment context)
-  if (memoryContent && memoryContent.trim()) {
-    sections.push("");
-    sections.push("## User Instructions (Memory)");
-    sections.push("");
-    sections.push(memoryContent.trim());
-  }
 
   // Add environment context
   const contextLines: string[] = [

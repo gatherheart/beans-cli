@@ -123,6 +123,10 @@ export interface InputAnalysis {
   requiresPlanning: boolean;
   /** Suggested agent type for simple requests */
   suggestedAgent?: string;
+  /** Suggested tools from the analyzer */
+  suggestedTools?: string[];
+  /** Search/navigation hints extracted from the user request */
+  extractedIntent?: ExtractedIntent;
   /** Task breakdown for complex requests */
   tasks?: TaskSuggestion[];
   /** Original user input */

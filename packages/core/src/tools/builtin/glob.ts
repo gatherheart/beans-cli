@@ -70,34 +70,45 @@ export class GlobTool extends BaseTool<GlobParams> {
         };
       }
 
+      const extractedIntent = options?.context?.extractedIntent as
+        | {
+            keywords?: string[];
+            action?: string;
+          }
+        | undefined;
+      const originalQuery = options?.context?.originalQuery as
+        | string
+        | undefined;
+      const keywords = extractedIntent?.keywords?.length
+        ? extractedIntent.keywords
+        : originalQuery
+          ? this.extractKeywords(originalQuery)
+          : [];
+      const rankedMatches = this.rankMatches(matches, keywords);
+
       // Add strong guidance when many files are found
-      const fileList = matches.join("\n");
+      const fileList = rankedMatches.join("\n");
       let guidance = "";
+      const topMatches = rankedMatches
+        .filter((match) => this.pathKeywordScore(match, keywords) > 0)
+        .slice(0, 3);
 
-      if (matches.length > 10) {
-        // Use LLM-extracted keywords if available, fall back to simple extraction
-        const extractedIntent = options?.context?.extractedIntent as
-          | {
-              keywords?: string[];
-              action?: string;
-            }
-          | undefined;
-        const originalQuery = options?.context?.originalQuery as
-          | string
-          | undefined;
+      if (topMatches.length > 0) {
+        guidance += `\n\n[TOP MATCHES]\n${topMatches
+          .map((match, index) => `${index + 1}. ${match}`)
+          .join("\n")}`;
+      }
 
-        const keywords = extractedIntent?.keywords?.length
-          ? extractedIntent.keywords
-          : originalQuery
-            ? this.extractKeywords(originalQuery)
-            : [];
-
+      if (rankedMatches.length > 10) {
         const keywordSuggestion =
           keywords.length > 0
-            ? `Suggested: grep("${keywords[0]}") or read files containing "${keywords.join('", "')}" in the name.`
+            ? `Suggested: grep("${keywords[0]}") or read the top-ranked files containing "${keywords.join('", "')}" in the path.`
             : 'Use grep("<keyword>") to search for relevant terms.';
 
-        guidance = `\n\n[NEXT STEP] Found ${matches.length} files. ${keywordSuggestion}\nDo NOT describe files - use grep or read_file first.`;
+        guidance += `\n\n[NEXT STEP] Found ${rankedMatches.length} files. ${keywordSuggestion}\nDo NOT describe files after glob alone - use grep or read_file first.`;
+      } else if (topMatches.length > 0) {
+        guidance +=
+          "\n\n[NEXT STEP] Read the top matches first, or use grep with the extracted keywords to narrow further.";
       }
 
       return {
@@ -191,6 +202,47 @@ export class GlobTool extends BaseTool<GlobParams> {
       .replace(/{{GLOBSTAR}}/g, ".*");
 
     return new RegExp(`^${escaped}$`);
+  }
+
+  private rankMatches(matches: string[], keywords: string[]): string[] {
+    return [...matches].sort((a, b) => {
+      const scoreDiff =
+        this.pathKeywordScore(b, keywords) - this.pathKeywordScore(a, keywords);
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
+
+      const depthDiff = a.split("/").length - b.split("/").length;
+      if (depthDiff !== 0) {
+        return depthDiff;
+      }
+
+      return a.localeCompare(b);
+    });
+  }
+
+  private pathKeywordScore(filePath: string, keywords: string[]): number {
+    if (keywords.length === 0) {
+      return 0;
+    }
+
+    const lowerPath = filePath.toLowerCase();
+    return keywords.reduce((score, keyword) => {
+      if (!keyword) {
+        return score;
+      }
+
+      if (
+        lowerPath.includes(`/${keyword}/`) ||
+        lowerPath.endsWith(`/${keyword}`)
+      ) {
+        return score + 3;
+      }
+      if (lowerPath.includes(keyword)) {
+        return score + 2;
+      }
+      return score;
+    }, 0);
   }
 
   /**
