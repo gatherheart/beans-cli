@@ -36,6 +36,28 @@ export interface CLIArgs {
   cwd?: string;
   /** List available models */
   listModels: boolean;
+  /** Create a fine-tuning job from a local training file */
+  fineTune?: string;
+  /** Base model for fine-tuning */
+  fineTuneModel?: string;
+  /** Optional validation file for fine-tuning */
+  fineTuneValidationFile?: string;
+  /** Optional model suffix for fine-tuning */
+  fineTuneSuffix?: string;
+  /** List fine-tuning jobs */
+  listFineTunes: boolean;
+  /** Retrieve a fine-tuning job */
+  fineTuneJob?: string;
+  /** Create a localization-focused Ollama model */
+  createOllamaLocalizer?: string;
+  /** Base Ollama model used to build the localization model */
+  ollamaBaseModel?: string;
+  /** Target localization language */
+  localizationLanguage?: string;
+  /** Optional file with extra localization rules */
+  localizationRulesFile?: string;
+  /** Raw Ollama Modelfile parameters in key=value form */
+  ollamaParameters?: string[];
   /** Force interactive mode even with a prompt */
   interactive: boolean;
   /** Agent description - used to generate agent profile via LLM */
@@ -81,6 +103,7 @@ export async function parseArgs(): Promise<CLIArgs> {
     plan: false,
     verbose: false,
     listModels: false,
+    listFineTunes: false,
     interactive: false,
     debug: false,
     uiTest: false,
@@ -124,6 +147,40 @@ export async function parseArgs(): Promise<CLIArgs> {
         break;
       case "--list-models":
         result.listModels = true;
+        break;
+      case "--fine-tune":
+        result.fineTune = args[++i];
+        break;
+      case "--fine-tune-model":
+        result.fineTuneModel = args[++i];
+        break;
+      case "--fine-tune-validation-file":
+        result.fineTuneValidationFile = args[++i];
+        break;
+      case "--fine-tune-suffix":
+        result.fineTuneSuffix = args[++i];
+        break;
+      case "--list-fine-tunes":
+        result.listFineTunes = true;
+        break;
+      case "--fine-tune-job":
+        result.fineTuneJob = args[++i];
+        break;
+      case "--create-ollama-localizer":
+        result.createOllamaLocalizer = args[++i];
+        break;
+      case "--ollama-base-model":
+        result.ollamaBaseModel = args[++i];
+        break;
+      case "--localization-language":
+        result.localizationLanguage = args[++i];
+        break;
+      case "--localization-rules-file":
+        result.localizationRulesFile = args[++i];
+        break;
+      case "--ollama-parameter":
+        result.ollamaParameters ??= [];
+        result.ollamaParameters.push(args[++i]);
         break;
       case "-i":
       case "--interactive":

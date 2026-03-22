@@ -1,5 +1,7 @@
 import { appendFileSync, mkdirSync, existsSync } from "fs";
+import { readFile } from "fs/promises";
 import { join } from "path";
+import { basename } from "path";
 import { homedir } from "os";
 import type {
   LLMClient,
@@ -10,6 +12,11 @@ import type {
   ModelInfo,
   DebugRequestData,
   DebugResponseData,
+  UploadFileRequest,
+  UploadedFile,
+  CreateFineTuningJobRequest,
+  FineTuningJob,
+  FineTuningJobEvent,
 } from "./types.js";
 
 /**
@@ -26,14 +33,14 @@ import type {
  * @returns The inferred LLMProvider
  */
 export function inferProviderFromModel(model: string): LLMProvider {
+  if (model.startsWith("ft:")) {
+    const baseModel = model.slice(3).split(":")[0];
+    return inferProviderFromModel(baseModel);
+  }
   if (model.startsWith("gemini-")) {
     return "google";
   }
-  if (
-    model.startsWith("gpt-") ||
-    model.startsWith("o1") ||
-    model.startsWith("o3")
-  ) {
+  if (model.startsWith("gpt-") || /^o\d/.test(model)) {
     return "openai";
   }
   if (model.startsWith("claude-")) {
@@ -440,6 +447,11 @@ function wrapWithDebugLogging(
     },
 
     listModels: client.listModels?.bind(client),
+    uploadFile: client.uploadFile?.bind(client),
+    createFineTuningJob: client.createFineTuningJob?.bind(client),
+    listFineTuningJobs: client.listFineTuningJobs?.bind(client),
+    getFineTuningJob: client.getFineTuningJob?.bind(client),
+    listFineTuningEvents: client.listFineTuningEvents?.bind(client),
   };
 }
 
@@ -1145,6 +1157,18 @@ function createOpenAIClient(config: ProviderConfig): LLMClient {
     ...config.headers,
   };
 
+  const parseJsonResponse = async <T>(
+    response: Response,
+    errorPrefix: string,
+  ): Promise<T> => {
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`${errorPrefix}: ${response.status} - ${errorBody}`);
+    }
+
+    return (await response.json()) as T;
+  };
+
   return {
     async chat(request: ChatRequest): Promise<ChatResponse> {
       const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -1162,12 +1186,10 @@ function createOpenAIClient(config: ProviderConfig): LLMClient {
         signal: AbortSignal.timeout(config.timeout ?? 60000),
       });
 
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`OpenAI API error: ${response.status} - ${errorBody}`);
-      }
-
-      const data = (await response.json()) as OpenAIResponse;
+      const data = await parseJsonResponse<OpenAIResponse>(
+        response,
+        "OpenAI API error",
+      );
       return parseOpenAIResponse(data);
     },
 
@@ -1293,20 +1315,15 @@ function createOpenAIClient(config: ProviderConfig): LLMClient {
         signal: AbortSignal.timeout(config.timeout ?? 60000),
       });
 
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`OpenAI API error: ${response.status} - ${errorBody}`);
-      }
-
-      const data = (await response.json()) as {
+      const data = await parseJsonResponse<{
         data: Array<{ id: string; owned_by: string }>;
-      };
+      }>(response, "OpenAI API error");
       return data.data
         .filter(
           (m) =>
             m.id.startsWith("gpt-") ||
-            m.id.startsWith("o1") ||
-            m.id.startsWith("o3"),
+            /^o\d/.test(m.id) ||
+            m.id.startsWith("ft:"),
         )
         .map((m) => ({
           id: m.id,
@@ -1314,10 +1331,122 @@ function createOpenAIClient(config: ProviderConfig): LLMClient {
           description: `Owned by: ${m.owned_by}`,
         }));
     },
+
+    async uploadFile(request: UploadFileRequest): Promise<UploadedFile> {
+      const fileData = await readFile(request.path);
+      const formData = new FormData();
+      formData.append("purpose", request.purpose);
+      formData.append(
+        "file",
+        new Blob([fileData], { type: "application/jsonl" }),
+        basename(request.path),
+      );
+
+      const response = await fetch(`${baseUrl}/files`, {
+        method: "POST",
+        headers: {
+          Authorization: headers.Authorization,
+          ...(config.organizationId
+            ? { "OpenAI-Organization": config.organizationId }
+            : {}),
+          ...config.headers,
+        },
+        body: formData,
+        signal: AbortSignal.timeout(config.timeout ?? 120000),
+      });
+
+      const data = await parseJsonResponse<OpenAIFileObject>(
+        response,
+        "OpenAI file upload error",
+      );
+      return parseOpenAIFile(data);
+    },
+
+    async createFineTuningJob(
+      request: CreateFineTuningJobRequest,
+    ): Promise<FineTuningJob> {
+      const response = await fetch(`${baseUrl}/fine_tuning/jobs`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model: request.model,
+          training_file: request.trainingFile,
+          validation_file: request.validationFile,
+          suffix: request.suffix,
+          method: request.hyperparameters
+            ? {
+                type: "supervised",
+                supervised: {
+                  hyperparameters: formatFineTuningHyperparameters(
+                    request.hyperparameters,
+                  ),
+                },
+              }
+            : undefined,
+        }),
+        signal: AbortSignal.timeout(config.timeout ?? 60000),
+      });
+
+      const data = await parseJsonResponse<OpenAIFineTuningJob>(
+        response,
+        "OpenAI fine-tuning error",
+      );
+      return parseOpenAIFineTuningJob(data);
+    },
+
+    async listFineTuningJobs(): Promise<FineTuningJob[]> {
+      const response = await fetch(`${baseUrl}/fine_tuning/jobs`, {
+        headers,
+        signal: AbortSignal.timeout(config.timeout ?? 60000),
+      });
+
+      const data = await parseJsonResponse<{
+        data: OpenAIFineTuningJob[];
+      }>(response, "OpenAI fine-tuning error");
+
+      return data.data.map(parseOpenAIFineTuningJob);
+    },
+
+    async getFineTuningJob(jobId: string): Promise<FineTuningJob> {
+      const response = await fetch(`${baseUrl}/fine_tuning/jobs/${jobId}`, {
+        headers,
+        signal: AbortSignal.timeout(config.timeout ?? 60000),
+      });
+
+      const data = await parseJsonResponse<OpenAIFineTuningJob>(
+        response,
+        "OpenAI fine-tuning error",
+      );
+      return parseOpenAIFineTuningJob(data);
+    },
+
+    async listFineTuningEvents(jobId: string): Promise<FineTuningJobEvent[]> {
+      const response = await fetch(
+        `${baseUrl}/fine_tuning/jobs/${jobId}/events`,
+        {
+          headers,
+          signal: AbortSignal.timeout(config.timeout ?? 60000),
+        },
+      );
+
+      const data = await parseJsonResponse<{
+        data: OpenAIFineTuningJobEvent[];
+      }>(response, "OpenAI fine-tuning error");
+
+      return data.data.map(parseOpenAIFineTuningJobEvent);
+    },
   };
 }
 
 // OpenAI types
+interface OpenAIFileObject {
+  id: string;
+  bytes: number;
+  created_at: number;
+  filename: string;
+  purpose: string;
+}
+
 interface OpenAIResponse {
   id: string;
   choices: Array<{
@@ -1357,6 +1486,45 @@ interface OpenAIStreamChunk {
     completion_tokens: number;
     total_tokens: number;
   };
+}
+
+interface OpenAIFineTuningJob {
+  id: string;
+  model: string;
+  created_at: number;
+  finished_at?: number | null;
+  estimated_finish?: number | null;
+  fine_tuned_model?: string | null;
+  training_file: string;
+  validation_file?: string | null;
+  trained_tokens?: number | null;
+  result_files?: string[];
+  status:
+    | "validating_files"
+    | "queued"
+    | "running"
+    | "succeeded"
+    | "failed"
+    | "cancelled";
+  suffix?: string | null;
+  error?: {
+    code?: string | null;
+    message?: string | null;
+    param?: string | null;
+  } | null;
+  hyperparameters?: {
+    batch_size?: "auto" | number;
+    learning_rate_multiplier?: "auto" | number;
+    n_epochs?: "auto" | number;
+  };
+}
+
+interface OpenAIFineTuningJobEvent {
+  id: string;
+  created_at: number;
+  level: "info" | "warn" | "error";
+  message: string;
+  type?: "message" | "metrics";
 }
 
 function formatMessagesForOpenAI(request: ChatRequest) {
@@ -1435,6 +1603,63 @@ function parseOpenAIResponse(data: OpenAIResponse): ChatResponse {
       : undefined,
     model: data.model,
     finishReason: toolCalls && toolCalls.length > 0 ? "tool_calls" : "stop",
+  };
+}
+
+function parseOpenAIFile(data: OpenAIFileObject): UploadedFile {
+  return {
+    id: data.id,
+    filename: data.filename,
+    bytes: data.bytes,
+    purpose: data.purpose,
+    createdAt: data.created_at,
+  };
+}
+
+function formatFineTuningHyperparameters(
+  hyperparameters: NonNullable<CreateFineTuningJobRequest["hyperparameters"]>,
+) {
+  return {
+    batch_size: hyperparameters.batchSize,
+    learning_rate_multiplier: hyperparameters.learningRateMultiplier,
+    n_epochs: hyperparameters.nEpochs,
+  };
+}
+
+function parseOpenAIFineTuningJob(data: OpenAIFineTuningJob): FineTuningJob {
+  return {
+    id: data.id,
+    model: data.model,
+    status: data.status,
+    createdAt: data.created_at,
+    finishedAt: data.finished_at,
+    estimatedFinish: data.estimated_finish,
+    fineTunedModel: data.fine_tuned_model,
+    trainingFile: data.training_file,
+    validationFile: data.validation_file,
+    trainedTokens: data.trained_tokens,
+    resultFiles: data.result_files,
+    suffix: data.suffix,
+    error: data.error,
+    hyperparameters: data.hyperparameters
+      ? {
+          batchSize: data.hyperparameters.batch_size,
+          learningRateMultiplier: data.hyperparameters.learning_rate_multiplier,
+          nEpochs: data.hyperparameters.n_epochs,
+        }
+      : undefined,
+  };
+}
+
+function parseOpenAIFineTuningJobEvent(
+  data: OpenAIFineTuningJobEvent,
+): FineTuningJobEvent {
+  return {
+    id: data.id,
+    createdAt: data.created_at,
+    level: data.level,
+    message: data.message,
+    type: data.type,
   };
 }
 

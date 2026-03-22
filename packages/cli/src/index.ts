@@ -5,16 +5,18 @@
  * Main entry point for the CLI application.
  */
 
-import { parseArgs } from './args.js';
-import { runApp } from './app.js';
-import { runEval } from './eval.js';
-import { Config } from '@beans/core';
+import { parseArgs } from "./args.js";
+import { runApp } from "./app.js";
+import { runEval } from "./eval.js";
+import { handleFineTuneCommand } from "./fineTune.js";
+import { handleOllamaLocalizerCommand } from "./ollamaLocalizer.js";
+import { Config } from "@beans/core";
 
 async function main() {
   const args = await parseArgs();
 
   if (args.version) {
-    console.log('beans-agent v0.1.0');
+    console.log("beans-agent v0.1.0");
     process.exit(0);
   }
 
@@ -35,6 +37,23 @@ Options:
   --sop <text>            Inject SOP into agent
   --sop-file <path>       Load SOP from file
   --list-models           List available models for the current provider
+  --fine-tune <path>      Upload a JSONL file and create an OpenAI fine-tuning job
+  --fine-tune-model <id>  Base OpenAI model for fine-tuning
+  --fine-tune-validation-file <path>
+                          Optional JSONL validation file for fine-tuning
+  --fine-tune-suffix <s>  Optional suffix for the fine-tuned model name
+  --list-fine-tunes       List OpenAI fine-tuning jobs
+  --fine-tune-job <id>    Show an OpenAI fine-tuning job and recent events
+  --create-ollama-localizer <name>
+                          Build a localization-focused Ollama model from a base model
+  --ollama-base-model <id>
+                          Base Ollama model to customize (default: qwen2.5:3b)
+  --localization-language <name>
+                          Target language for the localization prompt
+  --localization-rules-file <path>
+                          Optional file with extra localization rules
+  --ollama-parameter <key=value>
+                          Add a raw Modelfile PARAMETER line (repeatable)
   --yolo                  Auto-approve all tool calls
   --debug                 Show LLM requests and responses for debugging
 
@@ -55,6 +74,9 @@ Examples:
   beans --agent-profile ./my-agent.json
   beans --sop "Always explain step by step"
   beans --list-models
+  beans --fine-tune ./data/ko-localization.jsonl --fine-tune-model gpt-4o-mini
+  beans --fine-tune-job ftjob_abc123
+  beans --create-ollama-localizer finance-localizer --ollama-base-model qwen2.5:3b --localization-language English --ollama-parameter temperature=0.1
   beans --eval --benchmark mbpp --limit 10
   beans --eval --benchmark mbpp --agentic --limit 10
 `);
@@ -72,16 +94,26 @@ Examples:
       try {
         const models = await client.listModels();
         for (const model of models) {
-          const desc = model.description ? ` - ${model.description}` : '';
+          const desc = model.description ? ` - ${model.description}` : "";
           console.log(`  ${model.id}${desc}`);
         }
       } catch (error) {
-        console.error(`Error listing models: ${error instanceof Error ? error.message : error}`);
+        console.error(
+          `Error listing models: ${error instanceof Error ? error.message : error}`,
+        );
       }
     } else {
-      console.log('  Model listing not supported for this provider');
+      console.log("  Model listing not supported for this provider");
     }
 
+    process.exit(0);
+  }
+
+  if (await handleFineTuneCommand(args)) {
+    process.exit(0);
+  }
+
+  if (await handleOllamaLocalizerCommand(args)) {
     process.exit(0);
   }
 
@@ -95,6 +127,6 @@ Examples:
 }
 
 main().catch((error) => {
-  console.error('Fatal error:', error.message);
+  console.error("Fatal error:", error.message);
   process.exit(1);
 });

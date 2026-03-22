@@ -97,6 +97,88 @@ export interface ModelInfo {
 }
 
 /**
+ * Request to upload a file for provider-managed workflows such as fine-tuning.
+ */
+export interface UploadFileRequest {
+  /** Absolute or relative local file path */
+  path: string;
+  /** Intended file purpose */
+  purpose: "fine-tune";
+}
+
+/**
+ * Uploaded file metadata
+ */
+export interface UploadedFile {
+  id: string;
+  filename: string;
+  bytes: number;
+  purpose: string;
+  createdAt: number;
+}
+
+/**
+ * Fine-tuning hyperparameters for supervised jobs.
+ */
+export interface FineTuningHyperparameters {
+  batchSize?: "auto" | number;
+  learningRateMultiplier?: "auto" | number;
+  nEpochs?: "auto" | number;
+}
+
+/**
+ * Request to create a fine-tuning job.
+ */
+export interface CreateFineTuningJobRequest {
+  model: string;
+  trainingFile: string;
+  validationFile?: string;
+  suffix?: string;
+  hyperparameters?: FineTuningHyperparameters;
+}
+
+/**
+ * Fine-tuning job metadata.
+ */
+export interface FineTuningJob {
+  id: string;
+  model: string;
+  status:
+    | "validating_files"
+    | "queued"
+    | "running"
+    | "succeeded"
+    | "failed"
+    | "cancelled";
+  createdAt: number;
+  finishedAt?: number | null;
+  estimatedFinish?: number | null;
+  fineTunedModel?: string | null;
+  trainingFile: string;
+  validationFile?: string | null;
+  trainedTokens?: number | null;
+  resultFiles?: string[];
+  suffix?: string | null;
+  error?: {
+    code?: string | null;
+    message?: string | null;
+    param?: string | null;
+  } | null;
+  hyperparameters?: FineTuningHyperparameters;
+}
+
+/**
+ * Fine-tuning job event metadata.
+ */
+export interface FineTuningJobEvent {
+  id: string;
+  createdAt: number;
+  level: "info" | "warn" | "error";
+  message: string;
+  type?: "message" | "metrics";
+}
+
+/**
  * LLM client interface
  */
 export interface LLMClient {
@@ -116,6 +198,33 @@ export interface LLMClient {
    * List available models from the provider
    */
   listModels?(): Promise<ModelInfo[]>;
+
+  /**
+   * Upload a file for provider-managed workflows
+   */
+  uploadFile?(request: UploadFileRequest): Promise<UploadedFile>;
+
+  /**
+   * Create a fine-tuning job
+   */
+  createFineTuningJob?(
+    request: CreateFineTuningJobRequest,
+  ): Promise<FineTuningJob>;
+
+  /**
+   * List fine-tuning jobs
+   */
+  listFineTuningJobs?(): Promise<FineTuningJob[]>;
+
+  /**
+   * Retrieve a fine-tuning job
+   */
+  getFineTuningJob?(jobId: string): Promise<FineTuningJob>;
+
+  /**
+   * List events for a fine-tuning job
+   */
+  listFineTuningEvents?(jobId: string): Promise<FineTuningJobEvent[]>;
 }
 
 /**

@@ -5,10 +5,11 @@ A dynamic AI agent framework with plugin-based agents, built-in tools, and multi
 ## Features
 
 - **Plugin-based Agent System** - Define agents as Markdown files with YAML frontmatter
-- **Multiple LLM Providers** - Google Gemini, Ollama (local)
+- **Multiple LLM Providers** - Google Gemini, OpenAI, Anthropic, Ollama (local)
 - **Built-in Tools** - File operations, shell commands, glob, grep
 - **Ink-based CLI** - React-powered terminal UI with markdown rendering
 - **Streaming Responses** - Real-time output with tool call progress
+- **OpenAI Fine-tuning CLI** - Upload JSONL files, create jobs, and inspect localized models
 
 ## Installation
 
@@ -103,6 +104,12 @@ npm run dev -- --model gemini-2.5-pro "add unit tests"
 # List available models
 npm run dev -- --list-models
 
+# Create an OpenAI fine-tuning job
+npm run dev -- --fine-tune ./data/ko-localization.jsonl --fine-tune-model gpt-4o-mini
+
+# Inspect a fine-tuning job
+npm run dev -- --fine-tune-job ftjob_abc123
+
 # Auto-approve all tool calls
 npm run dev -- --yolo "refactor the auth module"
 ```
@@ -130,6 +137,13 @@ Options:
   --agent-profile       Use specific agent profile file
   -i, --interactive     Force interactive mode
   --list-models         List available models
+  --fine-tune           Create an OpenAI fine-tuning job from a local JSONL file
+  --fine-tune-model     Base OpenAI model for fine-tuning
+  --fine-tune-validation-file
+                        Optional JSONL validation file for fine-tuning
+  --fine-tune-suffix    Optional suffix for the fine-tuned model name
+  --list-fine-tunes     List OpenAI fine-tuning jobs
+  --fine-tune-job       Show an OpenAI fine-tuning job and recent events
   --yolo                Auto-approve all tool calls
   --verbose             Verbose output
   --debug               Show LLM requests and responses
@@ -138,10 +152,12 @@ Options:
 
 ## Supported Providers
 
-| Provider | Models                               | API Key          |
-| -------- | ------------------------------------ | ---------------- |
-| `google` | `gemini-2.0-flash`, `gemini-2.5-pro` | `GOOGLE_API_KEY` |
-| `ollama` | Any local model                      | (none required)  |
+| Provider    | Models                               | API Key             |
+| ----------- | ------------------------------------ | ------------------- |
+| `google`    | `gemini-2.0-flash`, `gemini-2.5-pro` | `GOOGLE_API_KEY`    |
+| `openai`    | `gpt-*`, `o*`, `ft:*`                | `OPENAI_API_KEY`    |
+| `anthropic` | `claude-*`                           | `ANTHROPIC_API_KEY` |
+| `ollama`    | Any local model                      | (none required)     |
 
 ### Provider Examples
 
