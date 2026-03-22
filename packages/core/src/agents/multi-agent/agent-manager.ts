@@ -51,6 +51,7 @@ export function createAgentManager(
   const defaultModel = options.model ?? llmConfig.model;
   const defaultMaxTurns = options.maxTurns ?? agentConfig.maxTurns;
   const defaultCwd = options.cwd ?? process.cwd();
+  const baseSystemPrompt = options.baseSystemPrompt?.trim();
 
   // Enable debug logging based on config
   setMultiAgentDebug(debugConfig.enabled);
@@ -86,18 +87,25 @@ export function createAgentManager(
   ): AgentDefinition {
     const cwd = options.cwd ?? defaultCwd;
 
-    // Build system prompt with environment and mode information
-    let systemPrompt = `## Environment
+    const promptSections: string[] = [];
+
+    if (baseSystemPrompt) {
+      promptSections.push(baseSystemPrompt);
+    }
+
+    // Add multi-agent runtime context after the shared base prompt.
+    promptSections.push(`## Multi-Agent Runtime Context
 
 Working directory: ${cwd}
 Platform: ${process.platform}
 Date: ${new Date().toISOString().split("T")[0]}
 
 IMPORTANT: All file operations should use paths relative to the working directory above. When the user mentions a file name without a path (e.g., "lottery.py"), assume it's in the working directory and use the full path (e.g., "${cwd}/lottery.py"). Do NOT use paths like /home/user/ or assume files are elsewhere.
+`);
 
----
+    promptSections.push(agent.systemPrompt);
 
-${agent.systemPrompt}`;
+    let systemPrompt = promptSections.join("\n\n---\n\n");
 
     // Add Plan Mode restrictions to system prompt when active
     const currentMode = policyEngine.getMode();
@@ -133,9 +141,13 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
       },
       modelConfig: {
         model: agent.model ?? defaultModel,
+        temperature: llmConfig.temperature,
+        maxTokens: llmConfig.maxTokens,
       },
       runConfig: {
         maxTurns: options.maxTurns ?? agent.maxTurns ?? defaultMaxTurns,
+        timeoutMs: agentConfig.timeoutMs,
+        debug: debugConfig.enabled,
       },
       toolConfig: agent.allowAllTools
         ? { allowAllTools: true }

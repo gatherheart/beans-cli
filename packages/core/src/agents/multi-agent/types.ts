@@ -243,6 +243,8 @@ export type MultiAgentEvent =
  * Configuration for the agent manager
  */
 export interface AgentManagerConfig {
+  /** Base system prompt shared by all spawned agents */
+  baseSystemPrompt?: string;
   /** Default model to use (overrides config) */
   model?: string;
   /** Default max turns (overrides config) */

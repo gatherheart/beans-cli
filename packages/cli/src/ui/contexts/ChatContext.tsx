@@ -106,11 +106,12 @@ export function ChatProvider({
   const getAgentManager = useCallback(() => {
     if (!agentManagerRef.current) {
       agentManagerRef.current = createAgentManager(config, {
+        baseSystemPrompt: systemPrompt,
         cwd: process.cwd(),
       });
     }
     return agentManagerRef.current;
-  }, [config]);
+  }, [config, systemPrompt]);
 
   const sendMessage = useCallback(
     async (content: string) => {
