@@ -41,3 +41,13 @@ coverage/
 .cache/
 .npm/
 .npm-cache/
+
+# Finance Qwen example intermediates
+examples/finance-qwen-lora/.venv/
+examples/finance-qwen-lora/__pycache__/
+examples/finance-qwen-lora/data/
+examples/finance-qwen-lora/artifacts/qwen2.5-3b-finance-lora/
+examples/finance-qwen-lora/artifacts/qwen2.5-3b-finance-merged/
+examples/finance-qwen-lora/artifacts/qwen2.5-3b-finance-f16.gguf
+examples/finance-qwen-lora/artifacts/qwen2.5-3b-finance-q4_k_m.gguf
+examples/finance-qwen-lora/artifacts/qwen2.5-3b-finance-q4_k_m.gguf.zip
