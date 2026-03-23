@@ -12,6 +12,7 @@ import { Box, Text, useApp } from "ink";
 import { ChatProvider, useChatActions } from "./contexts/ChatContext.js";
 import { TaskProvider } from "./contexts/TaskContext.js";
 import { ChatView } from "./components/ChatView.js";
+import { LiveStatusBar } from "./components/LiveStatusBar.js";
 import { InputArea } from "./components/InputArea.js";
 import { useTerminalSize } from "./hooks/useTerminalSize.js";
 import type { Config, ApprovalMode } from "@beans/core";
@@ -93,6 +94,7 @@ function AppContent({
   return (
     <Box flexDirection="column" width={mainAreaWidth}>
       <ChatView width={mainAreaWidth} />
+      <LiveStatusBar />
       <InputArea onExit={onExit} width={mainAreaWidth} />
     </Box>
   );

@@ -7,7 +7,6 @@
 
 import React from "react";
 import { Box, Text } from "ink";
-import Spinner from "ink-spinner";
 import { colors } from "../theme/colors.js";
 
 interface PlanningDisplayProps {
@@ -39,7 +38,7 @@ function splitIntoParagraphs(content: string): string[] {
   return result.filter((p) => p.trim());
 }
 
-export function PlanningDisplay({
+export const PlanningDisplay = React.memo(function PlanningDisplay({
   content,
   isComplete,
 }: PlanningDisplayProps): React.ReactElement {
@@ -53,12 +52,8 @@ export function PlanningDisplay({
     <Box flexDirection="column" marginBottom={1}>
       {paragraphs.map((paragraph, index) => (
         <Box key={index} marginTop={index > 0 ? 1 : 0}>
-          {/* Show spinner only on first paragraph when not complete */}
-          {index === 0 && !isComplete && (
-            <Text color={colors.muted}>
-              <Spinner type="dots" />{" "}
-            </Text>
-          )}
+          {/* Keep this static so only the footer status bar animates. */}
+          {index === 0 && !isComplete && <Text color={colors.muted}>... </Text>}
           {/* Indent non-first paragraphs to align with first */}
           {index > 0 && !isComplete && <Text>{"  "}</Text>}
           <Text color={colors.muted} italic wrap="wrap">
@@ -68,4 +63,4 @@ export function PlanningDisplay({
       ))}
     </Box>
   );
-}
+});

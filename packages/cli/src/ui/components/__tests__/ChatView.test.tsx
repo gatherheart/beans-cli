@@ -1,6 +1,6 @@
 import { render } from "ink-testing-library";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ChatView } from "../ChatView.js";
+import { ChatView, partitionMessagesForRender } from "../ChatView.js";
 import type { Message } from "../../hooks/useChatHistory.js";
 
 // Mock the ChatContext
@@ -135,14 +135,55 @@ describe("ChatView Anti-Flicker", () => {
       { id: "3", role: "assistant", content: "Loading...", isStreaming: true },
     ];
 
-    // Verify the separation logic
-    const completedMessages = messages.filter((m) => !m.isStreaming);
-    const pendingMessages = messages.filter((m) => m.isStreaming);
+    const { archivedMessages, liveMessages } =
+      partitionMessagesForRender(messages);
 
-    expect(completedMessages).toHaveLength(2);
-    expect(pendingMessages).toHaveLength(1);
-    expect(completedMessages.map((m) => m.id)).toEqual(["1", "2"]);
-    expect(pendingMessages.map((m) => m.id)).toEqual(["3"]);
+    expect(archivedMessages).toHaveLength(2);
+    expect(liveMessages).toHaveLength(1);
+    expect(archivedMessages.map((m) => m.id)).toEqual(["1", "2"]);
+    expect(liveMessages.map((m) => m.id)).toEqual(["3"]);
+  });
+
+  it("should keep prior chats archived when a later message is active", () => {
+    const messages: Message[] = [
+      { id: "1", role: "user", content: "First", isStreaming: false },
+      { id: "2", role: "assistant", content: "Done", isStreaming: false },
+      { id: "3", role: "user", content: "Second", isStreaming: false },
+      { id: "4", role: "assistant", content: "", isStreaming: true },
+    ];
+
+    const { archivedMessages, liveMessages } =
+      partitionMessagesForRender(messages);
+
+    expect(archivedMessages.map((m) => m.id)).toEqual(["1", "2", "3"]);
+    expect(liveMessages.map((m) => m.id)).toEqual(["4"]);
+  });
+
+  it("should treat tool and thinking states as live", () => {
+    const messages: Message[] = [
+      { id: "1", role: "user", content: "First", isStreaming: false },
+      {
+        id: "2",
+        role: "assistant",
+        content: "Partial",
+        isStreaming: false,
+        toolCalls: [
+          {
+            id: "tool-1",
+            name: "read_file",
+            args: { path: "/tmp/file.ts" },
+            isComplete: true,
+          },
+        ],
+        isThinking: true,
+      },
+    ];
+
+    const { archivedMessages, liveMessages } =
+      partitionMessagesForRender(messages);
+
+    expect(archivedMessages.map((m) => m.id)).toEqual(["1"]);
+    expect(liveMessages.map((m) => m.id)).toEqual(["2"]);
   });
 
   it("should render streaming message in dynamic area", () => {

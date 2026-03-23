@@ -8,12 +8,10 @@
 
 import React, { useMemo } from "react";
 import { Box, Text } from "ink";
-import Spinner from "ink-spinner";
 import type { WriteFileMetadata, ToolMetadata } from "@beans/core";
 import { MarkdownDisplay } from "./MarkdownDisplay.js";
 import { DiffDisplay } from "./DiffDisplay.js";
 import { PlanningDisplay } from "./PlanningDisplay.js";
-import { ThinkingIndicator } from "./ThinkingIndicator.js";
 import { colors } from "../theme/colors.js";
 import type {
   Message as MessageType,
@@ -27,6 +25,15 @@ interface MessageProps {
 
 interface ToolCallsProps {
   tools: ToolCallInfo[];
+  showDiffs: boolean;
+}
+
+interface MessageBodyProps {
+  role: MessageType["role"];
+  content: string;
+  isStreaming: boolean;
+  width?: number;
+  marginTop?: number;
 }
 
 /**
@@ -73,6 +80,7 @@ function formatCompletedToolsSummary(tools: ToolCallInfo[]): string {
 // Tool calls display - show completed tools with checkmark, spinner when processing
 const ToolCalls = React.memo(function ToolCalls({
   tools,
+  showDiffs,
   messageId,
 }: ToolCallsProps & { messageId: string }): React.ReactElement {
   // Memoize computed values to avoid re-computation on every render
@@ -97,12 +105,8 @@ const ToolCalls = React.memo(function ToolCalls({
       {/* Single line: spinner (if running) + completed summary */}
       {(completedTools.length > 0 || hasRunningTools) && (
         <Box>
-          {/* Show spinner first when tools are running */}
-          {hasRunningTools && (
-            <Text color={colors.warning}>
-              <Spinner type="dots" />{" "}
-            </Text>
-          )}
+          {/* Keep tool status static; the footer status bar owns animation. */}
+          {hasRunningTools && <Text color={colors.warning}>... </Text>}
           {/* Show checkmark when tools completed and none running */}
           {completedTools.length > 0 && !hasRunningTools && (
             <Text color={colors.success}>✓ </Text>
@@ -115,18 +119,132 @@ const ToolCalls = React.memo(function ToolCalls({
       )}
 
       {/* Diffs below (for write_file operations) */}
-      {toolsWithDiff.map((tool) => {
-        const metadata = tool.metadata as WriteFileMetadata;
-        return (
-          <DiffDisplay
-            key={`${messageId}-${tool.id}-diff`}
-            originalContent={metadata.originalContent}
-            newContent={metadata.newContent}
-            filePath={metadata.path}
-            isNewFile={metadata.isNewFile}
+      {showDiffs &&
+        toolsWithDiff.map((tool) => {
+          const metadata = tool.metadata as WriteFileMetadata;
+          return (
+            <DiffDisplay
+              key={`${messageId}-${tool.id}-diff`}
+              originalContent={metadata.originalContent}
+              newContent={metadata.newContent}
+              filePath={metadata.path}
+              isNewFile={metadata.isNewFile}
+            />
+          );
+        })}
+    </Box>
+  );
+});
+
+const MessageBody = React.memo(function MessageBody({
+  role,
+  content,
+  isStreaming,
+  width,
+  marginTop = 0,
+}: MessageBodyProps): React.ReactElement | null {
+  if (!content) {
+    return null;
+  }
+
+  const isUser = role === "user";
+  const isSystem = role === "system";
+  // Account for the prefix (2 chars: symbol + space)
+  const textWidth = width ? width - 2 : undefined;
+
+  return (
+    <Box marginTop={marginTop}>
+      {isUser ? (
+        <Text color={colors.user} bold>
+          {"> "}
+        </Text>
+      ) : isSystem ? (
+        <Text color={colors.system} bold>
+          {"\u2139 "}
+        </Text>
+      ) : (
+        <Text color={colors.assistant} bold>
+          {"\u2726 "}
+        </Text>
+      )}
+
+      <Box flexDirection="column" width={textWidth}>
+        {isUser ? (
+          <Text wrap="wrap">{content}</Text>
+        ) : isStreaming ? (
+          <Text wrap="wrap">{content}</Text>
+        ) : (
+          <MarkdownDisplay text={content} width={textWidth} />
+        )}
+      </Box>
+    </Box>
+  );
+});
+
+const MessageFooter = React.memo(function MessageFooter({
+  planningContent,
+  isPlanningComplete,
+  tools,
+  messageId,
+  showAfterBody,
+  isSettled,
+}: {
+  planningContent?: string;
+  isPlanningComplete?: boolean;
+  tools?: ToolCallInfo[];
+  messageId: string;
+  showAfterBody: boolean;
+  isSettled: boolean;
+}): React.ReactElement | null {
+  const hasPlanning = Boolean(planningContent);
+  const hasTools = Boolean(tools && tools.length > 0);
+  const hasRunningTools = Boolean(tools?.some((tool) => !tool.isComplete));
+
+  if (!hasPlanning && !hasTools) {
+    return null;
+  }
+
+  if (!isSettled) {
+    if (hasRunningTools || hasTools) {
+      return (
+        <Box flexDirection="column">
+          <Box marginTop={showAfterBody ? 1 : 0}>
+            <ToolCalls tools={tools!} showDiffs={false} messageId={messageId} />
+          </Box>
+        </Box>
+      );
+    }
+
+    if (hasPlanning) {
+      return (
+        <Box flexDirection="column">
+          <Box marginTop={showAfterBody ? 1 : 0}>
+            <PlanningDisplay
+              content={planningContent!}
+              isComplete={isPlanningComplete ?? false}
+            />
+          </Box>
+        </Box>
+      );
+    }
+  }
+
+  return (
+    <Box flexDirection="column">
+      {hasPlanning && (
+        <Box marginTop={showAfterBody ? 1 : 0}>
+          <PlanningDisplay
+            content={planningContent!}
+            isComplete={isPlanningComplete ?? false}
           />
-        );
-      })}
+        </Box>
+      )}
+
+      {hasTools && (
+        <Box marginTop={showAfterBody || hasPlanning ? 1 : 0}>
+          <ToolCalls tools={tools!} showDiffs={true} messageId={messageId} />
+        </Box>
+      )}
     </Box>
   );
 });
@@ -135,77 +253,35 @@ export const Message = React.memo(function Message({
   message,
   width,
 }: MessageProps): React.ReactElement {
-  const isUser = message.role === "user";
-  const isSystem = message.role === "system";
-  const hasTools = message.toolCalls && message.toolCalls.length > 0;
-  const hasPlanning = Boolean(message.planningContent);
-  // Account for the prefix (2 chars: symbol + space)
-  const textWidth = width ? width - 2 : undefined;
-
-  // Show final response content (separate from planning content)
-  // Planning content is shown via PlanningDisplay, content is the final response
   const showContent = Boolean(message.content);
-  const showStreamingSpinner =
-    message.isStreaming && !message.content && !hasTools && !hasPlanning;
+  const hasLivePlanning = Boolean(
+    message.planningContent && !message.isPlanningComplete,
+  );
+  const hasRunningTools = Boolean(
+    message.toolCalls?.some((tool) => !tool.isComplete),
+  );
+  const isSettled =
+    !message.isStreaming &&
+    !message.isThinking &&
+    !hasLivePlanning &&
+    !hasRunningTools;
 
   return (
     <Box flexDirection="column" marginBottom={1}>
-      {/* 1. Tool calls (shown first) */}
-      {hasTools && (
-        <ToolCalls tools={message.toolCalls!} messageId={message.id} />
-      )}
-
-      {/* 1.5. Thinking indicator (when waiting for LLM after tools) */}
-      {message.isThinking && (
-        <Box marginTop={1}>
-          <ThinkingIndicator />
-        </Box>
-      )}
-
-      {/* 2. Planning content (shown after tools, with spacing) */}
-      {hasPlanning && (
-        <Box marginTop={hasTools ? 1 : 0}>
-          <PlanningDisplay
-            content={message.planningContent!}
-            isComplete={message.isPlanningComplete ?? false}
-          />
-        </Box>
-      )}
-
-      {/* 3. Final response (with spacing from previous sections) */}
-      {(showContent || showStreamingSpinner) && (
-        <Box marginTop={hasTools || hasPlanning ? 1 : 0}>
-          {isUser ? (
-            <Text color={colors.user} bold>
-              {"> "}
-            </Text>
-          ) : isSystem ? (
-            <Text color={colors.system} bold>
-              {"\u2139 "}
-            </Text>
-          ) : (
-            <Text color={colors.assistant} bold>
-              {"\u2726 "}
-            </Text>
-          )}
-
-          <Box flexDirection="column" width={textWidth}>
-            {isUser ? (
-              <Text wrap="wrap">{message.content}</Text>
-            ) : message.isStreaming ? (
-              <Text wrap="wrap">
-                {message.content || (
-                  <Text color="gray">
-                    <Spinner type="dots" />
-                  </Text>
-                )}
-              </Text>
-            ) : (
-              <MarkdownDisplay text={message.content} width={textWidth} />
-            )}
-          </Box>
-        </Box>
-      )}
+      <MessageBody
+        role={message.role}
+        content={message.content}
+        isStreaming={message.isStreaming}
+        width={width}
+      />
+      <MessageFooter
+        planningContent={message.planningContent}
+        isPlanningComplete={message.isPlanningComplete}
+        tools={message.toolCalls}
+        messageId={message.id}
+        showAfterBody={showContent}
+        isSettled={isSettled}
+      />
     </Box>
   );
 });

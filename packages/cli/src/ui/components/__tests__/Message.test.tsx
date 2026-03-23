@@ -56,8 +56,9 @@ describe("Message", () => {
     };
 
     const { lastFrame } = render(<Message message={message} width={80} />);
-    // Streaming messages show a spinner or indicator
-    expect(lastFrame()).toBeDefined();
+    const frame = lastFrame();
+    expect(frame).not.toContain("✦");
+    expect(frame).not.toContain("...");
   });
 
   it("renders tool calls when present", () => {
@@ -181,5 +182,57 @@ describe("Message", () => {
     expect(frame).toContain("/test/new-file.txt");
     expect(frame).toContain("+new line 1");
     expect(frame).toContain("+new line 2");
+  });
+
+  it("does not render a thinking indicator", () => {
+    const message: MessageType = {
+      id: "assistant-1",
+      role: "assistant",
+      content: "Partial response",
+      isStreaming: false,
+      isThinking: true,
+    };
+
+    const { lastFrame } = render(<Message message={message} width={80} />);
+    const frame = lastFrame();
+    expect(frame).toContain("Partial response");
+    expect(frame).not.toContain("Thinking");
+  });
+
+  it("renders progress and tool updates after the response body", () => {
+    const message: MessageType = {
+      id: "assistant-1",
+      role: "assistant",
+      content: "Final answer body",
+      isStreaming: false,
+      planningContent: "Interim progress",
+      isPlanningComplete: false,
+      toolCalls: [
+        {
+          id: "tool-1",
+          name: "write_file",
+          args: { path: "/tmp/file.ts", content: "x" },
+          isComplete: true,
+          result: "done",
+          metadata: {
+            path: "/tmp/file.ts",
+            lineCount: 1,
+            size: 1,
+            isNewFile: true,
+            originalContent: null,
+            newContent: "x",
+          },
+        },
+      ],
+    };
+
+    const { lastFrame } = render(<Message message={message} width={80} />);
+    const frame = lastFrame();
+    expect(frame.indexOf("Final answer body")).toBeLessThan(
+      frame.indexOf("Interim progress"),
+    );
+    expect(frame.indexOf("Final answer body")).toBeLessThan(
+      frame.indexOf("write_file"),
+    );
   });
 });
