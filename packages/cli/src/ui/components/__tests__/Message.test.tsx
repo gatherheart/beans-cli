@@ -227,7 +227,7 @@ describe("Message", () => {
     };
 
     const { lastFrame } = render(<Message message={message} width={80} />);
-    const frame = lastFrame();
+    const frame = lastFrame()!;
     expect(frame.indexOf("Final answer body")).toBeLessThan(
       frame.indexOf("Interim progress"),
     );
