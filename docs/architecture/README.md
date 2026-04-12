@@ -6,9 +6,12 @@ This directory contains architecture documentation for the Beans Agent project.
 
 ## Files
 
-| File          | Description                                                |
-| ------------- | ---------------------------------------------------------- |
-| `overview.md` | Complete system architecture, data flows, design decisions |
+| File                               | Description                                                      |
+| ---------------------------------- | ---------------------------------------------------------------- |
+| `overview.md`                      | Complete system architecture, data flows, design decisions       |
+| `multi-agent-system.md`            | Multi-agent routing, orchestration, and specialized agents       |
+| `sub-agent-context-merge.md`       | How sub-agent output is merged back into top-level agent context |
+| `memory-system-recommendations.md` | Memory loading and context persistence design recommendations    |
 
 ## Architecture Summary
 
@@ -25,13 +28,14 @@ plugins/              → Agent definitions (Markdown)
     └── context/      → Session and workspace management
 ```
 
-## Key Diagrams in overview.md
+## Key Diagrams
 
-1. **System Architecture** - Three-layer view (Plugin, CLI, Core)
-2. **Plugin System** - Agent/Command/Skill structure
-3. **Profile Resolution Flow** - How agents are loaded
-4. **Interactive Chat Flow** - Message processing loop
-5. **Tool Execution Flow** - Tool call handling
+1. **System Architecture** in `overview.md` - Three-layer view (Plugin, CLI, Core)
+2. **Profile Resolution Flow** in `overview.md` - How agents are loaded
+3. **Interactive Chat Flow** in `overview.md` - Message processing loop
+4. **Tool Execution Flow** in `overview.md` - Tool call handling
+5. **Multi-Agent Flow** in `multi-agent-system.md` - Routing and specialized agent orchestration
+6. **Sub-Agent Merge Flow** in `sub-agent-context-merge.md` - How delegated agent output enters parent context
 
 ## Related Documentation
 
