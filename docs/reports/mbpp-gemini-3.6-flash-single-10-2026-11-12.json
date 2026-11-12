@@ -1,0 +1,155 @@
+{
+  "benchmarkName": "mbpp",
+  "timestamp": "2026-11-12T07:16:43.559Z",
+  "model": "gemini-3.6-flash",
+  "summary": {
+    "total": 10,
+    "passed": 9,
+    "passRate": 0.9,
+    "totalTokens": 0,
+    "totalTimeMs": 53494,
+    "avgTimePerProblem": 5349.4
+  },
+  "results": [
+    {
+      "problemId": "2",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def similar_elements(test_tup1, test_tup2):\n    return tuple(set(test_tup1) & set(test_tup2))",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 5214
+      }
+    },
+    {
+      "problemId": "3",
+      "success": true,
+      "passed": 4,
+      "total": 4,
+      "generatedCode": "def is_not_prime(n):\n    if n <= 1:\n        return True\n    for i in range(2, int(n**0.5) + 1):\n        if n % i == 0:\n            return True\n    return False",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 4101
+      }
+    },
+    {
+      "problemId": "4",
+      "success": false,
+      "passed": 0,
+      "total": 3,
+      "generatedCode": "def heap_queue_largest(nums, n):\n    return heapq.nlargest(n, nums)",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 3234
+      }
+    },
+    {
+      "problemId": "6",
+      "success": true,
+      "passed": 6,
+      "total": 6,
+      "generatedCode": "def differ_At_One_Bit_Pos(a, b):\n    val = a ^ b\n    return val > 0 and (val & (val - 1)) == 0",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 4525
+      }
+    },
+    {
+      "problemId": "7",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def find_char_long(text):\n    return re.findall(r\"\\b\\w{4,}\\b\", text)",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 5577
+      }
+    },
+    {
+      "problemId": "8",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def square_nums(nums):\n    return [x**2 for x in nums]",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 1662
+      }
+    },
+    {
+      "problemId": "9",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def find_Rotations(s):\n    return (s + s).find(s, 1)",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 6290
+      }
+    },
+    {
+      "problemId": "11",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def remove_Occ(s, ch):\n    return s.replace(ch, \"\")",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 7906
+      }
+    },
+    {
+      "problemId": "12",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def sort_matrix(matrix):\n    return sorted(matrix, key=sum)",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 5614
+      }
+    },
+    {
+      "problemId": "14",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def find_Volume(l, b, h):\n    return (l * b * h) / 2",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 9369
+      }
+    }
+  ]
+}

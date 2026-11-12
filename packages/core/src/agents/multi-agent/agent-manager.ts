@@ -378,6 +378,7 @@ Do NOT repeatedly ask questions about file paths or permissions. Simply explain 
         turnCount: result.turnCount,
         error: result.error,
         messages: result.messages,
+        usage: result.usage,
       };
 
       // Log conversation history in debug mode

@@ -16,33 +16,33 @@
  *   GEMINI_API_KEY - Required for --gemini mode
  */
 
-import { spawnSync } from 'node:child_process';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const ROOT_DIR = path.resolve(__dirname, '..');
+const ROOT_DIR = path.resolve(__dirname, "..");
 
 interface TestResult {
   name: string;
-  status: 'passed' | 'failed' | 'skipped';
+  status: "passed" | "failed" | "skipped";
   duration: number;
   error?: string;
 }
 
 interface TestSuite {
   name: string;
-  type: 'unit' | 'e2e';
+  type: "unit" | "e2e";
   tests: TestResult[];
   duration: number;
-  status: 'passed' | 'failed';
+  status: "passed" | "failed";
 }
 
 interface TestCategory {
   name: string;
-  type: 'unit' | 'e2e';
+  type: "unit" | "e2e";
   summary: {
     total: number;
     passed: number;
@@ -69,45 +69,53 @@ interface TestReport {
   categories: TestCategory[];
 }
 
-function runCommand(command: string, args: string[]): { output: string; exitCode: number } {
+function runCommand(
+  command: string,
+  args: string[],
+): { output: string; exitCode: number } {
   const result = spawnSync(command, args, {
     cwd: ROOT_DIR,
-    encoding: 'utf-8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    encoding: "utf-8",
+    stdio: ["pipe", "pipe", "pipe"],
     shell: true,
   });
 
-  const output = (result.stdout || '') + (result.stderr || '');
+  const output = (result.stdout || "") + (result.stderr || "");
   return { output, exitCode: result.status || 0 };
 }
 
 function runUnitTests(): { output: string; exitCode: number } {
-  console.error('Running unit tests...\n');
-  return runCommand('npm', ['test', '--', '--reporter=verbose']);
+  console.error("Running unit tests...\n");
+  return runCommand("npm", ["test", "--", "--reporter=verbose"]);
 }
 
 function runE2ETests(): { output: string; exitCode: number } {
-  console.error('Running e2e tests...\n');
+  console.error("Running e2e tests...\n");
 
   // Run e2e tests - this generates .e2e-reports/summary.json
-  const result = runCommand('npm', ['run', 'test:e2e']);
+  const result = runCommand("npm", ["run", "test:e2e"]);
 
   return result;
 }
 
-function parseVitestOutput(output: string, type: 'unit' | 'e2e'): Partial<TestCategory> {
-  const lines = output.split('\n');
+function parseVitestOutput(
+  output: string,
+  type: "unit" | "e2e",
+): Partial<TestCategory> {
+  const lines = output.split("\n");
   const suites: TestSuite[] = [];
   let currentSuite: TestSuite | null = null;
 
   let totalPassed = 0;
   let totalFailed = 0;
   const totalSkipped = 0;
-  let totalDuration = '';
+  let totalDuration = "";
 
   for (const line of lines) {
     // Match file headers: ✓ path/to/file.test.ts (N tests) Xms
-    const fileMatch = line.match(/[✓✗]\s+(.+\.test\.tsx?)\s+\((\d+)\s+tests?\)\s+(\d+)ms/);
+    const fileMatch = line.match(
+      /[✓✗]\s+(.+\.test\.tsx?)\s+\((\d+)\s+tests?\)\s+(\d+)ms/,
+    );
     if (fileMatch) {
       if (currentSuite) {
         suites.push(currentSuite);
@@ -117,7 +125,7 @@ function parseVitestOutput(output: string, type: 'unit' | 'e2e'): Partial<TestCa
         type,
         tests: [],
         duration: parseInt(fileMatch[3]),
-        status: line.includes('✓') ? 'passed' : 'failed',
+        status: line.includes("✓") ? "passed" : "failed",
       };
     }
 
@@ -126,7 +134,7 @@ function parseVitestOutput(output: string, type: 'unit' | 'e2e'): Partial<TestCa
     if (testMatch && currentSuite) {
       currentSuite.tests.push({
         name: testMatch[1],
-        status: line.includes('✓') ? 'passed' : 'failed',
+        status: line.includes("✓") ? "passed" : "failed",
         duration: parseInt(testMatch[2]),
       });
     }
@@ -178,56 +186,71 @@ interface E2ESuite {
 }
 
 function readE2EReport(): Partial<TestCategory> | null {
-  const reportPath = path.join(ROOT_DIR, '.e2e-reports', 'summary.json');
+  const reportPath = path.join(ROOT_DIR, ".e2e-reports", "summary.json");
   try {
     if (fs.existsSync(reportPath)) {
-      const report = JSON.parse(fs.readFileSync(reportPath, 'utf-8'));
+      const report = JSON.parse(fs.readFileSync(reportPath, "utf-8"));
       return {
         summary: {
           total: report.summary?.total || 0,
           passed: report.summary?.passed || 0,
           failed: report.summary?.failed || 0,
           skipped: report.summary?.skipped || 0,
-          duration: report.duration || '0s',
+          duration: report.duration || "0s",
         },
         suites: (report.testSuites || []).map((s: E2ESuite) => ({
           name: s.name,
-          type: 'e2e' as const,
+          type: "e2e" as const,
           tests: (s.tests || []).map((t: E2ETestResult) => ({
             name: t.name,
-            status: t.status === 'passed' ? 'passed' : t.status === 'failed' ? 'failed' : 'skipped',
+            status:
+              t.status === "passed"
+                ? "passed"
+                : t.status === "failed"
+                  ? "failed"
+                  : "skipped",
             duration: t.duration || 0,
           })),
-          duration: (s.tests || []).reduce((sum: number, t: E2ETestResult) => sum + (t.duration || 0), 0),
-          status: s.status === 'passed' ? 'passed' : 'failed',
+          duration: (s.tests || []).reduce(
+            (sum: number, t: E2ETestResult) => sum + (t.duration || 0),
+            0,
+          ),
+          status: s.status === "passed" ? "passed" : "failed",
         })),
       };
     }
   } catch (err) {
-    console.error('Warning: Could not read e2e report:', (err as Error).message);
+    console.error(
+      "Warning: Could not read e2e report:",
+      (err as Error).message,
+    );
   }
   return null;
 }
 
 function formatRawOutput(output: string): string {
-  const lines = output.split('\n');
+  const lines = output.split("\n");
   const formattedLines: string[] = [];
 
-  let currentFile = '';
+  let currentFile = "";
   let testCount = 0;
 
   for (const line of lines) {
     // Skip npm command header and empty lines
-    if (line.includes('> @beans') || line.includes('> vitest') || line.trim() === '') {
+    if (
+      line.includes("> @beans") ||
+      line.includes("> vitest") ||
+      line.trim() === ""
+    ) {
       continue;
     }
 
     // Skip the RUN header line
-    if (line.includes('RUN  v')) {
+    if (line.includes("RUN  v")) {
       const versionMatch = line.match(/v(\d+\.\d+\.\d+)/);
       if (versionMatch) {
         formattedLines.push(`Vitest ${versionMatch[1]}`);
-        formattedLines.push('─'.repeat(50));
+        formattedLines.push("─".repeat(50));
       }
       continue;
     }
@@ -236,9 +259,9 @@ function formatRawOutput(output: string): string {
     const fileMatch = line.match(/[✓✗]\s+(.+\.test\.tsx?)\s+(?:>|$)/);
     if (fileMatch && !currentFile.includes(fileMatch[1])) {
       currentFile = fileMatch[1];
-      const shortPath = currentFile.replace(/^(packages\/|tests\/)/, '');
+      const shortPath = currentFile.replace(/^(packages\/|tests\/)/, "");
       if (testCount > 0) {
-        formattedLines.push('');
+        formattedLines.push("");
       }
       formattedLines.push(`📁 ${shortPath}`);
       testCount = 0;
@@ -248,27 +271,27 @@ function formatRawOutput(output: string): string {
     const testMatch = line.match(/^\s*([✓✗])\s+(.+?)\s+(\d+ms)?$/);
     if (testMatch) {
       const [, status, testName, duration] = testMatch;
-      const icon = status === '✓' ? '  ✅' : '  ❌';
-      const durationStr = duration ? ` (${duration})` : '';
+      const icon = status === "✓" ? "  ✅" : "  ❌";
+      const durationStr = duration ? ` (${duration})` : "";
       // Extract just the test name (after last >)
-      const parts = testName.split(' > ');
+      const parts = testName.split(" > ");
       const shortName = parts[parts.length - 1];
       formattedLines.push(`${icon} ${shortName}${durationStr}`);
       testCount++;
     }
 
     // Include summary lines
-    if (line.includes('Tests') && line.includes('passed')) {
-      formattedLines.push('');
-      formattedLines.push('─'.repeat(50));
+    if (line.includes("Tests") && line.includes("passed")) {
+      formattedLines.push("");
+      formattedLines.push("─".repeat(50));
       formattedLines.push(line.trim());
     }
-    if (line.includes('Duration')) {
+    if (line.includes("Duration")) {
       formattedLines.push(line.trim());
     }
   }
 
-  return formattedLines.join('\n');
+  return formattedLines.join("\n");
 }
 
 interface RunOptions {
@@ -283,16 +306,22 @@ function generateReport(options: RunOptions): TestReport {
   // Run unit tests
   if (!options.e2eOnly) {
     const unitResult = runUnitTests();
-    const unitParsed = parseVitestOutput(unitResult.output, 'unit');
+    const unitParsed = parseVitestOutput(unitResult.output, "unit");
 
     if (unitResult.exitCode !== 0) {
       overallSuccess = false;
     }
 
     categories.push({
-      name: 'Unit Tests',
-      type: 'unit',
-      summary: unitParsed.summary || { total: 0, passed: 0, failed: 0, skipped: 0, duration: '0ms' },
+      name: "Unit Tests",
+      type: "unit",
+      summary: unitParsed.summary || {
+        total: 0,
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+        duration: "0ms",
+      },
       suites: unitParsed.suites || [],
       rawOutput: formatRawOutput(unitResult.output),
     });
@@ -304,21 +333,27 @@ function generateReport(options: RunOptions): TestReport {
 
     // Read the generated e2e report for more accurate data
     const e2eReport = readE2EReport();
-    const e2eParsed = e2eReport || parseVitestOutput(e2eResult.output, 'e2e');
+    const e2eParsed = e2eReport || parseVitestOutput(e2eResult.output, "e2e");
 
     // Check success from the e2e report
-    const e2eReportPath = path.join(ROOT_DIR, '.e2e-reports', 'summary.json');
+    const e2eReportPath = path.join(ROOT_DIR, ".e2e-reports", "summary.json");
     if (fs.existsSync(e2eReportPath)) {
-      const report = JSON.parse(fs.readFileSync(e2eReportPath, 'utf-8'));
+      const report = JSON.parse(fs.readFileSync(e2eReportPath, "utf-8"));
       if (!report.success) {
         overallSuccess = false;
       }
     }
 
     categories.push({
-      name: 'E2E Tests',
-      type: 'e2e',
-      summary: e2eParsed.summary || { total: 0, passed: 0, failed: 0, skipped: 0, duration: '0s' },
+      name: "E2E Tests",
+      type: "e2e",
+      summary: e2eParsed.summary || {
+        total: 0,
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+        duration: "0s",
+      },
       suites: e2eParsed.suites || [],
       rawOutput: formatRawOutput(e2eResult.output),
     });
@@ -346,7 +381,7 @@ function generateReport(options: RunOptions): TestReport {
   const report: TestReport = {
     date: new Date().toISOString(),
     version: JSON.parse(
-      fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf-8')
+      fs.readFileSync(path.join(ROOT_DIR, "package.json"), "utf-8"),
     ).version,
     nodeVersion: process.version,
     os: `${process.platform} ${process.arch}`,
@@ -359,11 +394,11 @@ function generateReport(options: RunOptions): TestReport {
 }
 
 function getGeminiPrompt(report: TestReport): string {
-  const templatePath = path.join(ROOT_DIR, 'docs/templates/test-report.md');
-  let template = '';
+  const templatePath = path.join(ROOT_DIR, "docs/templates/test-report.md");
+  let template = "";
 
   if (fs.existsSync(templatePath)) {
-    template = fs.readFileSync(templatePath, 'utf-8');
+    template = fs.readFileSync(templatePath, "utf-8");
   } else {
     template = `# Test Report
 
@@ -428,15 +463,15 @@ Generate the complete test report:`;
 async function callGeminiAPI(prompt: string): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY environment variable is required');
+    throw new Error("GEMINI_API_KEY environment variable is required");
   }
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         contents: [
@@ -449,7 +484,7 @@ async function callGeminiAPI(prompt: string): Promise<string> {
           maxOutputTokens: 8192,
         },
       }),
-    }
+    },
   );
 
   if (!response.ok) {
@@ -461,65 +496,70 @@ async function callGeminiAPI(prompt: string): Promise<string> {
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
   if (!text) {
-    throw new Error('No response from Gemini API');
+    throw new Error("No response from Gemini API");
   }
 
   return text;
 }
 
 function saveReport(content: string, filename?: string): string {
-  const reportsDir = path.join(ROOT_DIR, 'docs/reports');
+  const reportsDir = path.join(ROOT_DIR, "docs/reports");
   if (!fs.existsSync(reportsDir)) {
     fs.mkdirSync(reportsDir, { recursive: true });
   }
 
-  const date = new Date().toISOString().split('T')[0];
-  const reportFile = filename || `test-report-${date}.md`;
+  const reportFile = filename || "test-report-latest.md";
   const reportPath = path.join(reportsDir, reportFile);
 
-  fs.writeFileSync(reportPath, content, 'utf-8');
+  fs.writeFileSync(reportPath, content, "utf-8");
   return reportPath;
 }
 
 function printSummary(report: TestReport): void {
-  console.log('\n' + '='.repeat(60));
-  console.log('COMPREHENSIVE TEST REPORT');
-  console.log('='.repeat(60));
-  console.log(`Status: ${report.overallSuccess ? '✅ ALL PASSED' : '❌ SOME FAILED'}`);
+  console.log("\n" + "=".repeat(60));
+  console.log("COMPREHENSIVE TEST REPORT");
+  console.log("=".repeat(60));
+  console.log(
+    `Status: ${report.overallSuccess ? "✅ ALL PASSED" : "❌ SOME FAILED"}`,
+  );
   console.log(`Date: ${report.date}`);
   console.log(`Version: ${report.version}`);
   console.log(`Node: ${report.nodeVersion}`);
   console.log(`OS: ${report.os}`);
-  console.log('');
-  console.log('Overall Summary:');
-  console.log(`  Total: ${report.summary.total} | Passed: ${report.summary.passed} | Failed: ${report.summary.failed} | Skipped: ${report.summary.skipped}`);
-  console.log('');
+  console.log("");
+  console.log("Overall Summary:");
+  console.log(
+    `  Total: ${report.summary.total} | Passed: ${report.summary.passed} | Failed: ${report.summary.failed} | Skipped: ${report.summary.skipped}`,
+  );
+  console.log("");
 
   for (const category of report.categories) {
-    const status = category.summary.failed > 0 ? '❌' : '✅';
+    const status = category.summary.failed > 0 ? "❌" : "✅";
     console.log(`${status} ${category.name}:`);
-    console.log(`   Total: ${category.summary.total} | Passed: ${category.summary.passed} | Failed: ${category.summary.failed} | Duration: ${category.summary.duration}`);
+    console.log(
+      `   Total: ${category.summary.total} | Passed: ${category.summary.passed} | Failed: ${category.summary.failed} | Duration: ${category.summary.duration}`,
+    );
 
     if (category.suites.length > 0) {
       for (const suite of category.suites) {
-        const suiteStatus = suite.status === 'passed' ? '✓' : '✗';
+        const suiteStatus = suite.status === "passed" ? "✓" : "✗";
         console.log(`   ${suiteStatus} ${suite.name}`);
       }
     }
-    console.log('');
+    console.log("");
   }
 
-  console.log('='.repeat(60));
+  console.log("=".repeat(60));
 }
 
 // Main execution
 async function main() {
   const args = process.argv.slice(2);
-  const jsonOnly = args.includes('--json');
-  const geminiMode = args.includes('--gemini');
-  const saveMode = args.includes('--save');
-  const unitOnly = args.includes('--unit-only');
-  const e2eOnly = args.includes('--e2e-only');
+  const jsonOnly = args.includes("--json");
+  const geminiMode = args.includes("--gemini");
+  const saveMode = args.includes("--save");
+  const unitOnly = args.includes("--unit-only");
+  const e2eOnly = args.includes("--e2e-only");
 
   const report = generateReport({ unitOnly, e2eOnly });
 
@@ -532,13 +572,13 @@ async function main() {
     const prompt = getGeminiPrompt(report);
 
     try {
-      console.error('Calling Gemini API...\n');
+      console.error("Calling Gemini API...\n");
       let generatedReport = await callGeminiAPI(prompt);
 
       // Strip markdown code block wrappers if present
       generatedReport = generatedReport
-        .replace(/^```markdown\s*\n?/i, '')
-        .replace(/\n?```\s*$/i, '');
+        .replace(/^```markdown\s*\n?/i, "")
+        .replace(/\n?```\s*$/i, "");
 
       if (saveMode) {
         const reportPath = saveReport(generatedReport);
@@ -547,7 +587,7 @@ async function main() {
 
       console.log(generatedReport);
     } catch (error) {
-      console.error('Error:', (error as Error).message);
+      console.error("Error:", (error as Error).message);
       process.exit(1);
     }
     return;
@@ -556,12 +596,12 @@ async function main() {
   // Default: show summary
   printSummary(report);
 
-  console.log('Options:');
-  console.log('  --json       Output JSON data');
-  console.log('  --gemini     Generate report with Gemini API');
-  console.log('  --save       Save report to docs/reports/');
-  console.log('  --unit-only  Run only unit tests');
-  console.log('  --e2e-only   Run only e2e tests');
+  console.log("Options:");
+  console.log("  --json       Output JSON data");
+  console.log("  --gemini     Generate report with Gemini API");
+  console.log("  --save       Save report to docs/reports/");
+  console.log("  --unit-only  Run only unit tests");
+  console.log("  --e2e-only   Run only e2e tests");
 }
 
 main().catch(console.error);

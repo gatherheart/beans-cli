@@ -198,35 +198,28 @@ const MessageFooter = React.memo(function MessageFooter({
 }): React.ReactElement | null {
   const hasPlanning = Boolean(planningContent);
   const hasTools = Boolean(tools && tools.length > 0);
-  const hasRunningTools = Boolean(tools?.some((tool) => !tool.isComplete));
-
   if (!hasPlanning && !hasTools) {
     return null;
   }
 
   if (!isSettled) {
-    if (hasRunningTools || hasTools) {
-      return (
-        <Box flexDirection="column">
-          <Box marginTop={showAfterBody ? 1 : 0}>
-            <ToolCalls tools={tools!} showDiffs={false} messageId={messageId} />
-          </Box>
-        </Box>
-      );
-    }
-
-    if (hasPlanning) {
-      return (
-        <Box flexDirection="column">
+    return (
+      <Box flexDirection="column">
+        {hasPlanning && (
           <Box marginTop={showAfterBody ? 1 : 0}>
             <PlanningDisplay
               content={planningContent!}
               isComplete={isPlanningComplete ?? false}
             />
           </Box>
-        </Box>
-      );
-    }
+        )}
+        {hasTools && (
+          <Box marginTop={showAfterBody || hasPlanning ? 1 : 0}>
+            <ToolCalls tools={tools!} showDiffs={false} messageId={messageId} />
+          </Box>
+        )}
+      </Box>
+    );
   }
 
   return (

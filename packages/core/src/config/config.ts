@@ -27,7 +27,7 @@ import { PolicyEngine, DEFAULT_POLICY_CONFIG } from "../policy/index.js";
 const defaults: AppConfig = {
   llm: {
     provider: "google",
-    model: "gemini-2.0-flash",
+    model: "gemini-3.6-flash",
     temperature: 0.7,
     maxTokens: 4096,
   },

@@ -153,6 +153,8 @@ export interface AgentExecutionResult {
   error?: string;
   /** Conversation messages */
   messages: Message[];
+  /** Provider-reported usage across this agent execution */
+  usage?: import("../../llm/types.js").TokenUsage;
 }
 
 /**

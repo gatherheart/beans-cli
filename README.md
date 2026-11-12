@@ -1,253 +1,62 @@
 # Beans Agent
 
-A dynamic AI agent framework with plugin-based agents, built-in tools, and multi-provider LLM support.
+A TypeScript CLI for working with LLM agents, tools, and agent profiles. The repository also includes an MBPP evaluation runner for comparing single-pass and Coder/Critic workflows.
 
-## Features
+## What it includes
 
-- **Plugin-based Agent System** - Define agents as Markdown files with YAML frontmatter
-- **Multiple LLM Providers** - Google Gemini, OpenAI, Anthropic, Ollama (local)
-- **Built-in Tools** - File operations, shell commands, glob, grep
-- **Ink-based CLI** - React-powered terminal UI with markdown rendering
-- **Streaming Responses** - Real-time output with tool call progress
-- **OpenAI Fine-tuning CLI** - Upload JSONL files, create jobs, and inspect localized models
+- Agent profiles defined in Markdown with YAML frontmatter
+- Google Gemini, OpenAI, Anthropic, and local Ollama provider adapters
+- File, shell, search, and web tools; streamed terminal UI built with Ink
+- MBPP evaluator with per-problem checkpoints and JSON results
 
-## Installation
+## Get started
+
+Requires Node.js 20 or newer. MBPP evaluation also requires Python 3.
 
 ```bash
-npm install
+npm ci
 npm run build
-```
-
-## Configuration
-
-### Environment Variables
-
-Copy `.env.example` to `.env` and add your API key:
-
-```bash
 cp .env.example .env
 ```
 
-Edit `.env`:
-
-```
-# Google AI (default provider)
-GOOGLE_API_KEY=AIza...
-```
-
-### Settings File
-
-**User settings** (applies globally):
-
-```
-~/.config/beans-agent/settings.json
-```
-
-**Project settings** (overrides user settings):
-
-```
-.beans/settings.json
-```
-
-Example settings:
-
-```json
-{
-  "llm": {
-    "provider": "google",
-    "model": "gemini-2.0-flash",
-    "temperature": 0.7,
-    "maxTokens": 4096
-  },
-  "agent": {
-    "maxTurns": 50,
-    "timeoutMs": 300000,
-    "streaming": true,
-    "autoApprove": "none"
-  },
-  "tools": {
-    "enabled": ["read_file", "write_file", "shell", "glob", "grep"],
-    "disabled": []
-  }
-}
-```
-
-## Usage
-
-### Interactive Mode
+Set `GOOGLE_API_KEY` in `.env`, then start an interactive session:
 
 ```bash
-# Start interactive chat
 npm run dev
-
-# With initial prompt
-npm run dev -- -i "help me understand this codebase"
 ```
 
-Interactive commands:
-| Command | Description |
-|---------|-------------|
-| `/help` | Show available commands |
-| `/profile` | View current agent profile |
-| `/clear` | Clear chat history |
-| `/exit` | Exit application |
-
-### Single Prompt Mode
+For a single prompt with an explicit model:
 
 ```bash
-# Run with a prompt
-npm run dev "fix the bug in main.ts"
-
-# With specific model
-npm run dev -- --model gemini-2.5-pro "add unit tests"
-
-# List available models
-npm run dev -- --list-models
-
-# Create an OpenAI fine-tuning job
-npm run dev -- --fine-tune ./data/ko-localization.jsonl --fine-tune-model gpt-4o-mini
-
-# Inspect a fine-tuning job
-npm run dev -- --fine-tune-job ftjob_abc123
-
-# Auto-approve all tool calls
-npm run dev -- --yolo "refactor the auth module"
+npm run dev -- --model gemini-3.6-flash "Explain this repository"
 ```
 
-### Agent Profiles
+Run `npm run dev -- --help` for CLI options. Other providers use `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or a local Ollama server. Settings can be placed in `~/.config/beans-agent/settings.json` or `.beans/settings.json`; see [documentation](docs/guides/) for additional examples. Keep keys in `.env`, which Git ignores.
 
-```bash
-# Use specific agent from plugins
-npm run dev -- --agent-profile ./plugins/code-development/agents/code-reviewer.md
+## Benchmarks
 
-# Generate agent from description
-npm run dev -- -a "A security-focused code reviewer"
-```
+The reports below use the same sanitized MBPP problem order for both modes. Agentic mode uses a Coder/Critic workflow with up to five attempts per problem.
 
-### CLI Options
+| Experiment                                                                                                     |     Single pass |         Agentic | Time                      | Token usage              |
+| -------------------------------------------------------------------------------------------------------------- | --------------: | --------------: | ------------------------- | ------------------------ |
+| [First 100 problems, one run per mode](docs/reports/mbpp-gemini-3.6-flash-single-vs-agentic-100-2026-11-12.md) |          87/100 |          91/100 | 744.4 s / 1369.7 s        | Unavailable for this run |
+| [First 20 problems, five runs per mode](docs/reports/mbpp-gemini-3.6-flash-20-five-runs-2026-11-12.md)         | 17.6/20 average | 19.0/20 average | 125.9 s / 161.3 s average | 23,762 / 49,927 average  |
 
-```
-beans [options] [prompt]
-
-Options:
-  -h, --help            Show help message
-  -v, --version         Show version number
-  -m, --model           Specify model to use
-  -a, --agent           Generate agent from description
-  --agent-profile       Use specific agent profile file
-  -i, --interactive     Force interactive mode
-  --list-models         List available models
-  --fine-tune           Create an OpenAI fine-tuning job from a local JSONL file
-  --fine-tune-model     Base OpenAI model for fine-tuning
-  --fine-tune-validation-file
-                        Optional JSONL validation file for fine-tuning
-  --fine-tune-suffix    Optional suffix for the fine-tuned model name
-  --list-fine-tunes     List OpenAI fine-tuning jobs
-  --fine-tune-job       Show an OpenAI fine-tuning job and recent events
-  --yolo                Auto-approve all tool calls
-  --verbose             Verbose output
-  --debug               Show LLM requests and responses
-  --cwd                 Set working directory
-```
-
-## Supported Providers
-
-| Provider    | Models                               | API Key             |
-| ----------- | ------------------------------------ | ------------------- |
-| `google`    | `gemini-2.0-flash`, `gemini-2.5-pro` | `GOOGLE_API_KEY`    |
-| `openai`    | `gpt-*`, `o*`, `ft:*`                | `OPENAI_API_KEY`    |
-| `anthropic` | `claude-*`                           | `ANTHROPIC_API_KEY` |
-| `ollama`    | Any local model                      | (none required)     |
-
-### Provider Examples
-
-**Google (default):**
-
-```json
-{
-  "llm": {
-    "provider": "google",
-    "model": "gemini-2.0-flash"
-  }
-}
-```
-
-**Ollama (local):**
-
-```json
-{
-  "llm": {
-    "provider": "ollama",
-    "model": "llama3.2",
-    "baseUrl": "http://localhost:11434"
-  }
-}
-```
-
-## Built-in Tools
-
-| Tool         | Description                  |
-| ------------ | ---------------------------- |
-| `read_file`  | Read file contents           |
-| `write_file` | Create or modify files       |
-| `shell`      | Execute shell commands       |
-| `glob`       | Find files matching patterns |
-| `grep`       | Search file contents         |
-
-## Project Structure
-
-```
-beans-code/
-├── packages/
-│   ├── core/                 # Core framework
-│   │   └── src/
-│   │       ├── agents/       # Agent execution engine
-│   │       ├── tools/        # Tool system
-│   │       ├── llm/          # LLM providers
-│   │       └── config/       # Configuration
-│   └── cli/                  # Command line interface
-│       └── src/
-│           ├── ui/           # Ink-based React UI
-│           └── app.tsx       # Main application
-├── plugins/                  # Agent definitions
-│   ├── general-assistant/    # Default agent
-│   ├── code-development/     # Code-focused agents
-│   └── devops-operations/    # DevOps agents
-├── docs/
-│   ├── sop/                  # Development guidelines
-│   ├── prd/                  # Feature specifications
-│   ├── guides/               # Implementation guides
-│   ├── issues/               # Problems and solutions
-│   └── architecture/         # System design
-└── CLAUDE.md / CODEX.md      # AI assistant instructions (Claude + Codex)
-```
+The 100-problem report includes checkpoints at 10-problem intervals and links to raw JSON results. The repeated 20-problem report includes every run, timing, tokens, and per-problem differences. Both modes use different prompts, so their score gap cannot be attributed solely to Critic revisions.
 
 ## Development
 
 ```bash
-# Run in development mode
-npm run dev
-
-# Build all packages
 npm run build
-
-# Run tests
 npm test
-
-# Full validation (build, test, typecheck, lint)
-npm run preflight
+npm run typecheck
+npm run lint
 ```
 
-## Documentation
+`npm run preflight` runs these checks together. End-to-end tests are available through `npm run test:e2e`.
 
-| Folder                                   | Purpose                                     |
-| ---------------------------------------- | ------------------------------------------- |
-| [docs/sop/](docs/sop/)                   | Development guidelines, coding standards    |
-| [docs/prd/](docs/prd/)                   | Feature specifications with status tracking |
-| [docs/guides/](docs/guides/)             | Implementation explanations                 |
-| [docs/issues/](docs/issues/)             | Problems encountered and solutions          |
-| [docs/architecture/](docs/architecture/) | System design documentation                 |
+The npm workspaces are `packages/core` (agent and provider logic), `packages/cli` (terminal interface), and `packages/eval` (benchmark runner). Agent definitions live in `plugins/`; architecture and development notes live in `docs/`.
 
 ## License
 
-MIT
+No license has been added yet.

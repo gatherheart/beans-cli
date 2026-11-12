@@ -15,7 +15,7 @@ import type {
   RunConfig,
   ToolConfig,
 } from "./types.js";
-import type { LLMClient } from "../llm/types.js";
+import type { LLMClient, TokenUsage } from "../llm/types.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import type { AgentActivityEvent } from "./executor.js";
 import type { MemoryStore } from "../memory/index.js";
@@ -69,6 +69,8 @@ export interface SendMessageResult {
   turnCount: number;
   /** Reason for termination */
   terminateReason: TerminateReason;
+  /** Provider-reported usage across all LLM calls in this message */
+  usage?: TokenUsage;
 }
 
 /**
@@ -243,6 +245,21 @@ export class ChatSession {
     const startTime = Date.now();
     let turnCount = 0;
     let terminateReason: TerminateReason = "complete";
+    const usage: TokenUsage = {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    };
+    let hasUsage = false;
+    const addUsage = (value?: TokenUsage) => {
+      if (!value) return;
+      hasUsage = true;
+      usage.promptTokens += value.promptTokens;
+      usage.completionTokens += value.completionTokens;
+      usage.totalTokens += value.totalTokens;
+      usage.cachedTokens =
+        (usage.cachedTokens ?? 0) + (value.cachedTokens ?? 0);
+    };
 
     try {
       // Agent loop for this message
@@ -296,6 +313,7 @@ export class ChatSession {
         if (this.llmClient.chatStream) {
           const stream = this.llmClient.chatStream(chatRequest);
           for await (const chunk of stream) {
+            addUsage(chunk.usage);
             if (chunk.content) {
               content += chunk.content;
               onActivity?.({ type: "content_chunk", content: chunk.content });
@@ -314,6 +332,7 @@ export class ChatSession {
         } else {
           // Fall back to non-streaming
           const response = await this.llmClient.chat(chatRequest);
+          addUsage(response.usage);
           content = response.content ?? "";
           toolCalls = response.toolCalls ?? [];
 
@@ -354,6 +373,7 @@ export class ChatSession {
                 error: `Loop detected: ${loopResult.suggestion}`,
                 turnCount,
                 terminateReason: "error",
+                usage: hasUsage ? usage : undefined,
               };
             }
           }
@@ -405,6 +425,7 @@ export class ChatSession {
         content: lastAssistant?.content ?? "",
         turnCount,
         terminateReason,
+        usage: hasUsage ? usage : undefined,
       };
     } catch (error) {
       const errorMessage =
@@ -420,6 +441,7 @@ export class ChatSession {
         error: errorMessage,
         turnCount,
         terminateReason: "error",
+        usage: hasUsage ? usage : undefined,
       };
     }
   }

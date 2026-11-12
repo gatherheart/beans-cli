@@ -1,0 +1,296 @@
+{
+  "benchmarkName": "mbpp",
+  "timestamp": "2026-11-12T08:24:44.198Z",
+  "model": "gemini-3.6-flash",
+  "summary": {
+    "total": 20,
+    "passed": 18,
+    "passRate": 0.9,
+    "totalTokens": 24080,
+    "totalTimeMs": 125605,
+    "avgTimePerProblem": 6280.25
+  },
+  "results": [
+    {
+      "problemId": "2",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def similar_elements(test_tup1, test_tup2):\n    return tuple(set(test_tup1) & set(test_tup2))",
+      "metrics": {
+        "promptTokens": 127,
+        "completionTokens": 44,
+        "totalTokens": 785,
+        "turnCount": 1,
+        "timeMs": 4469
+      }
+    },
+    {
+      "problemId": "3",
+      "success": true,
+      "passed": 4,
+      "total": 4,
+      "generatedCode": "def is_not_prime(n):\n    if n <= 1:\n        return True\n    for i in range(2, int(n**0.5) + 1):\n        if n % i == 0:\n            return True\n    return False",
+      "metrics": {
+        "promptTokens": 100,
+        "completionTokens": 65,
+        "totalTokens": 903,
+        "turnCount": 1,
+        "timeMs": 5331
+      }
+    },
+    {
+      "problemId": "4",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "import heapq\n\n\ndef heap_queue_largest(nums, n):\n    return heapq.nlargest(n, nums)",
+      "metrics": {
+        "promptTokens": 146,
+        "completionTokens": 31,
+        "totalTokens": 701,
+        "turnCount": 1,
+        "timeMs": 3729
+      }
+    },
+    {
+      "problemId": "6",
+      "success": true,
+      "passed": 6,
+      "total": 6,
+      "generatedCode": "def differ_At_One_Bit_Pos(a, b):\n    val = a ^ b\n    return val != 0 and (val & (val - 1)) == 0",
+      "metrics": {
+        "promptTokens": 107,
+        "completionTokens": 47,
+        "totalTokens": 774,
+        "turnCount": 1,
+        "timeMs": 4526
+      }
+    },
+    {
+      "problemId": "7",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "import re\n\n\ndef find_char_long(text):\n    return re.findall(r\"\\b\\w{4,}\\b\", text)",
+      "metrics": {
+        "promptTokens": 118,
+        "completionTokens": 37,
+        "totalTokens": 1141,
+        "turnCount": 1,
+        "timeMs": 6313
+      }
+    },
+    {
+      "problemId": "8",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def square_nums(nums):\n    return [x**2 for x in nums]",
+      "metrics": {
+        "promptTokens": 163,
+        "completionTokens": 19,
+        "totalTokens": 395,
+        "turnCount": 1,
+        "timeMs": 1904
+      }
+    },
+    {
+      "problemId": "9",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def find_Rotations(s):\n    return (s + s).find(s, 1)",
+      "metrics": {
+        "promptTokens": 100,
+        "completionTokens": 28,
+        "totalTokens": 1096,
+        "turnCount": 1,
+        "timeMs": 6089
+      }
+    },
+    {
+      "problemId": "11",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def remove_Occ(s, ch):\n    return s.replace(ch, \"\")",
+      "metrics": {
+        "promptTokens": 103,
+        "completionTokens": 19,
+        "totalTokens": 764,
+        "turnCount": 1,
+        "timeMs": 4702
+      }
+    },
+    {
+      "problemId": "12",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def sort_matrix(matrix):\n    return sorted(matrix, key=sum)",
+      "metrics": {
+        "promptTokens": 148,
+        "completionTokens": 23,
+        "totalTokens": 1031,
+        "turnCount": 1,
+        "timeMs": 5463
+      }
+    },
+    {
+      "problemId": "14",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def find_Volume(l, b, h):\n    return (l * b * h) / 2",
+      "metrics": {
+        "promptTokens": 106,
+        "completionTokens": 29,
+        "totalTokens": 1968,
+        "turnCount": 1,
+        "timeMs": 9796
+      }
+    },
+    {
+      "problemId": "16",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "import re\n\n\ndef text_lowercase_underscore(text):\n    patterns = \"^[a-z]+_[a-z]+$\"\n    if re.search(patterns, text):\n        return True\n    else:\n        return False",
+      "metrics": {
+        "promptTokens": 106,
+        "completionTokens": 56,
+        "totalTokens": 893,
+        "turnCount": 1,
+        "timeMs": 4610
+      }
+    },
+    {
+      "problemId": "17",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def square_perimeter(side):\n    return 4 * side",
+      "metrics": {
+        "promptTokens": 99,
+        "completionTokens": 19,
+        "totalTokens": 328,
+        "turnCount": 1,
+        "timeMs": 2032
+      }
+    },
+    {
+      "problemId": "18",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def remove_dirty_chars(string1, string2):\n    dirty_set = set(string2)\n    return \"\".join(char for char in string1 if char not in dirty_set)",
+      "metrics": {
+        "promptTokens": 108,
+        "completionTokens": 49,
+        "totalTokens": 562,
+        "turnCount": 1,
+        "timeMs": 3410
+      }
+    },
+    {
+      "problemId": "19",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def test_duplicate(array):\n    return len(array) != len(set(array))",
+      "metrics": {
+        "promptTokens": 106,
+        "completionTokens": 21,
+        "totalTokens": 582,
+        "turnCount": 1,
+        "timeMs": 3311
+      }
+    },
+    {
+      "problemId": "20",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def is_woodall(n):\n    if n <= 0:\n        return False\n    k = 1\n    while True:\n        w = k * (1 << k) - 1\n        if w == n:\n            return True\n        if w > n:\n            return False\n        k += 1",
+      "metrics": {
+        "promptTokens": 101,
+        "completionTokens": 78,
+        "totalTokens": 1403,
+        "turnCount": 1,
+        "timeMs": 7120
+      }
+    },
+    {
+      "problemId": "56",
+      "success": false,
+      "passed": 2,
+      "total": 3,
+      "generatedCode": "def check(n):\n    if n < 2:\n        return False\n    for i in range(2, int(n**0.5) + 1):\n        if n % i == 0:\n            return False\n    return True",
+      "metrics": {
+        "promptTokens": 97,
+        "completionTokens": 61,
+        "totalTokens": 3865,
+        "turnCount": 1,
+        "timeMs": 19565
+      }
+    },
+    {
+      "problemId": "57",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def find_Max_Num(arr):\n    return int(\"\".join(map(str, sorted(arr, reverse=True))))",
+      "metrics": {
+        "promptTokens": 107,
+        "completionTokens": 34,
+        "totalTokens": 1218,
+        "turnCount": 1,
+        "timeMs": 6398
+      }
+    },
+    {
+      "problemId": "58",
+      "success": true,
+      "passed": 4,
+      "total": 4,
+      "generatedCode": "def opposite_Signs(x, y):\n    return (x ^ y) < 0",
+      "metrics": {
+        "promptTokens": 100,
+        "completionTokens": 25,
+        "totalTokens": 888,
+        "turnCount": 1,
+        "timeMs": 4367
+      }
+    },
+    {
+      "problemId": "59",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def is_octagonal(n):\n    return 3 * n**2 - 2 * n",
+      "metrics": {
+        "promptTokens": 101,
+        "completionTokens": 22,
+        "totalTokens": 586,
+        "turnCount": 1,
+        "timeMs": 3245
+      }
+    },
+    {
+      "problemId": "61",
+      "success": false,
+      "passed": 0,
+      "total": 3,
+      "generatedCode": "",
+      "error": "No code found in response",
+      "metrics": {
+        "promptTokens": 105,
+        "completionTokens": 161,
+        "totalTokens": 4197,
+        "turnCount": 1,
+        "timeMs": 19205
+      }
+    }
+  ]
+}

@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -67,17 +67,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Generate App Token
-        id: app-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          token: ${{ steps.app-token.outputs.token }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -87,29 +78,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Run advanced lint fix
-        run: npm run lint:fix:all
-        continue-on-error: true
-
-      - name: Commit lint fixes
-        run: |
-          git config --local user.email "260040687+beans-code-bot[bot]@users.noreply.github.com"
-          git config --local user.name "beans-code-bot[bot]"
-          git add -A
-          if git diff --staged --quiet; then
-            echo "No lint fixes to commit"
-          else
-            git commit -m "fix(lint): Auto-fix lint errors [skip ci]"
-            # Pull with rebase, resolve conflicts by keeping our changes
-            if ! git pull --rebase origin main; then
-              # Accept our version for any conflicts and continue
-              git checkout --ours .
-              git add -A
-              git rebase --continue || git rebase --skip
-            fi
-            git push
-          fi
 
       - name: Lint
         run: npm run lint
@@ -193,6 +161,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test, ui-test, e2e-test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
     env:
       HAS_GEMINI_KEY: ${{ secrets.GEMINI_API_KEY != '' }}
 
@@ -232,7 +202,7 @@ jobs:
         run: |
           git config --local user.email "260040687+beans-code-bot[bot]@users.noreply.github.com"
           git config --local user.name "beans-code-bot[bot]"
-          git add docs/reports/*.md
+          git add docs/reports/test-report-latest.md
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
@@ -252,7 +222,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-report
-          path: docs/reports/*.md
+          path: docs/reports/test-report-latest.md
           retention-days: 30
 
       - name: Generate basic report (no API key)

@@ -4,32 +4,32 @@ import type {
   BenchmarkReport,
   BenchmarkSummary,
   EvaluationResult,
-} from '../benchmarks/types.js';
+} from "../benchmarks/types.js";
 import type {
   EvalRunnerConfig,
   EvalProgressCallback,
   EvalRunResult,
   Checkpoint,
-} from './types.js';
+} from "./types.js";
 import {
   generateRunId,
   createCheckpoint,
   loadCheckpoint,
   updateCheckpoint,
   getCompletedIds,
-} from './checkpoint.js';
-import { MBPPBenchmark } from '../benchmarks/mbpp/index.js';
-import type { ChatSession } from '@beans/core/agents';
+} from "./checkpoint.js";
+import { MBPPBenchmark } from "../benchmarks/mbpp/index.js";
+import type { ChatSession } from "@beans/core/agents";
 
 /**
  * Get benchmark instance by name
  */
 function getBenchmark(
   name: string,
-  config: EvalRunnerConfig
+  config: EvalRunnerConfig,
 ): Benchmark<BenchmarkProblem> {
   switch (name.toLowerCase()) {
-    case 'mbpp':
+    case "mbpp":
       return new MBPPBenchmark({ timeout: config.timeout });
     default:
       throw new Error(`Unknown benchmark: ${name}`);
@@ -51,7 +51,7 @@ export class EvalRunner {
    */
   async run(
     config: EvalRunnerConfig,
-    onProgress?: EvalProgressCallback
+    onProgress?: EvalProgressCallback,
   ): Promise<EvalRunResult> {
     const benchmark = getBenchmark(config.benchmark, config);
 
@@ -102,9 +102,20 @@ export class EvalRunner {
       const llmStartTime = Date.now();
 
       let generatedCode: string;
+      let usage:
+        | {
+            promptTokens: number;
+            completionTokens: number;
+            totalTokens: number;
+          }
+        | undefined;
       try {
         const response = await this.session.sendMessage(prompt);
+        if (!response.success) {
+          throw new Error(response.error ?? "LLM request failed");
+        }
         generatedCode = response.content;
+        usage = response.usage;
       } catch (error) {
         // LLM error - record as failure
         const result: EvaluationResult = {
@@ -112,7 +123,7 @@ export class EvalRunner {
           success: false,
           passed: 0,
           total: 3, // Assume standard test count
-          generatedCode: '',
+          generatedCode: "",
           error: error instanceof Error ? error.message : String(error),
           metrics: {
             promptTokens: 0,
@@ -140,6 +151,9 @@ export class EvalRunner {
 
       // Update metrics with LLM timing
       result.metrics.timeMs = Date.now() - llmStartTime;
+      result.metrics.promptTokens = usage?.promptTokens ?? 0;
+      result.metrics.completionTokens = usage?.completionTokens ?? 0;
+      result.metrics.totalTokens = usage?.totalTokens ?? 0;
 
       // Save checkpoint
       await updateCheckpoint(checkpoint, result);
@@ -160,7 +174,7 @@ export class EvalRunner {
       benchmark.name,
       config.model,
       checkpoint.results,
-      Date.now() - startTime
+      Date.now() - startTime,
     );
 
     return {
@@ -174,7 +188,7 @@ export class EvalRunner {
     benchmarkName: string,
     model: string,
     results: EvaluationResult[],
-    totalTimeMs: number
+    totalTimeMs: number,
   ): BenchmarkReport {
     const summary = this.calculateSummary(results, totalTimeMs);
 
@@ -189,11 +203,14 @@ export class EvalRunner {
 
   private calculateSummary(
     results: EvaluationResult[],
-    totalTimeMs: number
+    totalTimeMs: number,
   ): BenchmarkSummary {
     const total = results.length;
     const passed = results.filter((r) => r.success).length;
-    const totalTokens = results.reduce((sum, r) => sum + r.metrics.totalTokens, 0);
+    const totalTokens = results.reduce(
+      (sum, r) => sum + r.metrics.totalTokens,
+      0,
+    );
 
     return {
       total,

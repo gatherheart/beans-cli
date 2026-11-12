@@ -5,7 +5,7 @@
  * can be generated dynamically using LLM or loaded from Markdown files.
  */
 
-import type { LLMClient, ChatRequest } from '../llm/types.js';
+import type { LLMClient, ChatRequest } from "../llm/types.js";
 
 /**
  * Agent profile containing identity and behavior configuration
@@ -41,10 +41,11 @@ export interface AgentProfileConfig {
  * Default agent profile when no custom profile is available
  */
 export const DEFAULT_AGENT_PROFILE: AgentProfile = {
-  name: 'general_assistant',
-  displayName: 'General Assistant',
-  description: 'A helpful AI assistant for general tasks',
-  purpose: 'Help users with various tasks including coding, analysis, and problem-solving',
+  name: "general_assistant",
+  displayName: "General Assistant",
+  description: "A helpful AI assistant for general tasks",
+  purpose:
+    "Help users with various tasks including coding, analysis, and problem-solving",
   systemPrompt: `You are a helpful AI assistant. You help users with various tasks including:
 - Answering questions and providing information
 - Analyzing data and providing insights
@@ -56,7 +57,7 @@ Guidelines:
 - Ask for clarification when needed
 - Provide accurate and helpful information
 - Use available tools when appropriate`,
-  version: '1.0.0',
+  version: "1.0.0",
   createdAt: new Date().toISOString(),
 };
 
@@ -67,7 +68,7 @@ export class AgentProfileBuilder {
   private llmClient: LLMClient;
   private defaultModel: string;
 
-  constructor(llmClient: LLMClient, defaultModel: string = 'gemini-2.0-flash') {
+  constructor(llmClient: LLMClient, defaultModel: string = "gemini-3.6-flash") {
     this.llmClient = llmClient;
     this.defaultModel = defaultModel;
   }
@@ -79,9 +80,7 @@ export class AgentProfileBuilder {
     const prompt = this.buildProfilePrompt(config);
 
     const request: ChatRequest = {
-      messages: [
-        { role: 'user', content: prompt },
-      ],
+      messages: [{ role: "user", content: prompt }],
       model: this.defaultModel,
       temperature: 0.7,
       maxTokens: 2048,
@@ -89,7 +88,7 @@ export class AgentProfileBuilder {
 
     const response = await this.llmClient.chat(request);
 
-    return this.parseProfileResponse(response.content || '', config);
+    return this.parseProfileResponse(response.content || "", config);
   }
 
   /**
@@ -136,28 +135,32 @@ Respond ONLY with valid JSON, no additional text.`;
   /**
    * Parse the LLM response into an AgentProfile
    */
-  private parseProfileResponse(content: string, config: AgentProfileConfig): AgentProfile {
+  private parseProfileResponse(
+    content: string,
+    config: AgentProfileConfig,
+  ): AgentProfile {
     try {
       // Try to extract JSON from the response
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        throw new Error('No JSON found in response');
+        throw new Error("No JSON found in response");
       }
 
       const parsed = JSON.parse(jsonMatch[0]);
 
       return {
-        name: parsed.name || 'custom_agent',
-        displayName: parsed.displayName || 'Custom Agent',
+        name: parsed.name || "custom_agent",
+        displayName: parsed.displayName || "Custom Agent",
         description: parsed.description || config.description,
         purpose: parsed.purpose || config.description,
-        systemPrompt: parsed.systemPrompt || this.buildFallbackSystemPrompt(config),
-        version: '1.0.0',
+        systemPrompt:
+          parsed.systemPrompt || this.buildFallbackSystemPrompt(config),
+        version: "1.0.0",
         createdAt: new Date().toISOString(),
       };
     } catch {
       // Fallback if parsing fails
-      console.warn('Failed to parse LLM response, using fallback profile');
+      console.warn("Failed to parse LLM response, using fallback profile");
       return this.buildFallbackProfile(config);
     }
   }
@@ -167,12 +170,12 @@ Respond ONLY with valid JSON, no additional text.`;
    */
   private buildFallbackProfile(config: AgentProfileConfig): AgentProfile {
     return {
-      name: 'custom_agent',
-      displayName: 'Custom Agent',
+      name: "custom_agent",
+      displayName: "Custom Agent",
       description: config.description.slice(0, 100),
       purpose: config.description,
       systemPrompt: this.buildFallbackSystemPrompt(config),
-      version: '1.0.0',
+      version: "1.0.0",
       createdAt: new Date().toISOString(),
     };
   }
@@ -227,7 +230,7 @@ function parseYamlFrontmatter(content: string): ParsedFrontmatter {
 
   // Simple YAML parser for key: value pairs
   const frontmatter: Record<string, string> = {};
-  for (const line of yamlContent.split('\n')) {
+  for (const line of yamlContent.split("\n")) {
     const match = line.match(/^(\w+):\s*(.*)$/);
     if (match) {
       frontmatter[match[1]] = match[2].trim();
@@ -243,27 +246,41 @@ function parseYamlFrontmatter(content: string): ParsedFrontmatter {
 function nameToDisplayName(name: string): string {
   return name
     .split(/[-_]/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 /**
  * Resolve base profile path from extends field
  */
-async function resolveBasePath(extendsValue: string, currentFilePath: string): Promise<string | null> {
-  const fs = await import('node:fs/promises');
-  const path = await import('node:path');
+async function resolveBasePath(
+  extendsValue: string,
+  currentFilePath: string,
+): Promise<string | null> {
+  const fs = await import("node:fs/promises");
+  const path = await import("node:path");
 
   // Check common locations for base profiles
   const possiblePaths = [
     // Relative to current file's directory
-    path.join(path.dirname(currentFilePath), extendsValue + '.md'),
+    path.join(path.dirname(currentFilePath), extendsValue + ".md"),
     path.join(path.dirname(currentFilePath), extendsValue),
     // In plugins/bases directory (relative to project root)
-    path.join(path.dirname(currentFilePath), '..', '..', 'bases', extendsValue + '.md'),
-    path.join(path.dirname(currentFilePath), '..', 'bases', extendsValue + '.md'),
+    path.join(
+      path.dirname(currentFilePath),
+      "..",
+      "..",
+      "bases",
+      extendsValue + ".md",
+    ),
+    path.join(
+      path.dirname(currentFilePath),
+      "..",
+      "bases",
+      extendsValue + ".md",
+    ),
     // Direct path
-    extendsValue.endsWith('.md') ? extendsValue : extendsValue + '.md',
+    extendsValue.endsWith(".md") ? extendsValue : extendsValue + ".md",
   ];
 
   for (const possiblePath of possiblePaths) {
@@ -281,19 +298,21 @@ async function resolveBasePath(extendsValue: string, currentFilePath: string): P
 /**
  * Load agent profile from a Markdown file with inheritance support
  */
-export async function loadAgentProfile(filePath: string): Promise<AgentProfile> {
-  const fs = await import('node:fs/promises');
-  const content = await fs.readFile(filePath, 'utf-8');
+export async function loadAgentProfile(
+  filePath: string,
+): Promise<AgentProfile> {
+  const fs = await import("node:fs/promises");
+  const content = await fs.readFile(filePath, "utf-8");
 
   const { frontmatter } = parseYamlFrontmatter(content);
 
   // Check for extends field
-  let basePrompt = '';
+  let basePrompt = "";
   if (frontmatter.extends) {
     const basePath = await resolveBasePath(frontmatter.extends, filePath);
     if (basePath) {
       const baseProfile = await loadAgentProfile(basePath);
-      basePrompt = baseProfile.systemPrompt + '\n\n';
+      basePrompt = baseProfile.systemPrompt + "\n\n";
     }
   }
 
@@ -315,8 +334,8 @@ export function parseMarkdownProfile(content: string): AgentProfile {
   const { frontmatter, body } = parseYamlFrontmatter(content);
 
   // Extract name from frontmatter
-  const name = frontmatter.name || 'custom_agent';
-  const description = frontmatter.description || '';
+  const name = frontmatter.name || "custom_agent";
+  const description = frontmatter.description || "";
 
   // Use the entire Markdown body as the system prompt
   const systemPrompt = body.trim();
@@ -334,7 +353,7 @@ export function parseMarkdownProfile(content: string): AgentProfile {
     description,
     purpose,
     systemPrompt,
-    version: '1.0.0',
+    version: "1.0.0",
     createdAt: new Date().toISOString(),
   };
 }
@@ -342,9 +361,12 @@ export function parseMarkdownProfile(content: string): AgentProfile {
 /**
  * Save agent profile to a Markdown file
  */
-export async function saveAgentProfile(profile: AgentProfile, filePath: string): Promise<void> {
-  const fs = await import('node:fs/promises');
-  const path = await import('node:path');
+export async function saveAgentProfile(
+  profile: AgentProfile,
+  filePath: string,
+): Promise<void> {
+  const fs = await import("node:fs/promises");
+  const path = await import("node:path");
 
   // Ensure directory exists
   const dir = path.dirname(filePath);
@@ -359,5 +381,5 @@ description: ${profile.description}
 ${profile.systemPrompt}
 `;
 
-  await fs.writeFile(filePath, markdown, 'utf-8');
+  await fs.writeFile(filePath, markdown, "utf-8");
 }

@@ -9,25 +9,25 @@ import type {
   BenchmarkSummary,
   EvaluationResult,
   ProblemMetrics,
-} from '../benchmarks/types.js';
+} from "../benchmarks/types.js";
 import type {
   EvalRunnerConfig,
   EvalProgressCallback,
   EvalRunResult,
   Checkpoint,
-} from './types.js';
+} from "./types.js";
 import {
   generateRunId,
   createCheckpoint,
   loadCheckpoint,
   updateCheckpoint,
   getCompletedIds,
-} from './checkpoint.js';
-import { MBPPBenchmark } from '../benchmarks/mbpp/index.js';
-import { extractCode, cleanCode } from '../extraction/code-extractor.js';
-import { executeWithTests } from '../execution/python-runner.js';
-import { Config, createAgentManager } from '@beans/core';
-import type { AgentManager } from '@beans/core';
+} from "./checkpoint.js";
+import { MBPPBenchmark } from "../benchmarks/mbpp/index.js";
+import { extractCode, cleanCode } from "../extraction/code-extractor.js";
+import { executeWithTests } from "../execution/python-runner.js";
+import { Config, createAgentManager } from "@beans/core";
+import type { AgentManager } from "@beans/core";
 
 const MAX_ITERATIONS = 5;
 
@@ -63,10 +63,10 @@ interface FailedTest {
  */
 function getBenchmark(
   name: string,
-  config: EvalRunnerConfig
+  config: EvalRunnerConfig,
 ): Benchmark<BenchmarkProblem> {
   switch (name.toLowerCase()) {
-    case 'mbpp':
+    case "mbpp":
       return new MBPPBenchmark({ timeout: config.timeout });
     default:
       throw new Error(`Unknown benchmark: ${name}`);
@@ -82,7 +82,7 @@ function buildCoderPrompt(problem: AgenticProblem, tests: string[]): string {
 Problem: ${problem.text}
 
 Your code will be tested with these assertions:
-${tests.map((t) => `  ${t}`).join('\n')}
+${tests.map((t) => `  ${t}`).join("\n")}
 
 Write the Python function now. Output ONLY the code, no markdown blocks.`;
 }
@@ -93,7 +93,7 @@ Write the Python function now. Output ONLY the code, no markdown blocks.`;
 function buildCriticPrompt(
   problem: AgenticProblem,
   code: string,
-  failedTests: FailedTest[]
+  failedTests: FailedTest[],
 ): string {
   const failures = failedTests
     .map((t) => {
@@ -104,7 +104,7 @@ function buildCriticPrompt(
       }
       return msg;
     })
-    .join('\n\n');
+    .join("\n\n");
 
   return `PROBLEM: ${problem.text}
 
@@ -129,7 +129,7 @@ function buildRetryPrompt(
   problem: AgenticProblem,
   previousCode: string,
   criticAnalysis: CriticAnalysis,
-  tests: string[]
+  tests: string[],
 ): string {
   return `YOUR CODE IS WRONG. A code reviewer analyzed the error:
 
@@ -143,7 +143,7 @@ Your wrong code:
 ${previousCode}
 
 All tests that must pass:
-${tests.map((t) => `  ${t}`).join('\n')}
+${tests.map((t) => `  ${t}`).join("\n")}
 
 Write the CORRECTED code. Apply the fix suggested above. Output ONLY Python code, no markdown.`;
 }
@@ -157,9 +157,9 @@ function parseCriticResponse(response: string): CriticAnalysis {
   const hintMatch = response.match(/HINT:\s*(.+?)(?:\n|$)/i);
 
   return {
-    whatWentWrong: wrongMatch?.[1]?.trim() || 'Unknown error',
-    keyRequirement: keyMatch?.[1]?.trim() || 'Check the problem requirements',
-    hint: hintMatch?.[1]?.trim() || 'Re-read the problem carefully',
+    whatWentWrong: wrongMatch?.[1]?.trim() || "Unknown error",
+    keyRequirement: keyMatch?.[1]?.trim() || "Check the problem requirements",
+    hint: hintMatch?.[1]?.trim() || "Re-read the problem carefully",
   };
 }
 
@@ -181,7 +181,7 @@ export class AgenticEvalRunner {
    */
   async run(
     config: EvalRunnerConfig,
-    onProgress?: EvalProgressCallback
+    onProgress?: EvalProgressCallback,
   ): Promise<EvalRunResult> {
     const benchmark = getBenchmark(config.benchmark, config);
     const maxIterations = config.maxIterations ?? MAX_ITERATIONS;
@@ -233,7 +233,7 @@ export class AgenticEvalRunner {
         problem,
         tests,
         maxIterations,
-        config.timeout ?? 30000
+        config.timeout ?? 30000,
       );
 
       // Save checkpoint
@@ -252,7 +252,7 @@ export class AgenticEvalRunner {
       benchmark.name,
       config.model,
       checkpoint.results,
-      Date.now() - startTime
+      Date.now() - startTime,
     );
 
     return {
@@ -269,12 +269,12 @@ export class AgenticEvalRunner {
     problem: AgenticProblem,
     tests: string[],
     maxIterations: number,
-    timeout: number
+    timeout: number,
   ): Promise<EvaluationResult> {
     const problemStartTime = Date.now();
     let iteration = 0;
-    let lastCode = '';
-    const totalTokens = 0;
+    let lastCode = "";
+    const usage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
 
     while (iteration < maxIterations) {
       iteration++;
@@ -286,9 +286,9 @@ export class AgenticEvalRunner {
       if (iteration === 1) {
         prompt = buildCoderPrompt(problem, tests);
         if (this.verbose) {
-          console.log(`\n${'='.repeat(60)}`);
+          console.log(`\n${"=".repeat(60)}`);
           console.log(`[Problem ${problem.id}] Iteration ${iteration}`);
-          console.log(`${'='.repeat(60)}`);
+          console.log(`${"=".repeat(60)}`);
           console.log(`[CODER AGENT] Generating initial solution...`);
         }
       } else {
@@ -296,12 +296,14 @@ export class AgenticEvalRunner {
         if (this.verbose) {
           console.log(`\n[CRITIC AGENT] Analyzing errors...`);
         }
-        criticAnalysis = await this.runCriticAgent(problem, lastCode);
+        criticAnalysis = await this.runCriticAgent(problem, lastCode, usage);
         if (this.verbose) {
           console.log(`  WRONG: ${criticAnalysis.whatWentWrong}`);
           console.log(`  KEY: ${criticAnalysis.keyRequirement}`);
           console.log(`  HINT: ${criticAnalysis.hint}`);
-          console.log(`\n[CODER AGENT] Generating fix based on critic feedback...`);
+          console.log(
+            `\n[CODER AGENT] Generating fix based on critic feedback...`,
+          );
         }
         prompt = buildRetryPrompt(problem, lastCode, criticAnalysis, tests);
       }
@@ -309,7 +311,8 @@ export class AgenticEvalRunner {
       // Run Coder Agent
       let generatedCode: string;
       try {
-        const result = await this.agentManager.spawn('coder', prompt);
+        const result = await this.agentManager.spawn("coder", prompt);
+        this.addUsage(usage, result.usage);
         generatedCode = result.content;
       } catch (error) {
         return {
@@ -319,29 +322,35 @@ export class AgenticEvalRunner {
           total: tests.length,
           generatedCode: lastCode,
           error: error instanceof Error ? error.message : String(error),
-          metrics: this.createMetrics(problemStartTime, iteration, totalTokens),
+          metrics: this.createMetrics(problemStartTime, iteration, usage),
         };
       }
 
       // Extract and clean code
       const extracted = extractCode(generatedCode);
-      const code = extracted.found ? cleanCode(extracted.code) : generatedCode.trim();
+      const code = extracted.found
+        ? cleanCode(extracted.code)
+        : generatedCode.trim();
       lastCode = code;
 
       if (this.verbose) {
         console.log(`\n[CODE GENERATED]`);
-        console.log('```python');
+        console.log("```python");
         console.log(code);
-        console.log('```');
+        console.log("```");
       }
 
       // Run tests
-      const testResult = await executeWithTests(code, tests, undefined, { timeout });
+      const testResult = await executeWithTests(code, tests, undefined, {
+        timeout,
+      });
 
       if (this.verbose) {
-        console.log(`\n[TEST RESULTS] ${testResult.passed}/${testResult.total} passed`);
+        console.log(
+          `\n[TEST RESULTS] ${testResult.passed}/${testResult.total} passed`,
+        );
         for (const r of testResult.results) {
-          const status = r.passed ? '✅' : '❌';
+          const status = r.passed ? "✅" : "❌";
           console.log(`  ${status} ${r.assertion}`);
           if (!r.passed && r.actual && r.expected) {
             console.log(`     Expected: ${r.expected}, Got: ${r.actual}`);
@@ -352,7 +361,9 @@ export class AgenticEvalRunner {
       if (testResult.success) {
         // All tests passed!
         if (this.verbose) {
-          console.log(`\n✅ [SUCCESS] Problem ${problem.id} solved in ${iteration} iteration(s)`);
+          console.log(
+            `\n✅ [SUCCESS] Problem ${problem.id} solved in ${iteration} iteration(s)`,
+          );
         }
         return {
           problemId: problem.id,
@@ -360,7 +371,7 @@ export class AgenticEvalRunner {
           passed: testResult.passed,
           total: testResult.total,
           generatedCode: code,
-          metrics: this.createMetrics(problemStartTime, iteration, totalTokens),
+          metrics: this.createMetrics(problemStartTime, iteration, usage),
         };
       }
 
@@ -377,7 +388,9 @@ export class AgenticEvalRunner {
       // If this is the last iteration, return failure
       if (iteration >= maxIterations) {
         if (this.verbose) {
-          console.log(`\n❌ [FAILED] Problem ${problem.id} failed after ${maxIterations} iterations`);
+          console.log(
+            `\n❌ [FAILED] Problem ${problem.id} failed after ${maxIterations} iterations`,
+          );
         }
         return {
           problemId: problem.id,
@@ -386,7 +399,7 @@ export class AgenticEvalRunner {
           total: testResult.total,
           generatedCode: code,
           error: `Failed after ${maxIterations} iterations`,
-          metrics: this.createMetrics(problemStartTime, iteration, totalTokens),
+          metrics: this.createMetrics(problemStartTime, iteration, usage),
         };
       }
 
@@ -402,8 +415,8 @@ export class AgenticEvalRunner {
       passed: 0,
       total: tests.length,
       generatedCode: lastCode,
-      error: 'Unexpected end of iteration loop',
-      metrics: this.createMetrics(problemStartTime, iteration, totalTokens),
+      error: "Unexpected end of iteration loop",
+      metrics: this.createMetrics(problemStartTime, iteration, usage),
     };
   }
 
@@ -412,19 +425,25 @@ export class AgenticEvalRunner {
    */
   private async runCriticAgent(
     problem: AgenticProblem,
-    code: string
+    code: string,
+    usage: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    },
   ): Promise<CriticAnalysis> {
     const prompt = buildCriticPrompt(problem, code, this.lastFailedTests);
 
     try {
-      const result = await this.agentManager.spawn('critic', prompt);
+      const result = await this.agentManager.spawn("critic", prompt);
+      this.addUsage(usage, result.usage);
       return parseCriticResponse(result.content);
     } catch {
       // Fallback if critic fails
       return {
-        whatWentWrong: 'Code produced incorrect output',
-        keyRequirement: 'Re-read the problem carefully',
-        hint: 'Check your logic against the expected output',
+        whatWentWrong: "Code produced incorrect output",
+        keyRequirement: "Re-read the problem carefully",
+        hint: "Check your logic against the expected output",
       };
     }
   }
@@ -432,22 +451,44 @@ export class AgenticEvalRunner {
   private createMetrics(
     startTime: number,
     iterations: number,
-    totalTokens: number
+    usage: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    },
   ): ProblemMetrics {
     return {
-      promptTokens: 0,
-      completionTokens: 0,
-      totalTokens,
+      promptTokens: usage.promptTokens,
+      completionTokens: usage.completionTokens,
+      totalTokens: usage.totalTokens,
       turnCount: iterations,
       timeMs: Date.now() - startTime,
     };
+  }
+
+  private addUsage(
+    total: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    },
+    value?: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    },
+  ): void {
+    if (!value) return;
+    total.promptTokens += value.promptTokens;
+    total.completionTokens += value.completionTokens;
+    total.totalTokens += value.totalTokens;
   }
 
   private generateReport(
     benchmarkName: string,
     model: string,
     results: EvaluationResult[],
-    totalTimeMs: number
+    totalTimeMs: number,
   ): BenchmarkReport {
     const summary = this.calculateSummary(results, totalTimeMs);
 
@@ -462,11 +503,14 @@ export class AgenticEvalRunner {
 
   private calculateSummary(
     results: EvaluationResult[],
-    totalTimeMs: number
+    totalTimeMs: number,
   ): BenchmarkSummary {
     const total = results.length;
     const passed = results.filter((r) => r.success).length;
-    const totalTokens = results.reduce((sum, r) => sum + r.metrics.totalTokens, 0);
+    const totalTokens = results.reduce(
+      (sum, r) => sum + r.metrics.totalTokens,
+      0,
+    );
     const avgIterations =
       total > 0
         ? results.reduce((sum, r) => sum + r.metrics.turnCount, 0) / total

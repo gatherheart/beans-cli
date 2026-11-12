@@ -1,14 +1,14 @@
-import { z } from 'zod';
-import { BaseTool } from '../base-tool.js';
-import type { ToolExecutionResult } from '../types.js';
+import { z } from "zod";
+import { BaseTool } from "../base-tool.js";
+import type { ToolExecutionResult } from "../types.js";
 
 const WebSearchSchema = z.object({
-  query: z.string().describe('The search query'),
+  query: z.string().describe("The search query"),
   maxResults: z
     .number()
     .optional()
     .default(5)
-    .describe('Maximum number of results to return (default: 5)'),
+    .describe("Maximum number of results to return (default: 5)"),
 });
 
 type WebSearchParams = z.infer<typeof WebSearchSchema>;
@@ -35,9 +35,9 @@ interface SearchResult {
  * following the gemini-cli pattern.
  */
 export class WebSearchTool extends BaseTool<WebSearchParams> {
-  readonly name = 'web_search';
+  readonly name = "web_search";
   readonly description =
-    'Search the web for current information, documentation, or answers. Use this tool when you need up-to-date information, external documentation, API references, error solutions, or any knowledge not available in local files. Returns search results with titles, URLs, and snippets. Powered by Google Search with grounded citations. Use for researching libraries, debugging errors, or finding best practices.';
+    "Search the web for current information, documentation, or answers. Use this tool when you need up-to-date information, external documentation, API references, error solutions, or any knowledge not available in local files. Returns search results with titles, URLs, and snippets. Powered by Google Search with grounded citations. Use for researching libraries, debugging errors, or finding best practices.";
   readonly schema = WebSearchSchema;
 
   /**
@@ -72,7 +72,7 @@ export class WebSearchTool extends BaseTool<WebSearchParams> {
 
       return {
         content:
-          'No search API configured. Please set one of: GOOGLE_API_KEY, TAVILY_API_KEY, SERP_API_KEY, or BING_API_KEY',
+          "No search API configured. Please set one of: GOOGLE_API_KEY, TAVILY_API_KEY, SERP_API_KEY, or BING_API_KEY",
         isError: true,
       };
     } catch (error) {
@@ -94,19 +94,19 @@ export class WebSearchTool extends BaseTool<WebSearchParams> {
    */
   private async searchWithGemini(query: string): Promise<ToolExecutionResult> {
     const apiKey = process.env.GOOGLE_API_KEY;
-    const model = process.env.GOOGLE_SEARCH_MODEL ?? 'gemini-2.0-flash';
-    const baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
+    const model = process.env.GOOGLE_SEARCH_MODEL ?? "gemini-3.6-flash";
+    const baseUrl = "https://generativelanguage.googleapis.com/v1beta";
 
     const response = await fetch(
       `${baseUrl}/models/${model}:generateContent?key=${apiKey}`,
       {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: query }] }],
+          contents: [{ role: "user", parts: [{ text: query }] }],
           tools: [{ googleSearch: {} }],
         }),
-      }
+      },
     );
 
     if (!response.ok) {
@@ -152,7 +152,7 @@ export class WebSearchTool extends BaseTool<WebSearchParams> {
         if (support.segment && support.groundingChunkIndices) {
           const marker = support.groundingChunkIndices
             .map((i) => `[${i + 1}]`)
-            .join('');
+            .join("");
           insertions.push({ index: support.segment.endIndex, marker });
         }
       }
@@ -188,8 +188,11 @@ export class WebSearchTool extends BaseTool<WebSearchParams> {
     // Append sources list
     if (sources.length > 0) {
       const sourceList = sources
-        .map((s, i) => `[${i + 1}] ${s.web?.title ?? 'Untitled'} (${s.web?.uri ?? 'No URL'})`)
-        .join('\n');
+        .map(
+          (s, i) =>
+            `[${i + 1}] ${s.web?.title ?? "Untitled"} (${s.web?.uri ?? "No URL"})`,
+        )
+        .join("\n");
       modifiedText += `\n\nSources:\n${sourceList}`;
     }
 
@@ -198,7 +201,7 @@ export class WebSearchTool extends BaseTool<WebSearchParams> {
       metadata: {
         query,
         sourceCount: sources.length,
-        provider: 'gemini-google-search',
+        provider: "gemini-google-search",
       },
     };
   }
@@ -208,12 +211,12 @@ export class WebSearchTool extends BaseTool<WebSearchParams> {
    */
   private async searchWithTavily(
     query: string,
-    maxResults: number
+    maxResults: number,
   ): Promise<ToolExecutionResult> {
-    const response = await fetch('https://api.tavily.com/search', {
-      method: 'POST',
+    const response = await fetch("https://api.tavily.com/search", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         api_key: process.env.TAVILY_API_KEY,
@@ -246,7 +249,7 @@ export class WebSearchTool extends BaseTool<WebSearchParams> {
    */
   private async searchWithSerp(
     query: string,
-    maxResults: number
+    maxResults: number,
   ): Promise<ToolExecutionResult> {
     const params = new URLSearchParams({
       q: query,
@@ -255,7 +258,7 @@ export class WebSearchTool extends BaseTool<WebSearchParams> {
     });
 
     const response = await fetch(
-      `https://serpapi.com/search.json?${params.toString()}`
+      `https://serpapi.com/search.json?${params.toString()}`,
     );
 
     if (!response.ok) {
@@ -280,7 +283,7 @@ export class WebSearchTool extends BaseTool<WebSearchParams> {
    */
   private async searchWithBing(
     query: string,
-    maxResults: number
+    maxResults: number,
   ): Promise<ToolExecutionResult> {
     const params = new URLSearchParams({
       q: query,
@@ -291,9 +294,9 @@ export class WebSearchTool extends BaseTool<WebSearchParams> {
       `https://api.bing.microsoft.com/v7.0/search?${params.toString()}`,
       {
         headers: {
-          'Ocp-Apim-Subscription-Key': process.env.BING_API_KEY!,
+          "Ocp-Apim-Subscription-Key": process.env.BING_API_KEY!,
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -320,27 +323,24 @@ export class WebSearchTool extends BaseTool<WebSearchParams> {
    */
   private formatResults(
     results: SearchResult[],
-    answer?: string
+    answer?: string,
   ): ToolExecutionResult {
     if (results.length === 0) {
       return {
-        content: 'No results found.',
+        content: "No results found.",
         metadata: { resultCount: 0 },
       };
     }
 
-    let content = '';
+    let content = "";
 
     if (answer) {
       content += `Summary: ${answer}\n\n`;
     }
 
     content += results
-      .map(
-        (r, i) =>
-          `${i + 1}. ${r.title}\n   URL: ${r.url}\n   ${r.snippet}`
-      )
-      .join('\n\n');
+      .map((r, i) => `${i + 1}. ${r.title}\n   URL: ${r.url}\n   ${r.snippet}`)
+      .join("\n\n");
 
     return {
       content,

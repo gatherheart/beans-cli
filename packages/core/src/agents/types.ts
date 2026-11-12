@@ -176,4 +176,6 @@ export interface AgentResult<T = unknown> {
   turnCount: number;
   /** Conversation history */
   messages: Message[];
+  /** Provider-reported usage across this agent execution */
+  usage?: import("../llm/types.js").TokenUsage;
 }

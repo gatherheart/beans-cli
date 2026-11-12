@@ -5,7 +5,7 @@ import type {
   TerminateReason,
   ToolCall,
 } from "./types.js";
-import type { LLMClient } from "../llm/types.js";
+import type { ChatRequest, LLMClient, TokenUsage } from "../llm/types.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import type { MemoryStore } from "../memory/index.js";
 import type { PolicyEngine } from "../policy/engine.js";
@@ -96,6 +96,24 @@ export class AgentExecutor {
     const messages: Message[] = [];
     let turnCount = 0;
     let terminateReason: TerminateReason = "complete";
+    const usage: TokenUsage = {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    };
+    let hasUsage = false;
+    const chat = async (request: ChatRequest) => {
+      const response = await this.llmClient.chat(request);
+      if (response.usage) {
+        hasUsage = true;
+        usage.promptTokens += response.usage.promptTokens;
+        usage.completionTokens += response.usage.completionTokens;
+        usage.totalTokens += response.usage.totalTokens;
+        usage.cachedTokens =
+          (usage.cachedTokens ?? 0) + (response.usage.cachedTokens ?? 0);
+      }
+      return response;
+    };
 
     const maxTurns = definition.runConfig?.maxTurns ?? 50;
     const timeoutMs = definition.runConfig?.timeoutMs ?? 300000; // 5 min default
@@ -165,7 +183,7 @@ export class AgentExecutor {
 
         // Call LLM with retry on empty response
         const tools = this.getToolDefinitions(definition);
-        let response = await this.llmClient.chat({
+        let response = await chat({
           model: definition.modelConfig.model,
           messages,
           systemPrompt,
@@ -176,7 +194,7 @@ export class AgentExecutor {
 
         // Retry with higher temperature if response is completely empty
         if (!response.content && !response.toolCalls?.length) {
-          response = await this.llmClient.chat({
+          response = await chat({
             model: definition.modelConfig.model,
             messages,
             systemPrompt,
@@ -203,7 +221,7 @@ export class AgentExecutor {
               content: retryHint,
             },
           ];
-          response = await this.llmClient.chat({
+          response = await chat({
             model: definition.modelConfig.model,
             messages: retryMessages,
             systemPrompt,
@@ -237,7 +255,7 @@ export class AgentExecutor {
               content: explicitHint,
             },
           ];
-          response = await this.llmClient.chat({
+          response = await chat({
             model: definition.modelConfig.model,
             messages: retryMessages,
             systemPrompt,
@@ -303,6 +321,7 @@ export class AgentExecutor {
                 error: `Loop detected: ${loopResult.suggestion}`,
                 turnCount,
                 messages,
+                usage: hasUsage ? usage : undefined,
               };
             }
           }
@@ -375,6 +394,7 @@ export class AgentExecutor {
         terminateReason,
         turnCount,
         messages,
+        usage: hasUsage ? usage : undefined,
       };
     } catch (error) {
       const errorMessage =
@@ -388,6 +408,7 @@ export class AgentExecutor {
         error: errorMessage,
         turnCount,
         messages,
+        usage: hasUsage ? usage : undefined,
       };
     }
   }

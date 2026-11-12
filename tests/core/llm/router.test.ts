@@ -345,7 +345,7 @@ describe("createRouter", () => {
 
 describe("DEFAULT_ROUTER_CONFIG", () => {
   it("should have expected default values", () => {
-    expect(DEFAULT_ROUTER_CONFIG.primary).toBe("gemini-2.0-flash");
+    expect(DEFAULT_ROUTER_CONFIG.primary).toBe("gemini-3.6-flash");
     expect(DEFAULT_ROUTER_CONFIG.fallbacks).toEqual([]);
     expect(DEFAULT_ROUTER_CONFIG.fallbackOn).toContain("quota_exceeded");
     expect(DEFAULT_ROUTER_CONFIG.fallbackOn).toContain("rate_limit");

@@ -58,7 +58,7 @@ export interface RoutingEvent {
  * Default router configuration
  */
 export const DEFAULT_ROUTER_CONFIG: RouterConfig = {
-  primary: "gemini-2.0-flash",
+  primary: "gemini-3.6-flash",
   fallbacks: [],
   fallbackOn: ["quota_exceeded", "rate_limit", "server_error"],
   maxRetries: 3,

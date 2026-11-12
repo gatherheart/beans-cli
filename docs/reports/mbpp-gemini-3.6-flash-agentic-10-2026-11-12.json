@@ -1,0 +1,157 @@
+{
+  "benchmarkName": "mbpp-agentic",
+  "timestamp": "2026-11-12T07:21:30.459Z",
+  "model": "gemini-3.6-flash",
+  "summary": {
+    "total": 10,
+    "passed": 9,
+    "passRate": 0.9,
+    "totalTokens": 0,
+    "totalTimeMs": 74916,
+    "avgTimePerProblem": 7491.6,
+    "avgIterations": 1.4
+  },
+  "results": [
+    {
+      "problemId": "2",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def similar_elements(test_tup1, test_tup2):\n    return tuple(set(test_tup1) & set(test_tup2))",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 6485
+      }
+    },
+    {
+      "problemId": "3",
+      "success": true,
+      "passed": 4,
+      "total": 4,
+      "generatedCode": "def is_not_prime(n):\n    if n < 2:\n        return True\n    for i in range(2, int(n**0.5) + 1):\n        if n % i == 0:\n            return True\n    return False",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 3230
+      }
+    },
+    {
+      "problemId": "4",
+      "success": false,
+      "passed": 0,
+      "total": 3,
+      "generatedCode": "def heap_queue_largest(nums, n):\n    return heapq.nlargest(n, nums)",
+      "error": "Failed after 5 iterations",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 5,
+        "timeMs": 31319
+      }
+    },
+    {
+      "problemId": "6",
+      "success": true,
+      "passed": 6,
+      "total": 6,
+      "generatedCode": "def differ_At_One_Bit_Pos(a, b):\n    n = a ^ b\n    return n > 0 and (n & (n - 1)) == 0",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 5544
+      }
+    },
+    {
+      "problemId": "7",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def find_char_long(text):\n    return [word for word in text.split() if len(word) >= 4]",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 5384
+      }
+    },
+    {
+      "problemId": "8",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def square_nums(nums):\n    return [x ** 2 for x in nums]",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 2284
+      }
+    },
+    {
+      "problemId": "9",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def find_Rotations(str):\n    return (str + str).find(str, 1)",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 5506
+      }
+    },
+    {
+      "problemId": "11",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def remove_Occ(s, ch):\n    return s.replace(ch, \"\")",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 2570
+      }
+    },
+    {
+      "problemId": "12",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def sort_matrix(M):\n    return sorted(M, key=sum)",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 5974
+      }
+    },
+    {
+      "problemId": "14",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def find_Volume(l, w, h):\n    return (l * w * h) / 2",
+      "metrics": {
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "turnCount": 1,
+        "timeMs": 6616
+      }
+    }
+  ]
+}
