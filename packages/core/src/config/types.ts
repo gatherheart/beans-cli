@@ -173,6 +173,8 @@ export interface UIConfig {
  * These settings are set via CLI flags and only apply to the current session.
  */
 export interface RuntimeConfig {
+  /** Session-only PASTE configuration; never persisted to settings. */
+  paste?: import("../speculation/index.js").PasteOptions;
   /** UI test mode for e2e testing (--ui-test flag) */
   uiTestMode: boolean;
 }

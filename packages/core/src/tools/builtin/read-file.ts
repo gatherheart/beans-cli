@@ -1,16 +1,20 @@
-import { z } from 'zod';
-import * as fs from 'fs/promises';
-import { BaseTool } from '../base-tool.js';
-import type { ToolExecutionResult, ToolExecutionOptions } from '../types.js';
-import { validatePath } from '../utils/path-validator.js';
+import { z } from "zod";
+import * as fs from "fs/promises";
+import { BaseTool } from "../base-tool.js";
+import type { ToolExecutionResult, ToolExecutionOptions } from "../types.js";
+import { validatePath } from "../utils/path-validator.js";
 
 const ReadFileSchema = z.object({
-  path: z.string().describe('Path to the file to read (absolute or relative to current working directory)'),
+  path: z
+    .string()
+    .describe(
+      "Path to the file to read (absolute or relative to current working directory)",
+    ),
   offset: z
     .number()
     .optional()
-    .describe('Line number to start reading from (1-based)'),
-  limit: z.number().optional().describe('Number of lines to read'),
+    .describe("Line number to start reading from (1-based)"),
+  limit: z.number().optional().describe("Number of lines to read"),
 });
 
 type ReadFileParams = z.infer<typeof ReadFileSchema>;
@@ -19,16 +23,17 @@ type ReadFileParams = z.infer<typeof ReadFileSchema>;
  * Tool for reading file contents
  */
 export class ReadFileTool extends BaseTool<ReadFileParams> {
-  readonly name = 'read_file';
+  readonly name = "read_file";
   readonly description =
-    'Read the contents of a file from the filesystem. Use this tool when you need to view, analyze, or understand the content of a specific file. Returns the file content with line numbers. Supports reading partial files using offset and limit parameters for large files. Use glob tool first if you need to find files, then read_file to view their contents.';
+    "Read the contents of a file from the filesystem. Use this tool when you need to view, analyze, or understand the content of a specific file. Returns the file content with line numbers. Supports reading partial files using offset and limit parameters for large files. Use glob tool first if you need to find files, then read_file to view their contents.";
   readonly schema = ReadFileSchema;
 
   async execute(
     params: ReadFileParams,
-    options?: ToolExecutionOptions
+    options?: ToolExecutionOptions,
   ): Promise<ToolExecutionResult> {
     try {
+      options?.signal?.throwIfAborted();
       const cwd = options?.cwd ?? process.cwd();
 
       // Validate path to prevent traversal attacks
@@ -46,8 +51,11 @@ export class ReadFileTool extends BaseTool<ReadFileParams> {
       }
 
       const filePath = validation.resolvedPath;
-      const content = await fs.readFile(filePath, 'utf-8');
-      const lines = content.split('\n');
+      const content = await fs.readFile(filePath, {
+        encoding: "utf-8",
+        signal: options?.signal,
+      });
+      const lines = content.split("\n");
 
       const offset = params.offset ?? 1;
       const limit = params.limit ?? lines.length;
@@ -58,11 +66,11 @@ export class ReadFileTool extends BaseTool<ReadFileParams> {
 
       // Format with line numbers
       const numberedLines = selectedLines.map(
-        (line, idx) => `${startIndex + idx + 1}: ${line}`
+        (line, idx) => `${startIndex + idx + 1}: ${line}`,
       );
 
       return {
-        content: numberedLines.join('\n'),
+        content: numberedLines.join("\n"),
         metadata: {
           path: filePath,
           totalLines: lines.length,

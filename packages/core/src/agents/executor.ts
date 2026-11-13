@@ -13,6 +13,11 @@ import type { ToolMetadata } from "../tools/types.js";
 import { executeWithTimeout, DEFAULT_TOOL_TIMEOUT } from "../tools/utils.js";
 import { generateResultSummary } from "../tools/utils/result-summary.js";
 import { LoopDetector, type LoopDetectorConfig } from "./loop-detector.js";
+import {
+  PasteRuntime,
+  PasteSession,
+  type PasteOptions,
+} from "../speculation/index.js";
 
 /**
  * Options for agent execution
@@ -70,10 +75,14 @@ export type AgentActivityEvent =
  * Agent executor - runs the agent loop
  */
 export class AgentExecutor {
+  private readonly pasteRuntime?: PasteRuntime;
   constructor(
     private llmClient: LLMClient,
     private toolRegistry: ToolRegistry,
-  ) {}
+    options?: { paste?: PasteOptions },
+  ) {
+    if (options?.paste) this.pasteRuntime = new PasteRuntime(options.paste);
+  }
 
   /**
    * Execute an agent with the given definition and options
@@ -94,6 +103,14 @@ export class AgentExecutor {
       toolContext,
     } = options;
     const messages: Message[] = [];
+    const paste = this.pasteRuntime
+      ? new PasteSession(
+          this.pasteRuntime,
+          this.toolRegistry,
+          cwd,
+          policyEngine,
+        )
+      : undefined;
     let turnCount = 0;
     let terminateReason: TerminateReason = "complete";
     const usage: TokenUsage = {
@@ -183,6 +200,7 @@ export class AgentExecutor {
 
         // Call LLM with retry on empty response
         const tools = this.getToolDefinitions(definition);
+        paste?.beginTurn(tools?.map((tool) => tool.name) ?? [], signal);
         let response = await chat({
           model: definition.modelConfig.model,
           messages,
@@ -293,6 +311,10 @@ export class AgentExecutor {
           }
         }
 
+        if (signal?.aborted) {
+          terminateReason = "abort_signal";
+          break;
+        }
         // Handle tool calls
         if (response.toolCalls && response.toolCalls.length > 0) {
           // Check for loops before executing
@@ -322,10 +344,12 @@ export class AgentExecutor {
                 turnCount,
                 messages,
                 usage: hasUsage ? usage : undefined,
+                paste: paste?.metrics,
               };
             }
           }
 
+          paste?.confirmBatch(response.toolCalls);
           const toolResults = await this.executeToolCalls(
             response.toolCalls,
             onActivity,
@@ -334,7 +358,9 @@ export class AgentExecutor {
             policyEngine,
             onApprovalRequest,
             toolContext,
+            paste,
           );
+          paste?.observe(response.toolCalls, toolResults);
 
           // Push assistant message with content AND tool calls together
           messages.push({
@@ -350,6 +376,7 @@ export class AgentExecutor {
           });
         } else {
           // No tool calls - push final assistant message and done
+          paste?.finish(true);
           // Always push a message, even if empty, to ensure we have a response
           const content =
             response.content ||
@@ -395,6 +422,7 @@ export class AgentExecutor {
         turnCount,
         messages,
         usage: hasUsage ? usage : undefined,
+        paste: paste?.metrics,
       };
     } catch (error) {
       const errorMessage =
@@ -409,7 +437,10 @@ export class AgentExecutor {
         turnCount,
         messages,
         usage: hasUsage ? usage : undefined,
+        paste: paste?.metrics,
       };
+    } finally {
+      paste?.finish();
     }
   }
 
@@ -458,6 +489,7 @@ export class AgentExecutor {
       message: string,
     ) => Promise<boolean>,
     toolContext?: Record<string, unknown>,
+    paste?: PasteSession,
   ) {
     const results = await Promise.all(
       toolCalls.map(async (toolCall) => {
@@ -538,16 +570,24 @@ export class AgentExecutor {
 
         try {
           // Execute with timeout enforcement
-          const result = await executeWithTimeout(
-            toolCall.name,
-            () =>
-              tool.execute(toolCall.arguments, {
-                cwd,
-                timeout: toolTimeout,
-                context: toolContext,
-              }),
-            toolTimeout,
-          );
+          const normal = () =>
+            executeWithTimeout(
+              toolCall.name,
+              () =>
+                tool.execute(toolCall.arguments, {
+                  cwd,
+                  timeout: toolTimeout,
+                  context: toolContext,
+                }),
+              toolTimeout,
+            );
+          const result = paste
+            ? await executeWithTimeout(
+                toolCall.name,
+                () => paste.execute(toolCall, normal),
+                toolTimeout,
+              )
+            : await normal();
           const resultSummary = generateResultSummary(
             toolCall.name,
             result.content,

@@ -1,5 +1,14 @@
 // Benchmarks
 export * from "./speculation/index.js";
+export {
+  ToolAgentEvalRunner,
+  solveToolAgentProblem,
+  readToolTraining,
+  validateToolTraining,
+  checkToolSandbox,
+  TOOL_AGENT_SYSTEM_PROMPT,
+} from "./runner/tool-agent-runner.js";
+export type { ToolTraining } from "./runner/tool-agent-runner.js";
 export type {
   BenchmarkProblem,
   LoadOptions,

@@ -56,6 +56,7 @@ function createTestConfig(
   const memoryContent = overrides?.memoryContent ?? "";
   return {
     getLLMClient: () => llmClient,
+    getRuntimeConfig: () => ({ uiTestMode: false }),
     getToolRegistry: () => new ToolRegistry(),
     getLLMConfig: () => ({
       provider: "google" as const,

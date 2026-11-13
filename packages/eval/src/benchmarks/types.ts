@@ -1,4 +1,5 @@
 import type { PreparationMetrics } from "../speculation/review-preparation.js";
+import type { PasteEvent, PasteMetrics } from "@beans/core";
 
 /**
  * Base interface for all benchmark problems
@@ -25,6 +26,21 @@ export interface LoadOptions {
  * Metrics collected during problem evaluation
  */
 export interface ProblemMetrics {
+  toolAgent?: {
+    agentMs: number;
+    llmMs: number;
+    llmCalls: number;
+    toolWaitMs: number;
+    testWaitMs: number;
+    testExecutionMs: number;
+    testExecutions: number;
+    submitted: number;
+    verificationMs: number;
+    drainMs: number;
+    completed: boolean;
+    testedLatest: boolean;
+    paste?: PasteMetrics;
+  };
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
@@ -42,6 +58,7 @@ export interface ProblemMetrics {
  * Result of evaluating a single problem
  */
 export interface EvaluationResult {
+  toolTraces?: PasteEvent[][];
   problemId: string;
   success: boolean;
   passed: number;
@@ -69,6 +86,13 @@ export interface BenchmarkSummary {
  * Complete report for a benchmark evaluation
  */
 export interface BenchmarkReport {
+  toolAgent?: {
+    mode: "sequential" | "paste";
+    datasetHash: string;
+    trainingHash: string;
+    modelConfigHash: string;
+    trainingProblemIds: string[];
+  };
   reviewPreparation?: {
     mode: string;
     threshold: number;

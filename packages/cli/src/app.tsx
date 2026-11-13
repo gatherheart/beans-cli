@@ -18,6 +18,7 @@ import {
   saveAgentProfile,
   DEFAULT_AGENT_PROFILE,
   MockLLMClient,
+  loadPasteTraces,
   inferProviderFromModel,
   type AgentProfile,
   type WorkspaceContext,
@@ -77,6 +78,15 @@ export async function runApp(args: CLIArgs): Promise<void> {
 
   // Initialize configuration
   const config = await Config.getInstance();
+  if (args.paste) {
+    config.setRuntimeConfig({
+      paste: {
+        traces: args.pasteTraces
+          ? await loadPasteTraces(args.pasteTraces)
+          : undefined,
+      },
+    });
+  }
 
   // UI test mode: use mock LLM client with optional scenario
   if (args.uiTest) {
@@ -173,6 +183,7 @@ export async function runApp(args: CLIArgs): Promise<void> {
     const executor = new AgentExecutor(
       config.getLLMClient(),
       config.getToolRegistry(),
+      { paste: config.getRuntimeConfig().paste },
     );
     await runSinglePrompt(
       executor,
@@ -246,6 +257,7 @@ async function runSinglePrompt(
     },
     {
       memoryStore,
+      policyEngine: config.getPolicyEngine(),
       onActivity: (event) => {
         switch (event.type) {
           case "content_chunk":
@@ -277,6 +289,12 @@ async function runSinglePrompt(
 
   if (!result.success) {
     console.error(`Session ended with error: ${result.error}`);
+  }
+  if (result.paste) {
+    const { started, reused, promoted, discarded, fallback } = result.paste;
+    console.log(
+      `PASTE: ${started} started, ${reused} reused, ${promoted} promoted, ${discarded} discarded, ${fallback} normal calls`,
+    );
   }
 
   // Print session summary

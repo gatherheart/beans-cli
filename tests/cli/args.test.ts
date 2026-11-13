@@ -12,6 +12,53 @@ describe("CLI Args Parser", () => {
     process.argv = originalArgv;
   });
 
+  it("parses PASTE with optional historical traces", async () => {
+    process.argv = [
+      "node",
+      "beans",
+      "--paste",
+      "--paste-traces",
+      "traces.json",
+      "inspect files",
+    ];
+    expect(await parseArgs()).toMatchObject({
+      paste: true,
+      pasteTraces: "traces.json",
+      prompt: "inspect files",
+    });
+  });
+
+  it.each([
+    ["--paste-traces"],
+    ["--paste-traces", "traces.json"],
+    ["--tool-training", "training.json"],
+  ])("rejects invalid PASTE flags %j", async (...flags) => {
+    process.argv = ["node", "beans", ...flags];
+    await expect(parseArgs()).rejects.toThrow();
+  });
+
+  it("routes MBPP PASTE evaluation through the tool agent", async () => {
+    process.argv = [
+      "node",
+      "beans",
+      "--eval",
+      "--benchmark",
+      "mbpp",
+      "--paste",
+      "--dataset-source",
+      "dataset.json",
+      "--tool-training",
+      "training.json",
+    ];
+    expect(await parseArgs()).toMatchObject({
+      eval: true,
+      paste: true,
+      toolAgent: true,
+      datasetSource: "dataset.json",
+      toolTraining: "training.json",
+    });
+  });
+
   it("should parse --list-models flag", async () => {
     process.argv = ["node", "beans", "--list-models"];
     const args = await parseArgs();

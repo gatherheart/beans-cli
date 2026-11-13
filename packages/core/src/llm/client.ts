@@ -411,6 +411,9 @@ function wrapWithDebugLogging(
           // Check if we already have this tool call
           const existing = toolCallMap.get(delta.id);
           if (existing) {
+            if (delta.thoughtSignature !== undefined) {
+              existing.thoughtSignature = delta.thoughtSignature;
+            }
             // Merge arguments into existing tool call
             if (delta.arguments) {
               existing.arguments = {
@@ -424,6 +427,7 @@ function wrapWithDebugLogging(
               id: delta.id,
               name: delta.name,
               arguments: delta.arguments ?? {},
+              thoughtSignature: delta.thoughtSignature,
             };
             toolCallMap.set(delta.id, newToolCall);
             accumulatedToolCalls.push(newToolCall);
@@ -626,6 +630,7 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
                     content?: {
                       parts?: Array<{
                         text?: string;
+                        thoughtSignature?: string;
                         functionCall?: {
                           name: string;
                           args: Record<string, unknown>;
@@ -656,6 +661,7 @@ function createGoogleClient(config: ProviderConfig): LLMClient {
                       id: `call_${accumulatedToolCalls.length}`,
                       name: part.functionCall.name,
                       arguments: part.functionCall.args,
+                      thoughtSignature: part.thoughtSignature,
                     };
                     accumulatedToolCalls.push(toolCall);
                     yield {
@@ -828,18 +834,24 @@ function createOllamaClient(config: ProviderConfig): LLMClient {
  * @returns An array of contents formatted for Google's API.
  */
 function formatMessagesForGoogle(request: ChatRequest) {
+  const toolNames = new Map<string, string>();
   const contents: Array<{
     role: "user" | "model";
     parts: Array<{
       text?: string;
       functionCall?: unknown;
       functionResponse?: unknown;
+      thoughtSignature?: string;
     }>;
   }> = [];
 
   for (const msg of request.messages) {
     if (msg.role === "assistant") {
-      const parts: Array<{ text?: string; functionCall?: unknown }> = [];
+      const parts: Array<{
+        text?: string;
+        functionCall?: unknown;
+        thoughtSignature?: string;
+      }> = [];
 
       if (msg.content) {
         parts.push({ text: msg.content });
@@ -847,8 +859,12 @@ function formatMessagesForGoogle(request: ChatRequest) {
 
       if (msg.toolCalls) {
         for (const tc of msg.toolCalls) {
+          toolNames.set(tc.id, tc.name);
           parts.push({
             functionCall: { name: tc.name, args: tc.arguments },
+            ...(tc.thoughtSignature !== undefined
+              ? { thoughtSignature: tc.thoughtSignature }
+              : {}),
           });
         }
       }
@@ -858,7 +874,7 @@ function formatMessagesForGoogle(request: ChatRequest) {
       // Tool results are sent as user messages with functionResponse parts
       const parts = msg.toolResults.map((result) => ({
         functionResponse: {
-          name: result.toolCallId,
+          name: toolNames.get(result.toolCallId) ?? result.toolCallId,
           response: { content: result.error ?? result.content },
         },
       }));
@@ -986,6 +1002,7 @@ function parseGoogleResponse(
       content?: {
         parts?: Array<{
           text?: string;
+          thoughtSignature?: string;
           functionCall?: { name: string; args: Record<string, unknown> };
         }>;
       };
@@ -1072,6 +1089,7 @@ function parseGoogleResponse(
           id: `call_${index}`,
           name: part.functionCall!.name,
           arguments: part.functionCall!.args,
+          thoughtSignature: part.thoughtSignature,
         }))
       : undefined;
 

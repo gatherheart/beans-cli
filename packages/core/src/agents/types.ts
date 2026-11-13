@@ -136,6 +136,8 @@ export interface ToolCall {
   id: string;
   name: string;
   arguments: Record<string, unknown>;
+  /** Opaque Google reasoning state; replay on the original function-call part. */
+  thoughtSignature?: string;
 }
 
 /**
@@ -162,6 +164,8 @@ export type TerminateReason =
  * Result from agent execution
  */
 export interface AgentResult<T = unknown> {
+  /** PASTE tool-side counters; absent when speculation is disabled. */
+  paste?: import("../speculation/index.js").PasteMetrics;
   /** Whether the agent completed successfully */
   success: boolean;
   /** Parsed output if output schema was defined */

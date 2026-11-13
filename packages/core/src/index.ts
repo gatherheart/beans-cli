@@ -8,3 +8,4 @@ export * from "./config/index.js";
 export * from "./context/index.js";
 export * from "./memory/index.js";
 export * from "./policy/index.js";
+export * from "./speculation/index.js";

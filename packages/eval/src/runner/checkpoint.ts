@@ -25,6 +25,10 @@ export function validateResumeConfig(
     reviewPreparation: config.reviewPreparation,
     reviewCases: config.reviewCases,
     predictionThreshold: config.predictionThreshold ?? 0.2,
+    toolAgent: config.toolAgent ?? false,
+    paste: config.paste ?? false,
+    toolTraining: config.toolTraining,
+    datasetSource: config.datasetSource,
   });
   if (
     JSON.stringify(conditions(previous)) !== JSON.stringify(conditions(current))

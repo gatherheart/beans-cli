@@ -95,6 +95,12 @@ export interface CLIArgs {
   reviewPreparation?: "sequential" | "eager" | "predictive";
   reviewCases?: string;
   predictionThreshold?: number;
+  /** Pattern-aware speculative tool execution in the agent runtime. */
+  paste?: boolean;
+  pasteTraces?: string;
+  toolAgent?: boolean;
+  toolTraining?: string;
+  datasetSource?: string;
 }
 
 /**
@@ -246,6 +252,28 @@ export async function parseArgs(): Promise<CLIArgs> {
       case "--review-preparation":
         result.reviewPreparation = args[++i] as CLIArgs["reviewPreparation"];
         break;
+      case "--paste":
+        result.paste = true;
+        break;
+      case "--tool-agent":
+        result.toolAgent = true;
+        break;
+      case "--tool-training":
+      case "--dataset-source": {
+        const value = args[++i];
+        if (!value || value.startsWith("--"))
+          throw new Error(`${arg} requires a JSON file path`);
+        if (arg === "--tool-training") result.toolTraining = value;
+        else result.datasetSource = value;
+        break;
+      }
+      case "--paste-traces": {
+        const value = args[++i];
+        if (!value || value.startsWith("--"))
+          throw new Error("--paste-traces requires a JSON file path");
+        result.pasteTraces = value;
+        break;
+      }
       case "--review-cases":
         result.reviewCases = args[++i];
         break;
@@ -259,6 +287,29 @@ export async function parseArgs(): Promise<CLIArgs> {
     }
   }
 
+  if (result.pasteTraces && !result.paste)
+    throw new Error("--paste-traces requires --paste");
+  if (result.paste && result.eval) result.toolAgent = true;
+  if (
+    (result.toolAgent || result.toolTraining || result.datasetSource) &&
+    !result.eval
+  )
+    throw new Error("Tool-agent evaluation options require --eval");
+  if ((result.toolTraining || result.datasetSource) && !result.toolAgent)
+    throw new Error(
+      "--tool-training and --dataset-source require --tool-agent or --paste",
+    );
+  if (
+    result.toolAgent &&
+    (result.agentic ||
+      result.baselineReport ||
+      result.retryWithoutCritic ||
+      result.reviewPreparation ||
+      result.pasteTraces)
+  )
+    throw new Error(
+      "Tool-agent evaluation uses --tool-training, not Critic, review-preparation, or raw --paste-traces options",
+    );
   if (positional.length > 0) {
     result.prompt = positional.join(" ");
   }

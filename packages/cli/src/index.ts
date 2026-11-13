@@ -56,6 +56,8 @@ Options:
                           Add a raw Modelfile PARAMETER line (repeatable)
   --yolo                  Auto-approve all tool calls
   --debug                 Show LLM requests and responses for debugging
+  --paste                 Enable pattern-aware speculative file reads
+  --paste-traces <path>   Seed PASTE with completed tool traces (JSON)
 
 Evaluation:
   --eval                  Run benchmark evaluation
@@ -66,6 +68,10 @@ Evaluation:
   --resume <run-id>       Resume from previous run
   --timeout <ms>          Timeout per problem (default: 30000)
   --agentic               Enable agentic mode (iterate on failures)
+  --tool-agent            Evaluate MBPP with submit_solution/run_tests tools
+  --paste                 Enable PASTE in the MBPP tool-agent evaluator
+  --tool-training <path>  Disjoint MBPP training traces with problem IDs
+  --dataset-source <path> Local MBPP dataset snapshot for tool-agent evaluation
   --max-iterations <n>    Max iterations per problem (default: 5)
   --baseline-report <path> Reuse initial answers from a single-pass JSON report
   --blind-retry           Retry failures with only the original prompt

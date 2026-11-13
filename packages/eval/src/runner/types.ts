@@ -35,6 +35,10 @@ export interface EvalRunnerConfig {
   /** Optional JSON review-case corpus; defaults to generic debugging cases. */
   reviewCases?: string;
   predictionThreshold?: number;
+  toolAgent?: boolean;
+  paste?: boolean;
+  toolTraining?: string;
+  datasetSource?: string;
 }
 
 /**
@@ -61,6 +65,11 @@ export interface Checkpoint {
   updatedAt: string;
   reviewPredictorState?: Record<string, { failures: number; total: number }>;
   reviewCorpusHash?: string;
+  toolAgentProvenance?: {
+    datasetHash: string;
+    trainingHash: string;
+    modelConfigHash: string;
+  };
 }
 
 /**

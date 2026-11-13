@@ -18,6 +18,10 @@ export interface ExecutionOptions {
   timeout?: number;
   /** Working directory */
   cwd?: string;
+  /** Abort an isolated speculative execution. */
+  signal?: AbortSignal;
+  /** Require the macOS read-only, network-denied subprocess sandbox. */
+  isolated?: boolean;
 }
 
 /**

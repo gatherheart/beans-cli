@@ -43,7 +43,9 @@ export function createAgentManager(
   const debugConfig = config.getDebugConfig();
   const policyEngine = config.getPolicyEngine();
 
-  const executor = new AgentExecutor(llmClient, toolRegistry);
+  const executor = new AgentExecutor(llmClient, toolRegistry, {
+    paste: config.getRuntimeConfig().paste,
+  });
   const registeredAgents = new Map<string, SpecializedAgentDefinition>();
 
   // Register default specialized agents

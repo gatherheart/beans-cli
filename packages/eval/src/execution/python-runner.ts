@@ -1,4 +1,6 @@
-import { spawn } from "child_process";
+import { spawn, execFile } from "child_process";
+import { promisify } from "node:util";
+import { homedir } from "node:os";
 import type {
   ExecutionResult,
   ExecutionOptions,
@@ -7,6 +9,29 @@ import type {
 } from "./types.js";
 
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
+let pythonRuntime: Promise<{ executable: string; prefix: string }> | undefined;
+
+async function isolatedCommand(
+  code: string,
+): Promise<{ command: string; args: string[] }> {
+  if (process.platform !== "darwin")
+    throw new Error(
+      "Isolated MBPP tools require macOS sandbox-exec; refusing unsandboxed speculation",
+    );
+  pythonRuntime ??= promisify(execFile)("python3", [
+    "-c",
+    "import json,os,sys; print(json.dumps({'executable':os.path.realpath(sys.executable),'prefix':sys.prefix}))",
+  ]).then(({ stdout }) => JSON.parse(stdout));
+  const python = await pythonRuntime;
+  const profile = `(version 1)(allow default)(deny network*)(deny file-write*)(deny process-fork)
+    (deny file-read* (subpath ${JSON.stringify(homedir())}) (subpath "/private/tmp") (subpath "/private/var/folders"))
+    (allow file-read* (subpath ${JSON.stringify(python.prefix)}))
+    (allow file-write* (literal "/dev/null"))`;
+  return {
+    command: "/usr/bin/sandbox-exec",
+    args: ["-p", profile, python.executable, "-I", "-B", "-c", code],
+  };
+}
 
 /**
  * Execute Python code as a subprocess
@@ -15,24 +40,49 @@ export async function executePython(
   code: string,
   options: ExecutionOptions = {},
 ): Promise<ExecutionResult> {
-  const { timeout = DEFAULT_TIMEOUT, cwd } = options;
+  const { timeout = DEFAULT_TIMEOUT, cwd, signal } = options;
+  signal?.throwIfAborted();
+  const command = options.isolated
+    ? await isolatedCommand(code)
+    : { command: "python3", args: ["-c", code] };
+  signal?.throwIfAborted();
 
   return new Promise((resolve) => {
-    const process = spawn("python3", ["-c", code], {
-      cwd,
+    const process = spawn(command.command, command.args, {
+      cwd: options.isolated ? "/" : cwd,
       stdio: ["pipe", "pipe", "pipe"],
+      ...(options.isolated
+        ? {
+            env: {
+              PATH: "/usr/bin:/bin",
+              HOME: "/nonexistent",
+              LANG: "en_US.UTF-8",
+            },
+          }
+        : {}),
     });
 
     let stdout = "";
     let stderr = "";
     let timedOut = false;
+    let outputExceeded = false;
+    const abort = () => {
+      process.kill("SIGKILL");
+    };
+    signal?.addEventListener("abort", abort, { once: true });
 
     process.stdout.on("data", (data: Buffer) => {
-      stdout += data.toString();
+      if (stdout.length + data.length > 1024 * 1024 && options.isolated) {
+        outputExceeded = true;
+        abort();
+      } else stdout += data.toString();
     });
 
     process.stderr.on("data", (data: Buffer) => {
-      stderr += data.toString();
+      if (stderr.length + data.length > 1024 * 1024 && options.isolated) {
+        outputExceeded = true;
+        abort();
+      } else stderr += data.toString();
     });
 
     const timer = setTimeout(() => {
@@ -42,19 +92,28 @@ export async function executePython(
 
     process.on("close", (exitCode) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
 
       resolve({
-        success: exitCode === 0 && !timedOut,
+        success:
+          exitCode === 0 && !timedOut && !signal?.aborted && !outputExceeded,
         stdout: stdout.trim(),
         stderr: stderr.trim(),
         exitCode: exitCode ?? -1,
         timedOut,
-        error: timedOut ? "Execution timed out" : undefined,
+        error: signal?.aborted
+          ? "Execution aborted"
+          : outputExceeded
+            ? "Execution output limit exceeded"
+            : timedOut
+              ? "Execution timed out"
+              : undefined,
       });
     });
 
     process.on("error", (err) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
 
       resolve({
         success: false,

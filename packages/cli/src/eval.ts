@@ -7,6 +7,7 @@ import { Config } from "@beans/core";
 import {
   EvalRunner,
   AgenticEvalRunner,
+  ToolAgentEvalRunner,
   createCodeGenSession,
   generateMarkdownReport,
   writeJsonReport,
@@ -57,7 +58,7 @@ export async function runEval(args: CLIArgs): Promise<void> {
 
   // Override model if specified
   if (args.model) {
-    await config.updateConfig({
+    config.applySessionOverrides({
       llm: { ...config.getLLMConfig(), model: args.model },
     });
   }
@@ -69,7 +70,7 @@ export async function runEval(args: CLIArgs): Promise<void> {
   console.log(`\n📊 Starting ${args.benchmark.toUpperCase()} Evaluation`);
   console.log(`   Model: ${llmConfig.model}`);
   console.log(
-    `   Mode: ${isAgentic ? `Agentic (max ${maxIterations} iterations)` : "Single-shot"}`,
+    `   Mode: ${args.toolAgent ? `Tool agent${args.paste ? " + PASTE" : ""}` : isAgentic ? `Agentic (max ${maxIterations} iterations)` : "Single-shot"}`,
   );
   if (args.limit) console.log(`   Limit: ${args.limit} problems`);
   if (args.resume) console.log(`   Resuming from: ${args.resume}`);
@@ -92,11 +93,17 @@ export async function runEval(args: CLIArgs): Promise<void> {
     reviewPreparation: args.reviewPreparation,
     reviewCases: args.reviewCases,
     predictionThreshold: args.predictionThreshold,
+    toolAgent: args.toolAgent,
+    paste: args.paste,
+    toolTraining: args.toolTraining,
+    datasetSource: args.datasetSource,
   };
 
   // Create appropriate runner
   let runner;
-  if (isAgentic) {
+  if (args.toolAgent) {
+    runner = new ToolAgentEvalRunner(config);
+  } else if (isAgentic) {
     // Agentic mode uses multi-agent system (Coder + Critic)
     runner = new AgenticEvalRunner(config, { verbose: args.verbose });
   } else {
