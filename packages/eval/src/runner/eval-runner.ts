@@ -120,35 +120,9 @@ export class EvalRunner {
         generatedCode = response.content;
         usage = response.usage;
       } catch (error) {
-        // LLM error - record as failure
-        const result: EvaluationResult = {
-          problemId: problem.id,
-          success: false,
-          passed: 0,
-          total:
-            (problem as BenchmarkProblem & { tests?: string[] }).tests
-              ?.length ?? 0,
-          generatedCode: "",
-          error: error instanceof Error ? error.message : String(error),
-          metrics: {
-            promptTokens: usage?.promptTokens ?? 0,
-            completionTokens: usage?.completionTokens ?? 0,
-            totalTokens: usage?.totalTokens ?? 0,
-            turnCount: 1,
-            timeMs: Date.now() - llmStartTime,
-          },
-        };
-
-        await updateCheckpoint(checkpoint, result);
-
-        onProgress?.({
-          current: overallIndex + 1,
-          total: problems.length,
-          problemId: problem.id,
-          result,
-        });
-
-        continue;
+        throw new Error(
+          `Evaluation stopped on problem ${problem.id}: LLM request failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
       } finally {
         this.session.clearHistory();
       }

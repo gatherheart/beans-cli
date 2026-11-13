@@ -3,6 +3,8 @@ import type { Config } from "@beans/core";
 import type { ChatRequest } from "@beans/core/llm";
 import { AgenticEvalRunner } from "../../packages/eval/src/runner/agentic-runner.js";
 import { MBPPBenchmark } from "../../packages/eval/src/benchmarks/mbpp/index.js";
+import { EvalRunner } from "../../packages/eval/src/runner/eval-runner.js";
+import { createCodeGenSession } from "../../packages/eval/src/runner/code-gen-session.js";
 
 vi.mock("../../packages/eval/src/runner/checkpoint.js", () => ({
   generateRunId: () => "test",
@@ -31,6 +33,31 @@ const problem = {
 };
 
 describe("evaluation context boundaries", () => {
+  it("stops on provider failure instead of scoring it as an incorrect answer", async () => {
+    const config = {
+      getLLMClient: () => ({
+        async *chatStream() {
+          yield* [];
+          throw new Error("monthly spending cap exceeded");
+        },
+      }),
+      getToolRegistry: () => ({}),
+      getLLMConfig: () => ({ model: "mock", maxTokens: 100 }),
+    } as unknown as Config;
+    const load = vi
+      .spyOn(MBPPBenchmark.prototype, "load")
+      .mockResolvedValue([problem]);
+    try {
+      await expect(
+        new EvalRunner(createCodeGenSession(config)).run({
+          benchmark: "mbpp",
+          model: "mock",
+        }),
+      ).rejects.toThrow("spending cap");
+    } finally {
+      load.mockRestore();
+    }
+  });
   it.each([false, true])(
     "isolates requests with blind retry = %s",
     async (blind) => {

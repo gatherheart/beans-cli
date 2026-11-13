@@ -1,6 +1,6 @@
 # First 20 MBPP problems, five runs: single call and Coder/Critic
 
-> Evaluation audit (2026-11-13): these results were produced before fixing raw-code extraction that could discard imports and global declarations, and before replacing the assertion parser. Treat them as historical pipeline outputs, not validated model-accuracy estimates. See [the audit](./evaluation-audit-2026-11-13.md).
+> **Invalid as MBPP performance evidence.** The November 13 audit found that the sanitized dataset uses `prompt`, while the old loader read only `text`; problem statements could therefore be sent as `undefined`. Imports/globals could also be discarded and assertions were rewritten. These files preserve earlier pipeline outputs only. All performance claims require a fresh run with the corrected pipeline. See [the audit](./evaluation-audit-2026-11-13.md).
 
 The subsequent [paired comparison](./mbpp-paired-critic-20-five-runs-2026-11-13.md) recorded 93/100 single-call passes, 95/100 blind-retry passes, and 96/100 Critic-retry passes. This historical experiment used different initial prompts and does not isolate the effect of Critic feedback.
 

@@ -1,17 +1,17 @@
-import { readFile } from 'fs/promises';
-import type { LoadOptions } from '../types.js';
-import type { MBPPRawProblem, MBPPProblem, MBPPSubset } from './types.js';
-import { MBPP_URLS } from './types.js';
+import { readFile } from "fs/promises";
+import type { LoadOptions } from "../types.js";
+import type { MBPPRawProblem, MBPPProblem, MBPPSubset } from "./types.js";
+import { MBPP_URLS } from "./types.js";
 
 /**
  * Load MBPP dataset from URL or local file
  */
 export async function loadMBPP(
-  options: LoadOptions & { source?: string; subset?: MBPPSubset } = {}
+  options: LoadOptions & { source?: string; subset?: MBPPSubset } = {},
 ): Promise<MBPPProblem[]> {
   const {
     source,
-    subset = 'sanitized',
+    subset = "sanitized",
     limit,
     offset = 0,
     problemIds,
@@ -25,8 +25,11 @@ export async function loadMBPP(
     rawProblems = await loadFromFile(source);
   } else {
     // Load from URL
-    const effectiveSubset = sanitized ? 'sanitized' : subset;
-    rawProblems = await loadFromUrl(MBPP_URLS[effectiveSubset], effectiveSubset);
+    const effectiveSubset = sanitized ? "sanitized" : subset;
+    rawProblems = await loadFromUrl(
+      MBPP_URLS[effectiveSubset],
+      effectiveSubset,
+    );
   }
 
   // Normalize to MBPPProblem format
@@ -53,12 +56,12 @@ export async function loadMBPP(
  * Load from local JSON or JSONL file
  */
 async function loadFromFile(path: string): Promise<MBPPRawProblem[]> {
-  const content = await readFile(path, 'utf-8');
+  const content = await readFile(path, "utf-8");
 
-  if (path.endsWith('.jsonl')) {
+  if (path.endsWith(".jsonl")) {
     // JSONL format: one JSON object per line
     return content
-      .split('\n')
+      .split("\n")
       .filter((line) => line.trim())
       .map((line) => JSON.parse(line) as MBPPRawProblem);
   }
@@ -73,7 +76,7 @@ async function loadFromFile(path: string): Promise<MBPPRawProblem[]> {
  */
 async function loadFromUrl(
   url: string,
-  subset: MBPPSubset
+  subset: MBPPSubset,
 ): Promise<MBPPRawProblem[]> {
   const response = await fetch(url);
 
@@ -83,10 +86,10 @@ async function loadFromUrl(
 
   const content = await response.text();
 
-  if (subset === 'full') {
+  if (subset === "full") {
     // JSONL format
     return content
-      .split('\n')
+      .split("\n")
       .filter((line) => line.trim())
       .map((line) => JSON.parse(line) as MBPPRawProblem);
   }
@@ -99,13 +102,19 @@ async function loadFromUrl(
  * Normalize raw problem to standard format
  */
 function normalizeProblem(raw: MBPPRawProblem): MBPPProblem {
+  const text = raw.text ?? raw.prompt;
+  if (!text?.trim())
+    throw new Error(`MBPP problem ${raw.task_id} has no problem statement`);
+  const setupCode = [...(raw.test_imports ?? []), raw.test_setup_code ?? ""]
+    .filter(Boolean)
+    .join("\n");
   return {
     id: String(raw.task_id),
     taskId: raw.task_id,
-    text: raw.text,
+    text,
     referenceCode: raw.code,
     tests: raw.test_list,
-    setupCode: raw.test_setup_code,
+    setupCode: setupCode || undefined,
     challengeTests: raw.challenge_test_list,
   };
 }

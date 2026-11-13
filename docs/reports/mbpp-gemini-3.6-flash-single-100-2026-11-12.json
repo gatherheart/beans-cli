@@ -1413,5 +1413,9 @@
         "timeMs": 4044
       }
     }
-  ]
+  ],
+  "evaluationValidity": {
+    "valid": false,
+    "reason": "Pre-audit pipeline: sanitized MBPP prompt field was not loaded; raw-code extraction could discard imports and globals. Do not use as performance evidence or as a new evaluation baseline."
+  }
 }

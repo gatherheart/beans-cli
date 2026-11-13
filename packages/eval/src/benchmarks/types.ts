@@ -61,6 +61,8 @@ export interface BenchmarkSummary {
  * Complete report for a benchmark evaluation
  */
 export interface BenchmarkReport {
+  /** Marks archived outputs that must not be reused as a performance baseline. */
+  evaluationValidity?: { valid: boolean; reason?: string };
   benchmarkName: string;
   timestamp: string;
   model: string;

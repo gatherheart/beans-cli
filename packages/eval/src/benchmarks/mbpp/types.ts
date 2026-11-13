@@ -1,11 +1,13 @@
-import type { BenchmarkProblem } from '../types.js';
+import type { BenchmarkProblem } from "../types.js";
 
 /**
  * Raw MBPP problem from the dataset
  */
 export interface MBPPRawProblem {
   task_id: number;
-  text: string;
+  text?: string;
+  prompt?: string;
+  test_imports?: string[];
   code: string;
   test_list: string[];
   test_setup_code?: string;
@@ -29,12 +31,12 @@ export interface MBPPProblem extends BenchmarkProblem {
  * MBPP dataset URLs
  */
 export const MBPP_URLS = {
-  full: 'https://raw.githubusercontent.com/google-research/google-research/master/mbpp/mbpp.jsonl',
+  full: "https://raw.githubusercontent.com/google-research/google-research/master/mbpp/mbpp.jsonl",
   sanitized:
-    'https://raw.githubusercontent.com/google-research/google-research/master/mbpp/sanitized-mbpp.json',
+    "https://raw.githubusercontent.com/google-research/google-research/master/mbpp/sanitized-mbpp.json",
 } as const;
 
 /**
  * MBPP dataset subsets
  */
-export type MBPPSubset = 'full' | 'sanitized';
+export type MBPPSubset = "full" | "sanitized";

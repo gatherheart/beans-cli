@@ -1,6 +1,6 @@
 # MBPP paired comparison: single call, blind retry, and Critic
 
-> Evaluation audit (2026-11-13): these results were produced before fixing raw-code extraction that could discard imports and global declarations, and before replacing the assertion parser. Treat them as historical pipeline outputs, not validated model-accuracy estimates. See [the audit](./evaluation-audit-2026-11-13.md).
+> **Invalid as MBPP performance evidence.** The November 13 audit found that the sanitized dataset uses `prompt`, while the old loader read only `text`; problem statements could therefore be sent as `undefined`. Imports/globals could also be discarded and assertions were rewritten. These files preserve earlier pipeline outputs only. All performance claims require a fresh run with the corrected pipeline. See [the audit](./evaluation-audit-2026-11-13.md).
 
 2026-11-13. Gemini 3.6 Flash; the same first 20 sanitized MBPP problems, repeated five times.
 

@@ -217,6 +217,11 @@ export class AgenticEvalRunner {
       const baseline = JSON.parse(
         await readFile(config.baselineReport, "utf8"),
       ) as BenchmarkReport;
+      if (baseline.evaluationValidity?.valid === false) {
+        throw new Error(
+          "Baseline report is marked invalid; generate a fresh baseline with the corrected pipeline",
+        );
+      }
       if (
         baseline.model !== config.model ||
         baseline.results.length !== problems.length ||
@@ -376,20 +381,9 @@ export class AgenticEvalRunner {
         generatedCode = result.content;
       } catch (error) {
         this.initialSession.clearHistory();
-        return {
-          problemId: problem.id,
-          success: false,
-          passed: 0,
-          total: tests.length,
-          generatedCode: lastCode,
-          error: error instanceof Error ? error.message : String(error),
-          metrics: this.createMetrics(
-            problemStartTime,
-            iteration,
-            usage,
-            baseline,
-          ),
-        };
+        throw new Error(
+          `Evaluation stopped on problem ${problem.id}: Coder request failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
 
       // Extract and clean code

@@ -1,6 +1,6 @@
 # First 100 MBPP problems: Gemini 3.6 Flash single call and agentic mode
 
-> Evaluation audit (2026-11-13): these results were produced before fixing raw-code extraction that could discard imports and global declarations, and before replacing the assertion parser. Treat them as historical pipeline outputs, not validated model-accuracy estimates. See [the audit](./evaluation-audit-2026-11-13.md).
+> **Invalid as MBPP performance evidence.** The November 13 audit found that the sanitized dataset uses `prompt`, while the old loader read only `text`; problem statements could therefore be sent as `undefined`. Imports/globals could also be discarded and assertions were rewritten. These files preserve earlier pipeline outputs only. All performance claims require a fresh run with the corrected pipeline. See [the audit](./evaluation-audit-2026-11-13.md).
 
 On November 12, 2026, each mode evaluated the same first 100 sanitized MBPP problems once. Agentic mode used Coder/Critic with up to five attempts per problem. Both runs resumed after their first ten problems and saved a checkpoint after every problem.
 
