@@ -29,6 +29,31 @@ export async function runEval(args: CLIArgs): Promise<void> {
 
   // Initialize configuration
   const config = await Config.getInstance();
+  if (
+    args.reviewPreparation &&
+    (!args.agentic ||
+      !["sequential", "eager", "predictive"].includes(args.reviewPreparation))
+  ) {
+    throw new Error(
+      "--review-preparation requires --agentic and one of sequential, eager, predictive",
+    );
+  }
+  if (
+    (args.reviewCases || args.predictionThreshold !== undefined) &&
+    !args.reviewPreparation
+  ) {
+    throw new Error(
+      "--review-cases and --prediction-threshold require --review-preparation",
+    );
+  }
+  if (
+    args.predictionThreshold !== undefined &&
+    (!Number.isFinite(args.predictionThreshold) ||
+      args.predictionThreshold < 0 ||
+      args.predictionThreshold > 1)
+  ) {
+    throw new Error("--prediction-threshold must be between zero and one");
+  }
 
   // Override model if specified
   if (args.model) {
@@ -64,6 +89,9 @@ export async function runEval(args: CLIArgs): Promise<void> {
     maxIterations,
     baselineReport: args.baselineReport,
     retryWithoutCritic: args.retryWithoutCritic,
+    reviewPreparation: args.reviewPreparation,
+    reviewCases: args.reviewCases,
+    predictionThreshold: args.predictionThreshold,
   };
 
   // Create appropriate runner

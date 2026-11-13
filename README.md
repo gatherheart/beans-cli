@@ -8,6 +8,7 @@ A TypeScript CLI for working with LLM agents, tools, and agent profiles. The rep
 - Google Gemini, OpenAI, Anthropic, and local Ollama provider adapters
 - File, shell, search, and web tools; streamed terminal UI built with Ink
 - MBPP evaluator with per-problem checkpoints and JSON results
+- Experimental code-similarity retrieval for Critic context, with sequential and predicted preparation during test execution
 
 ## Get started
 
@@ -40,6 +41,8 @@ An [evaluation audit](docs/reports/evaluation-audit-2026-11-13.md) found that th
 Archived outputs are retained for transparency: [the original 100-problem comparison](docs/reports/mbpp-gemini-3.6-flash-single-vs-agentic-100-2026-11-12.md), [the original repeated 20-problem comparison](docs/reports/mbpp-gemini-3.6-flash-20-five-runs-2026-11-12.md), and [the pre-audit paired comparison](docs/reports/mbpp-paired-critic-20-five-runs-2026-11-13.md). Their JSON reports are explicitly marked invalid and cannot be replayed as new baselines.
 
 ## Development
+
+The [speculative review preparation guide](docs/guides/speculative-review-preparation.md) describes the optional predictor and related-code index. An [initial five-repeat replay](docs/reports/speculative-review-preparation-2026-11-14.md) reduced wasted prefetches but did not demonstrate a latency improvement over sequential retrieval. It measures scheduling without additional LLM calls, not full agent speed or answer quality.
 
 ```bash
 npm run build

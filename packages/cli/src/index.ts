@@ -69,6 +69,11 @@ Evaluation:
   --max-iterations <n>    Max iterations per problem (default: 5)
   --baseline-report <path> Reuse initial answers from a single-pass JSON report
   --blind-retry           Retry failures with only the original prompt
+  --review-preparation <mode>
+                          Related-code retrieval: sequential, eager, predictive
+  --review-cases <path>   JSON corpus of disjoint historical review cases
+  --prediction-threshold <p>
+                          Minimum predicted review probability (default: 0.2)
 
 Examples:
   beans "help me refactor this code"

@@ -58,9 +58,14 @@ describe("evaluation context boundaries", () => {
       load.mockRestore();
     }
   });
-  it.each([false, true])(
-    "isolates requests with blind retry = %s",
-    async (blind) => {
+  it.each([
+    [false, undefined],
+    [true, undefined],
+    [false, "sequential"],
+    [false, "predictive"],
+  ] as const)(
+    "isolates requests with blind retry = %s and preparation = %s",
+    async (blind, mode) => {
       const requests: ChatRequest[] = [];
       const outputs = blind
         ? [
@@ -101,6 +106,7 @@ describe("evaluation context boundaries", () => {
           limit: 1,
           maxIterations: 2,
           retryWithoutCritic: blind,
+          reviewPreparation: mode,
         });
         expect(result.report.summary.passed).toBe(1);
         expect(requests).toHaveLength(blind ? 2 : 3);
@@ -113,6 +119,14 @@ describe("evaluation context boundaries", () => {
         if (blind) {
           expect(requests[1]).toEqual(requests[0]);
         } else {
+          if (mode) {
+            expect(requests[1].messages[0].content).toContain(
+              "RELATED HISTORICAL CASES",
+            );
+            expect(result.report.results[0].metrics.preparation?.length).toBe(
+              2,
+            );
+          }
           expect(requests[1].messages[0].content).toContain("NameError");
           expect(requests[1].systemPrompt).not.toBe(requests[0].systemPrompt);
           expect(requests[2].systemPrompt).toBe(requests[0].systemPrompt);

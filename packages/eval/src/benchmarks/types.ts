@@ -1,3 +1,5 @@
+import type { PreparationMetrics } from "../speculation/review-preparation.js";
+
 /**
  * Base interface for all benchmark problems
  */
@@ -28,6 +30,12 @@ export interface ProblemMetrics {
   totalTokens: number;
   turnCount: number;
   timeMs: number;
+  preparation?: Array<
+    PreparationMetrics & {
+      iteration: number;
+      cases: Array<{ id: string; similarity: number }>;
+    }
+  >;
 }
 
 /**
@@ -61,6 +69,13 @@ export interface BenchmarkSummary {
  * Complete report for a benchmark evaluation
  */
 export interface BenchmarkReport {
+  reviewPreparation?: {
+    mode: string;
+    threshold: number;
+    corpusHash: string;
+    predictor: string;
+    similarity: string;
+  };
   /** Marks archived outputs that must not be reused as a performance baseline. */
   evaluationValidity?: { valid: boolean; reason?: string };
   benchmarkName: string;

@@ -28,8 +28,13 @@ export interface EvalRunnerConfig {
   maxIterations?: number;
   /** JSON report whose initial answers are replayed in both retry arms. */
   baselineReport?: string;
-  /** Retry failed answers using test feedback without calling Critic. */
+  /** Retry with the original prompt only, without failure feedback. */
   retryWithoutCritic?: boolean;
+  /** Prepare related-code review context after tests or speculatively during tests. */
+  reviewPreparation?: "sequential" | "eager" | "predictive";
+  /** Optional JSON review-case corpus; defaults to generic debugging cases. */
+  reviewCases?: string;
+  predictionThreshold?: number;
 }
 
 /**
@@ -54,6 +59,8 @@ export interface Checkpoint {
   results: EvaluationResult[];
   startedAt: string;
   updatedAt: string;
+  reviewPredictorState?: Record<string, { failures: number; total: number }>;
+  reviewCorpusHash?: string;
 }
 
 /**

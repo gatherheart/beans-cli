@@ -92,6 +92,9 @@ export interface CLIArgs {
   baselineReport?: string;
   /** Retry failed answers without a Critic agent. */
   retryWithoutCritic: boolean;
+  reviewPreparation?: "sequential" | "eager" | "predictive";
+  reviewCases?: string;
+  predictionThreshold?: number;
 }
 
 /**
@@ -239,6 +242,15 @@ export async function parseArgs(): Promise<CLIArgs> {
         break;
       case "--blind-retry":
         result.retryWithoutCritic = true;
+        break;
+      case "--review-preparation":
+        result.reviewPreparation = args[++i] as CLIArgs["reviewPreparation"];
+        break;
+      case "--review-cases":
+        result.reviewCases = args[++i];
+        break;
+      case "--prediction-threshold":
+        result.predictionThreshold = Number(args[++i]);
         break;
       default:
         if (!arg.startsWith("-")) {

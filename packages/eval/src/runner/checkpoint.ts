@@ -22,6 +22,9 @@ export function validateResumeConfig(
     maxIterations: config.maxIterations ?? 5,
     baselineReport: config.baselineReport,
     retryWithoutCritic: config.retryWithoutCritic ?? false,
+    reviewPreparation: config.reviewPreparation,
+    reviewCases: config.reviewCases,
+    predictionThreshold: config.predictionThreshold ?? 0.2,
   });
   if (
     JSON.stringify(conditions(previous)) !== JSON.stringify(conditions(current))

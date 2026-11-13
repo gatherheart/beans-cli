@@ -1,4 +1,5 @@
 // Benchmarks
+export * from "./speculation/index.js";
 export type {
   BenchmarkProblem,
   LoadOptions,

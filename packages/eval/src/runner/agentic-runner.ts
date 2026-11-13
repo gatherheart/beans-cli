@@ -31,6 +31,19 @@ import { executeWithTests } from "../execution/python-runner.js";
 import { ChatSession, type Config } from "@beans/core";
 import { createCodeGenSession } from "./code-gen-session.js";
 import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import {
+  CodeSimilarityIndex,
+  formatReviewCases,
+  DEFAULT_REVIEW_CASES,
+  ReviewNeedPredictor,
+  prepareNextReview,
+} from "../speculation/index.js";
+import type {
+  SimilarCase,
+  ReviewCase,
+  PreparationMode,
+} from "../speculation/index.js";
 
 const MAX_ITERATIONS = 5;
 
@@ -156,6 +169,11 @@ export class AgenticEvalRunner {
   private initialSession: ChatSession;
   private verbose: boolean;
   private lastFailedTests: FailedTest[] = [];
+  private reviewIndex?: CodeSimilarityIndex;
+  private lastReviewCases: SimilarCase[] = [];
+  private reviewPredictor = new ReviewNeedPredictor();
+  private preparationMode?: PreparationMode;
+  private predictionThreshold = 0.2;
 
   constructor(config: Config, options?: { verbose?: boolean }) {
     this.criticSession = new ChatSession(
@@ -182,6 +200,14 @@ export class AgenticEvalRunner {
   ): Promise<EvalRunResult> {
     const benchmark = getBenchmark(config.benchmark, config);
     const maxIterations = config.maxIterations ?? MAX_ITERATIONS;
+    if (
+      config.reviewPreparation &&
+      (config.baselineReport || config.retryWithoutCritic)
+    ) {
+      throw new Error(
+        "Review preparation requires fresh Critic evaluation; use the preparation replay experiment for cached initial answers",
+      );
+    }
 
     // Handle resume
     let checkpoint: Checkpoint | null = null;
@@ -208,6 +234,44 @@ export class AgenticEvalRunner {
       problemIds: config.problemIds,
       sanitized: config.sanitized ?? true,
     });
+    this.preparationMode = config.reviewPreparation;
+    this.reviewPredictor = new ReviewNeedPredictor();
+    if (config.reviewPreparation && resumed) {
+      if (checkpoint.results.length && !checkpoint.reviewPredictorState)
+        throw new Error(
+          "Resumed review preparation requires a predictor checkpoint",
+        );
+      this.reviewPredictor.restore(checkpoint.reviewPredictorState ?? {});
+    }
+    this.predictionThreshold = config.predictionThreshold ?? 0.2;
+    if (
+      !Number.isFinite(this.predictionThreshold) ||
+      this.predictionThreshold < 0 ||
+      this.predictionThreshold > 1
+    )
+      throw new Error("Prediction threshold must be between zero and one");
+    let corpusHash: string | undefined;
+    if (config.reviewPreparation) {
+      const cases = config.reviewCases
+        ? (JSON.parse(
+            await readFile(config.reviewCases, "utf8"),
+          ) as ReviewCase[])
+        : DEFAULT_REVIEW_CASES;
+      corpusHash = createHash("sha256")
+        .update(JSON.stringify(cases))
+        .digest("hex");
+      if (
+        resumed &&
+        checkpoint.results.length &&
+        checkpoint.reviewCorpusHash !== corpusHash
+      )
+        throw new Error("Review corpus changed since the checkpoint");
+      checkpoint.reviewCorpusHash = corpusHash;
+      this.reviewIndex = await CodeSimilarityIndex.create(cases);
+    } else {
+      this.reviewIndex = undefined;
+    }
+    this.reviewIndex?.assertDisjoint(problems.map((problem) => problem.id));
 
     // Filter out already completed problems
     const completedIds = getCompletedIds(checkpoint);
@@ -262,6 +326,8 @@ export class AgenticEvalRunner {
       );
 
       // Save checkpoint
+      if (this.preparationMode)
+        checkpoint.reviewPredictorState = this.reviewPredictor.snapshot();
       await updateCheckpoint(checkpoint, result);
 
       onProgress?.({
@@ -285,6 +351,14 @@ export class AgenticEvalRunner {
         : Date.now() - startTime,
       config.retryWithoutCritic ?? false,
     );
+    if (this.preparationMode && corpusHash)
+      report.reviewPreparation = {
+        mode: this.preparationMode,
+        threshold: this.predictionThreshold,
+        corpusHash,
+        predictor: "online-beta-bernoulli-v1",
+        similarity: "normalized-token-trigram-0.6+ast-histogram-0.4",
+      };
 
     return {
       report,
@@ -305,6 +379,9 @@ export class AgenticEvalRunner {
     retryWithoutCritic = false,
   ): Promise<EvaluationResult> {
     const problemStartTime = Date.now();
+    const preparationMetrics: NonNullable<ProblemMetrics["preparation"]> = [];
+    this.lastReviewCases = [];
+    this.lastFailedTests = [];
     if (baseline && (baseline.success || maxIterations <= 1)) return baseline;
     let iteration = baseline ? 1 : 0;
     let lastCode = baseline?.generatedCode ?? "";
@@ -409,6 +486,7 @@ export class AgenticEvalRunner {
             iteration,
             usage,
             baseline,
+            preparationMetrics,
           ),
         };
       }
@@ -423,14 +501,33 @@ export class AgenticEvalRunner {
       }
 
       // Run tests
-      const testResult = await executeWithTests(
-        code,
-        tests,
-        problem.setupCode,
-        {
-          timeout,
-        },
-      );
+      const runTests = () =>
+        executeWithTests(code, tests, problem.setupCode, { timeout });
+      let testResult;
+      if (this.reviewIndex && this.preparationMode) {
+        const index = this.reviewIndex;
+        const prepared = await prepareNextReview({
+          code,
+          mode: this.preparationMode,
+          predictor: this.reviewPredictor,
+          threshold: this.predictionThreshold,
+          runTool: runTests,
+          needsReview: (result) => !result.success,
+          prepare: () => index.search(code),
+        });
+        testResult = prepared.tool;
+        this.lastReviewCases = prepared.context ?? [];
+        preparationMetrics.push({
+          ...prepared.metrics,
+          iteration,
+          cases: this.lastReviewCases.map(({ id, similarity }) => ({
+            id,
+            similarity,
+          })),
+        });
+      } else {
+        testResult = await runTests();
+      }
 
       if (this.verbose) {
         console.log(
@@ -463,6 +560,7 @@ export class AgenticEvalRunner {
             iteration,
             usage,
             baseline,
+            preparationMetrics,
           ),
         };
       }
@@ -496,6 +594,7 @@ export class AgenticEvalRunner {
             iteration,
             usage,
             baseline,
+            preparationMetrics,
           ),
         };
       }
@@ -513,7 +612,13 @@ export class AgenticEvalRunner {
       total: tests.length,
       generatedCode: lastCode,
       error: "Unexpected end of iteration loop",
-      metrics: this.createMetrics(problemStartTime, iteration, usage, baseline),
+      metrics: this.createMetrics(
+        problemStartTime,
+        iteration,
+        usage,
+        baseline,
+        preparationMetrics,
+      ),
     };
   }
 
@@ -529,7 +634,9 @@ export class AgenticEvalRunner {
       totalTokens: number;
     },
   ): Promise<CriticAnalysis> {
-    const prompt = buildCriticPrompt(problem, code, this.lastFailedTests);
+    const prompt =
+      buildCriticPrompt(problem, code, this.lastFailedTests) +
+      formatReviewCases(this.lastReviewCases);
 
     try {
       const result = await this.criticSession.sendMessage(prompt);
@@ -558,6 +665,7 @@ export class AgenticEvalRunner {
       totalTokens: number;
     },
     baseline?: EvaluationResult,
+    preparation?: ProblemMetrics["preparation"],
   ): ProblemMetrics {
     return {
       promptTokens: usage.promptTokens,
@@ -565,6 +673,7 @@ export class AgenticEvalRunner {
       totalTokens: usage.totalTokens,
       turnCount: iterations,
       timeMs: (baseline?.metrics.timeMs ?? 0) + Date.now() - startTime,
+      preparation: preparation?.length ? preparation : undefined,
     };
   }
 
