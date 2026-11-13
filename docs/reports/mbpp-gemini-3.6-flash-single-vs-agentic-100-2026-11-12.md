@@ -1,40 +1,42 @@
-# MBPP 첫 100문제: Gemini 3.6 Flash 일반 모드와 Agentic 모드
+# First 100 MBPP problems: Gemini 3.6 Flash single call and agentic mode
 
-2026-11-12에 같은 sanitized MBPP 첫 100문제를 각 모드에서 한 번씩 평가했다. Agentic 모드는 Coder/Critic 구성을 사용하고 문제당 최대 5회 반복한다. 첫 10문제 실행에서 각각 이어서 실행했으며, 체크포인트는 문제마다 저장됐다.
+> Evaluation audit (2026-11-13): these results were produced before fixing raw-code extraction that could discard imports and global declarations, and before replacing the assertion parser. Treat them as historical pipeline outputs, not validated model-accuracy estimates. See [the audit](./evaluation-audit-2026-11-13.md).
 
-| 모드    | Run ID            | 결과 JSON                                                           | 최종 통과 |
-| ------- | ----------------- | ------------------------------------------------------------------- | --------: |
-| 일반    | `mwd7rlgk-7z08ss` | [일반 모드](./mbpp-gemini-3.6-flash-single-100-2026-11-12.json)     |    87/100 |
-| Agentic | `mwd7xa48-8kxg79` | [Agentic 모드](./mbpp-gemini-3.6-flash-agentic-100-2026-11-12.json) |    91/100 |
+On November 12, 2026, each mode evaluated the same first 100 sanitized MBPP problems once. Agentic mode used Coder/Critic with up to five attempts per problem. Both runs resumed after their first ten problems and saved a checkpoint after every problem.
 
-## 10문제 간격 누적 체크포인트
+| Mode    | Run ID            | Result JSON                                                         | Final passed |
+| ------- | ----------------- | ------------------------------------------------------------------- | -----------: |
+| Single  | `mwd7rlgk-7z08ss` | [Single call](./mbpp-gemini-3.6-flash-single-100-2026-11-12.json)   |       87/100 |
+| Agentic | `mwd7xa48-8kxg79` | [Agentic Mode](./mbpp-gemini-3.6-flash-agentic-100-2026-11-12.json) |       91/100 |
 
-두 결과 JSON의 문제 ID와 순서가 일치한다. 아래 시간은 첫 10문제와 재개한 90문제의 **문제별 기록 시간 합계**다. 따라서 재개 사이의 대기 시간은 포함하지 않는다. 차이는 Agentic 통과율에서 일반 통과율을 뺀 값이다.
+## Cumulative checkpoints every ten problems
 
-| 누적 문제 수 |      일반 통과 |   Agentic 통과 | 통과율 차이 | 일반 누적 시간 | Agentic 누적 시간 | 해당 10문제 구간 통과 (일반 / Agentic) |
-| -----------: | -------------: | -------------: | ----------: | -------------: | ----------------: | -------------------------------------: |
-|           10 |   9/10 (90.0%) |   9/10 (90.0%) |       0.0%p |         53.5초 |            74.9초 |                            9/10 / 9/10 |
-|           20 |  17/20 (85.0%) |  19/20 (95.0%) | **+10.0%p** |        135.1초 |           184.7초 |                           8/10 / 10/10 |
-|           30 |  27/30 (90.0%) |  29/30 (96.7%) |      +6.7%p |        197.8초 |           231.7초 |                          10/10 / 10/10 |
-|           40 |  35/40 (87.5%) |  37/40 (92.5%) |      +5.0%p |        284.3초 |           408.9초 |                            8/10 / 8/10 |
-|           50 |  44/50 (88.0%) |  46/50 (92.0%) |      +4.0%p |        336.5초 |           499.2초 |                            9/10 / 9/10 |
-|           60 |  52/60 (86.7%) |  55/60 (91.7%) |      +5.0%p |        409.9초 |           682.8초 |                            8/10 / 9/10 |
-|           70 |  62/70 (88.6%) |  65/70 (92.9%) |      +4.3%p |        467.3초 |           744.0초 |                          10/10 / 10/10 |
-|           80 |  70/80 (87.5%) |  74/80 (92.5%) |      +5.0%p |        579.6초 |           936.0초 |                            8/10 / 9/10 |
-|           90 |  78/90 (86.7%) |  82/90 (91.1%) |      +4.4%p |        663.1초 |          1224.3초 |                            8/10 / 8/10 |
-|          100 | 87/100 (87.0%) | 91/100 (91.0%) |      +4.0%p |        744.4초 |          1369.7초 |                            9/10 / 9/10 |
+Problem IDs and order match between the result files. Times below sum recorded per-problem durations across the first ten and resumed 90 problems; waiting between sessions is excluded. The gap is agentic pass rate minus single-call pass rate, in percentage points.
 
-**차이가 가장 큰 누적 지점은 20문제**로, Agentic이 2문제를 더 통과해 10.0%p 앞섰다. 이 차이는 11~20번째 문제 구간에서 발생했다. 100문제 전체에서는 Agentic이 4문제를 더 통과했다. 일반 모드에서만 통과한 문제는 82, 85, 88, 139, 163번이며, Agentic에서만 통과한 문제는 56, 61, 77, 84, 87, 100, 126, 138, 164번이다.
+| Cumulative problems |  Single Passed | Agentic Passed | Pass-rate gap | Single cumulative Time | Agentic cumulative Time | 10-problem segment Passed (Single / Agentic) |
+| ------------------: | -------------: | -------------: | ------------: | ---------------------: | ----------------------: | -------------------------------------------: |
+|                  10 |   9/10 (90.0%) |   9/10 (90.0%) |         0.0%p |                 53.5 s |                  74.9 s |                                  9/10 / 9/10 |
+|                  20 |  17/20 (85.0%) |  19/20 (95.0%) |   **+10.0%p** |                135.1 s |                 184.7 s |                                 8/10 / 10/10 |
+|                  30 |  27/30 (90.0%) |  29/30 (96.7%) |        +6.7%p |                197.8 s |                 231.7 s |                                10/10 / 10/10 |
+|                  40 |  35/40 (87.5%) |  37/40 (92.5%) |        +5.0%p |                284.3 s |                 408.9 s |                                  8/10 / 8/10 |
+|                  50 |  44/50 (88.0%) |  46/50 (92.0%) |        +4.0%p |                336.5 s |                 499.2 s |                                  9/10 / 9/10 |
+|                  60 |  52/60 (86.7%) |  55/60 (91.7%) |        +5.0%p |                409.9 s |                 682.8 s |                                  8/10 / 9/10 |
+|                  70 |  62/70 (88.6%) |  65/70 (92.9%) |        +4.3%p |                467.3 s |                 744.0 s |                                10/10 / 10/10 |
+|                  80 |  70/80 (87.5%) |  74/80 (92.5%) |        +5.0%p |                579.6 s |                 936.0 s |                                  8/10 / 9/10 |
+|                  90 |  78/90 (86.7%) |  82/90 (91.1%) |        +4.4%p |                663.1 s |                1224.3 s |                                  8/10 / 8/10 |
+|                 100 | 87/100 (87.0%) | 91/100 (91.0%) |        +4.0%p |                744.4 s |                1369.7 s |                                  9/10 / 9/10 |
 
-## 시간과 토큰
+The largest cumulative gap occurred at 20 problems: agentic passed two more problems (+10 percentage points), arising in problems 11–20. Across all 100 problems, agentic passed four more. Single-only passes were IDs 82, 85, 88, 139, and 163. Agentic-only passes were IDs 56, 61, 77, 84, 87, 100, 126, 138, and 164.
 
-| 지표                  |                일반 |              Agentic |
-| --------------------- | ------------------: | -------------------: |
-| 문제별 기록 시간 합계 | 744.4초 (12분 24초) | 1369.7초 (22분 50초) |
-| 문제당 평균           |              7.44초 |              13.70초 |
-| 문제별 반복 횟수 합계 |                 100 |                  141 |
-| 실제 토큰 사용량      |           기록 없음 |            기록 없음 |
+## Time and tokens
 
-Agentic은 이 실행에서 약 **1.84배** 시간이 걸렸다. 두 JSON의 `totalTokens`와 각 문제의 토큰 필드는 모두 0이지만, 이는 실제 사용량 0을 뜻하지 않는다. 현재 평가 경로가 Gemini 응답의 사용량을 결과에 전달하지 않아 **실제 토큰 사용량과 비용은 이 실행 기록만으로 비교할 수 없다**.
+| Metric                        |                Single |                Agentic |
+| ----------------------------- | --------------------: | ---------------------: |
+| Sum of recorded problem times | 744.4 s (12 min 24 s) | 1369.7 s (22 min 50 s) |
+| Mean per problem              |                7.44 s |                13.70 s |
+| Sum of attempts               |                   100 |                    141 |
+| Actual token usage            |          Not recorded |           Not recorded |
 
-이 결과는 각 모드 **1회 실행**을 비교한 값이다. 누적 통과율 차이는 표본 수가 작을 때 커질 수 있으며, 반복 실행의 평균이나 신뢰 구간은 포함하지 않는다.
+Agentic took approximately 1.84 times as long. Token fields are zero because this evaluation path did not propagate API usage metadata at the time; they do not represent zero consumption. Actual tokens and cost cannot be recovered from these files.
+
+This compares one run per mode with different initial prompts. It includes no repeated-run mean or confidence interval and does not isolate the effect of Critic feedback.

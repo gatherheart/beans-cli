@@ -1,52 +1,54 @@
-# MBPP 벤치마크 결과 모음 — 2026-02-16~24
+# MBPP benchmark results: February 16–24, 2026
 
-실제 실행 결과를 모델과 모드별로 한 파일에 정리했다. 원본은 `~/.beans/eval/<run-id>/checkpoint.json`이다. 모든 아래 실행은 MBPP, `sanitized: true`, 문제당 제한 시간 30초 설정을 사용했다.
+> Evaluation audit (2026-11-13): these results were produced before fixing raw-code extraction that could discard imports and global declarations, and before replacing the assertion parser. Treat them as historical pipeline outputs, not validated model-accuracy estimates. See [the audit](./evaluation-audit-2026-11-13.md).
 
-## 성능 개선 결과: gemini-2.0-flash
+Results are consolidated from `~/.beans/eval/<run-id>/checkpoint.json`. All runs used MBPP with `sanitized: true` and a 30-second test timeout per problem.
 
-동일한 10문제(ID 2, 3, 4, 6, 7, 8, 9, 11, 12, 14)를 끝까지 평가한 실행은 **총 9회**다. 일반 모드 2회, agentic 모드 7회다. 일반 모드의 정상 결과 **8/10 (80%)**과 agentic 모드의 최고 결과 **10/10 (100%)** 사이 차이는 **2문제, 20%p**다.
+## Gemini 2.0 Flash
 
-| 모드    | 기록 갱신 시각 (UTC) | Run ID            |  통과 | 통과율 |
-| ------- | -------------------- | ----------------- | ----: | -----: |
-| 일반    | 2026-02-16 14:41     | `mlpa86m3-y1s3ez` |  0/10 |     0% |
-| 일반    | 2026-02-16 14:44     | `mlpabzqi-wm93mf` |  8/10 |    80% |
-| Agentic | 2026-02-16 14:55     | `mlpapuyz-otd47b` |  8/10 |    80% |
-| Agentic | 2026-02-16 14:57     | `mlpash0z-p0067o` |  8/10 |    80% |
-| Agentic | 2026-02-16 14:59     | `mlpavksz-t2r2en` |  8/10 |    80% |
-| Agentic | 2026-02-17 13:27     | `mlqn0e6z-zlknjc` |  9/10 |    90% |
-| Agentic | 2026-02-17 13:28     | `mlqn1ifn-0nh6pj` |  9/10 |    90% |
-| Agentic | 2026-02-17 13:33     | `mlqn90zb-vy9nyi` | 10/10 |   100% |
-| Agentic | 2026-02-17 14:03     | `mlqob3ia-bu07um` | 10/10 |   100% |
+Nine completed runs evaluated the same ten problems (IDs 2, 3, 4, 6, 7, 8, 9, 11, 12, 14): two single-call runs and seven agentic runs. The valid single-call result was 8/10 (80%); the best agentic result was 10/10 (100%), a two-problem, 20-percentage-point gap.
 
-첫 일반 모드 0/10 실행은 모든 문제에 `No code found in response` 오류가 기록돼 정상적인 성능 측정으로 보기 어렵다. 나머지 일반 모드 실행에서 실패한 문제 12와 14는 13:33 agentic 실행에서 모두 통과했다. 문제 12는 2회, 문제 14는 1회 만에 통과했다. Agentic 7회 결과는 **8/10 세 번, 9/10 두 번, 10/10 두 번**이다. 따라서 10/10은 한 번만 나온 결과가 아니지만, 모든 실행에서 재현된 결과도 아니다. 모델과 문제 집합은 같지만 실행 시점과 모드가 다르므로, 개선 원인을 agentic 모드만으로 단정할 수도 없다.
+| Mode    | Updated (UTC)    | Run ID            | Passed | Pass rate |
+| ------- | ---------------- | ----------------- | -----: | --------: |
+| Single  | 2026-02-16 14:41 | `mlpa86m3-y1s3ez` |   0/10 |        0% |
+| Single  | 2026-02-16 14:44 | `mlpabzqi-wm93mf` |   8/10 |       80% |
+| Agentic | 2026-02-16 14:55 | `mlpapuyz-otd47b` |   8/10 |       80% |
+| Agentic | 2026-02-16 14:57 | `mlpash0z-p0067o` |   8/10 |       80% |
+| Agentic | 2026-02-16 14:59 | `mlpavksz-t2r2en` |   8/10 |       80% |
+| Agentic | 2026-02-17 13:27 | `mlqn0e6z-zlknjc` |   9/10 |       90% |
+| Agentic | 2026-02-17 13:28 | `mlqn1ifn-0nh6pj` |   9/10 |       90% |
+| Agentic | 2026-02-17 13:33 | `mlqn90zb-vy9nyi` |  10/10 |      100% |
+| Agentic | 2026-02-17 14:03 | `mlqob3ia-bu07um` |  10/10 |      100% |
 
-## qwen2.5:3b 실행 요약 — 2026-02-24
+The first 0/10 run reported `No code found in response` on every problem and should not be treated as a valid model-performance measurement. Problems 12 and 14 failed in the other single-call run and passed in the 13:33 agentic run, on attempts two and one respectively. The seven agentic results were 8/10 three times, 9/10 twice, and 10/10 twice. The maximum was reproduced twice, but not consistently. Different execution times and prompts prevent attributing the gap solely to the agentic workflow.
 
-| 항목            |                         일반 모드 |                                     Agentic 모드 |
-| --------------- | --------------------------------: | -----------------------------------------------: |
-| Run ID          |                 `mm0os2p1-de6n9j` |                                `mm0oso1o-41sj3a` |
-| 실행 시각 (UTC) |      2026-02-24 14:14:02–14:14:08 |                     2026-02-24 14:14:29–14:16:20 |
-| 모델            |                      `qwen2.5:3b` |                                     `qwen2.5:3b` |
-| 문제 수         |                                 5 |                                               10 |
-| 통과            |                                 3 |                                                6 |
-| 통과율          |                               60% |                                              60% |
-| 설정            | `sanitized: true`, 제한 시간 30초 | `sanitized: true`, 제한 시간 30초, 최대 5회 반복 |
+## Qwen 2.5 3B: February 24, 2026
 
-두 실행의 문제 수가 달라 **전체 통과율만으로 모드별 성능 차이를 판단할 수 없다**. 공통 문제 5개(2, 3, 4, 6, 7)에서는 양쪽 모두 3개(2, 3, 6)를 통과했다.
+| Metric               |                     Single call |                                      Agentic Mode |
+| -------------------- | ------------------------------: | ------------------------------------------------: |
+| Run ID               |               `mm0os2p1-de6n9j` |                                 `mm0oso1o-41sj3a` |
+| Execution time (UTC) |    2026-02-24 14:14:02–14:14:08 |                      2026-02-24 14:14:29–14:16:20 |
+| Model                |                    `qwen2.5:3b` |                                      `qwen2.5:3b` |
+| Problems             |                               5 |                                                10 |
+| Passed               |                               3 |                                                 6 |
+| Pass rate            |                             60% |                                               60% |
+| Settings             | `sanitized: true`, 30 s timeout | `sanitized: true`, 30 s timeout, up to 5 attempts |
 
-## 문제별 결과
+The runs evaluated different numbers of problems, so aggregate pass rates do not establish a mode advantage. On their five shared problems (2, 3, 4, 6, 7), both passed the same three problems (2, 3, 6).
 
-| 문제 ID | 일반 모드  | Agentic 모드 | Agentic 반복 횟수 |
-| ------: | ---------- | ------------ | ----------------: |
-|       2 | 통과 (3/3) | 통과 (3/3)   |                 1 |
-|       3 | 통과 (4/4) | 통과 (4/4)   |                 2 |
-|       4 | 실패 (0/3) | 실패 (0/3)   |                 5 |
-|       6 | 통과 (6/6) | 통과 (6/6)   |                 1 |
-|       7 | 실패 (0/3) | 실패 (0/3)   |                 5 |
-|       8 | 미실행     | 통과 (3/3)   |                 1 |
-|       9 | 미실행     | 실패 (0/3)   |                 5 |
-|      11 | 미실행     | 통과 (3/3)   |                 2 |
-|      12 | 미실행     | 실패 (0/3)   |                 5 |
-|      14 | 미실행     | 통과 (3/3)   |                 3 |
+## Per-problem results
 
-괄호 안 숫자는 통과한 테스트 수/전체 테스트 수다. Agentic 모드에서 실패한 문제 4, 7, 9, 12는 모두 최대 5회 반복 후 실패했다. 체크포인트의 토큰 수 필드는 두 실행 모두 0으로 기록되어 있어 토큰 사용량 비교에는 사용할 수 없다.
+| Problem ID | Single call  | Agentic Mode | Agentic attempts |
+| ---------: | ------------ | ------------ | ---------------: |
+|          2 | Passed (3/3) | Passed (3/3) |                1 |
+|          3 | Passed (4/4) | Passed (4/4) |                2 |
+|          4 | Failed (0/3) | Failed (0/3) |                5 |
+|          6 | Passed (6/6) | Passed (6/6) |                1 |
+|          7 | Failed (0/3) | Failed (0/3) |                5 |
+|          8 | Not run      | Passed (3/3) |                1 |
+|          9 | Not run      | Failed (0/3) |                5 |
+|         11 | Not run      | Passed (3/3) |                2 |
+|         12 | Not run      | Failed (0/3) |                5 |
+|         14 | Not run      | Passed (3/3) |                3 |
+
+Parentheses show passed tests divided by total tests. Agentic failures on problems 4, 7, 9, and 12 exhausted five attempts. Both checkpoints recorded zero tokens because usage was not propagated; these values cannot support a token-usage comparison.

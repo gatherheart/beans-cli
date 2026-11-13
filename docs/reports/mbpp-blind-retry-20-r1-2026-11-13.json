@@ -1,0 +1,297 @@
+{
+  "benchmarkName": "mbpp-blind-retry",
+  "timestamp": "2026-11-13T05:34:41.687Z",
+  "model": "gemini-3.6-flash",
+  "summary": {
+    "total": 20,
+    "passed": 19,
+    "passRate": 0.95,
+    "totalTokens": 39203,
+    "totalTimeMs": 226262,
+    "avgTimePerProblem": 11313.1,
+    "avgIterations": 1.25
+  },
+  "results": [
+    {
+      "problemId": "2",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def similar_elements(test_tup1, test_tup2):\n    return tuple(set(test_tup1) & set(test_tup2))",
+      "metrics": {
+        "promptTokens": 127,
+        "completionTokens": 44,
+        "totalTokens": 769,
+        "turnCount": 1,
+        "timeMs": 4371
+      }
+    },
+    {
+      "problemId": "3",
+      "success": true,
+      "passed": 4,
+      "total": 4,
+      "generatedCode": "def is_not_prime(n):\n    if n < 2:\n        return True\n    for i in range(2, int(n**0.5) + 1):\n        if n % i == 0:\n            return True\n    return False",
+      "metrics": {
+        "promptTokens": 100,
+        "completionTokens": 65,
+        "totalTokens": 914,
+        "turnCount": 1,
+        "timeMs": 5288
+      }
+    },
+    {
+      "problemId": "4",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "import heapq\n\n\ndef heap_queue_largest(nums, n):\n    return heapq.nlargest(n, nums)",
+      "metrics": {
+        "promptTokens": 292,
+        "completionTokens": 57,
+        "totalTokens": 1552,
+        "turnCount": 2,
+        "timeMs": 8356
+      }
+    },
+    {
+      "problemId": "6",
+      "success": true,
+      "passed": 6,
+      "total": 6,
+      "generatedCode": "def differ_At_One_Bit_Pos(a, b):\n    x = a ^ b\n    return x > 0 and (x & (x - 1)) == 0",
+      "metrics": {
+        "promptTokens": 107,
+        "completionTokens": 47,
+        "totalTokens": 888,
+        "turnCount": 1,
+        "timeMs": 5250
+      }
+    },
+    {
+      "problemId": "7",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "import re\n\n\ndef find_char_long(text):\n    return re.findall(r\"\\b\\w{4,}\\b\", text)",
+      "metrics": {
+        "promptTokens": 118,
+        "completionTokens": 37,
+        "totalTokens": 1091,
+        "turnCount": 1,
+        "timeMs": 6189
+      }
+    },
+    {
+      "problemId": "8",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def square_nums(nums):\n    return [x**2 for x in nums]",
+      "metrics": {
+        "promptTokens": 163,
+        "completionTokens": 24,
+        "totalTokens": 380,
+        "turnCount": 1,
+        "timeMs": 2089
+      }
+    },
+    {
+      "problemId": "9",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def find_Rotations(s):\n    return (s + s).find(s, 1)",
+      "metrics": {
+        "promptTokens": 100,
+        "completionTokens": 28,
+        "totalTokens": 1097,
+        "turnCount": 1,
+        "timeMs": 7045
+      }
+    },
+    {
+      "problemId": "11",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def remove_Occ(s, ch):\n    return s.replace(ch, \"\")",
+      "metrics": {
+        "promptTokens": 103,
+        "completionTokens": 24,
+        "totalTokens": 741,
+        "turnCount": 1,
+        "timeMs": 5012
+      }
+    },
+    {
+      "problemId": "12",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def sort_matrix(M):\n    return sorted(M, key=sum)",
+      "metrics": {
+        "promptTokens": 148,
+        "completionTokens": 23,
+        "totalTokens": 1136,
+        "turnCount": 1,
+        "timeMs": 6429
+      }
+    },
+    {
+      "problemId": "14",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def find_Volume(l, b, h):\n    return (l * b * h) / 2",
+      "metrics": {
+        "promptTokens": 106,
+        "completionTokens": 29,
+        "totalTokens": 2324,
+        "turnCount": 1,
+        "timeMs": 13274
+      }
+    },
+    {
+      "problemId": "16",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "import re\n\n\ndef text_lowercase_underscore(text):\n    return bool(re.search(r\"^[a-z]+_[a-z]+$\", text))",
+      "metrics": {
+        "promptTokens": 106,
+        "completionTokens": 41,
+        "totalTokens": 1461,
+        "turnCount": 1,
+        "timeMs": 8609
+      }
+    },
+    {
+      "problemId": "17",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def square_perimeter(side):\n    return 4 * side",
+      "metrics": {
+        "promptTokens": 99,
+        "completionTokens": 19,
+        "totalTokens": 296,
+        "turnCount": 1,
+        "timeMs": 2565
+      }
+    },
+    {
+      "problemId": "18",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def remove_dirty_chars(string, dirty_chars):\n    dirty_set = set(dirty_chars)\n    return \"\".join(char for char in string if char not in dirty_set)",
+      "metrics": {
+        "promptTokens": 108,
+        "completionTokens": 49,
+        "totalTokens": 632,
+        "turnCount": 1,
+        "timeMs": 3226
+      }
+    },
+    {
+      "problemId": "19",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def test_duplicate(array):\n    return len(array) != len(set(array))",
+      "metrics": {
+        "promptTokens": 106,
+        "completionTokens": 26,
+        "totalTokens": 791,
+        "turnCount": 1,
+        "timeMs": 5850
+      }
+    },
+    {
+      "problemId": "20",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def is_woodall(x):\n    if x < 1:\n        return False\n    y = x + 1\n    k = 1\n    while True:\n        val = k * (1 << k)\n        if val == y:\n            return True\n        if val > y:\n            return False\n        k += 1",
+      "metrics": {
+        "promptTokens": 101,
+        "completionTokens": 83,
+        "totalTokens": 1427,
+        "turnCount": 1,
+        "timeMs": 8629
+      }
+    },
+    {
+      "problemId": "56",
+      "success": false,
+      "passed": 2,
+      "total": 3,
+      "generatedCode": "def check(n):\n    if n < 2:\n        return False\n    for i in range(2, int(n**0.5) + 1):\n        if n % i == 0:\n            return False\n    return True",
+      "error": "Failed after 5 iterations",
+      "metrics": {
+        "promptTokens": 485,
+        "completionTokens": 298,
+        "totalTokens": 16550,
+        "turnCount": 5,
+        "timeMs": 88300
+      }
+    },
+    {
+      "problemId": "57",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "from functools import cmp_to_key\n\n\ndef find_Max_Num(nums):\n    nums = list(map(str, nums))\n    nums.sort(key=cmp_to_key(lambda a, b: 1 if a + b < b + a else -1))\n    return int(\"\".join(nums))",
+      "metrics": {
+        "promptTokens": 107,
+        "completionTokens": 79,
+        "totalTokens": 1262,
+        "turnCount": 1,
+        "timeMs": 10283
+      }
+    },
+    {
+      "problemId": "58",
+      "success": true,
+      "passed": 4,
+      "total": 4,
+      "generatedCode": "def opposite_Signs(x, y):\n    return (x ^ y) < 0",
+      "metrics": {
+        "promptTokens": 100,
+        "completionTokens": 25,
+        "totalTokens": 1106,
+        "turnCount": 1,
+        "timeMs": 7671
+      }
+    },
+    {
+      "problemId": "59",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def is_octagonal(n):\n    return n * (3 * n - 2)",
+      "metrics": {
+        "promptTokens": 101,
+        "completionTokens": 26,
+        "totalTokens": 649,
+        "turnCount": 1,
+        "timeMs": 4633
+      }
+    },
+    {
+      "problemId": "61",
+      "success": true,
+      "passed": 3,
+      "total": 3,
+      "generatedCode": "def count_Substrings(s: str) -> int:\n    count = 0\n    curr_sum = 0\n    freq = {0: 1}\n    for char in s:\n        curr_sum += int(char) - 1\n        count += freq.get(curr_sum, 0)\n        freq[curr_sum] = freq.get(curr_sum, 0) + 1\n    return count",
+      "metrics": {
+        "promptTokens": 105,
+        "completionTokens": 98,
+        "totalTokens": 4137,
+        "turnCount": 1,
+        "timeMs": 23193
+      }
+    }
+  ]
+}

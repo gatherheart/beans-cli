@@ -88,6 +88,10 @@ export interface CLIArgs {
   agentic: boolean;
   /** Max iterations per problem in agentic mode */
   maxIterations?: number;
+  /** Reuse the exact initial answers from a single-pass JSON report. */
+  baselineReport?: string;
+  /** Retry failed answers without a Critic agent. */
+  retryWithoutCritic: boolean;
 }
 
 /**
@@ -109,6 +113,7 @@ export async function parseArgs(): Promise<CLIArgs> {
     uiTest: false,
     eval: false,
     agentic: false,
+    retryWithoutCritic: false,
   };
 
   const positional: string[] = [];
@@ -228,6 +233,12 @@ export async function parseArgs(): Promise<CLIArgs> {
         break;
       case "--max-iterations":
         result.maxIterations = parseInt(args[++i], 10);
+        break;
+      case "--baseline-report":
+        result.baselineReport = args[++i];
+        break;
+      case "--blind-retry":
+        result.retryWithoutCritic = true;
         break;
       default:
         if (!arg.startsWith("-")) {

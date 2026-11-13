@@ -1,4 +1,4 @@
-import type { EvaluationResult, BenchmarkReport } from '../benchmarks/types.js';
+import type { EvaluationResult, BenchmarkReport } from "../benchmarks/types.js";
 
 /**
  * Configuration for evaluation runner
@@ -26,6 +26,10 @@ export interface EvalRunnerConfig {
   agentic?: boolean;
   /** Max iterations per problem in agentic mode */
   maxIterations?: number;
+  /** JSON report whose initial answers are replayed in both retry arms. */
+  baselineReport?: string;
+  /** Retry failed answers using test feedback without calling Critic. */
+  retryWithoutCritic?: boolean;
 }
 
 /**

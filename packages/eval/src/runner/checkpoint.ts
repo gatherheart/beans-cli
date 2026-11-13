@@ -1,10 +1,36 @@
-import { readFile, writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { homedir } from 'os';
-import type { Checkpoint, EvalRunnerConfig } from './types.js';
-import type { EvaluationResult } from '../benchmarks/types.js';
+import { readFile, writeFile, mkdir } from "fs/promises";
+import { join } from "path";
+import { homedir } from "os";
+import type { Checkpoint, EvalRunnerConfig } from "./types.js";
+import type { EvaluationResult } from "../benchmarks/types.js";
 
-const EVAL_DIR = join(homedir(), '.beans', 'eval');
+const EVAL_DIR = join(homedir(), ".beans", "eval");
+
+/** A resumed run may extend its limit, but must keep the evaluation conditions. */
+export function validateResumeConfig(
+  previous: EvalRunnerConfig,
+  current: EvalRunnerConfig,
+): void {
+  const conditions = (config: EvalRunnerConfig) => ({
+    benchmark: config.benchmark,
+    model: config.model,
+    offset: config.offset ?? 0,
+    problemIds: config.problemIds,
+    sanitized: config.sanitized ?? true,
+    timeout: config.timeout ?? 30000,
+    agentic: config.agentic ?? false,
+    maxIterations: config.maxIterations ?? 5,
+    baselineReport: config.baselineReport,
+    retryWithoutCritic: config.retryWithoutCritic ?? false,
+  });
+  if (
+    JSON.stringify(conditions(previous)) !== JSON.stringify(conditions(current))
+  ) {
+    throw new Error(
+      "Resume configuration differs from the checkpoint; start a new run",
+    );
+  }
+}
 
 /**
  * Generate a unique run ID
@@ -19,7 +45,7 @@ export function generateRunId(): string {
  * Get the checkpoint file path for a run
  */
 function getCheckpointPath(runId: string): string {
-  return join(EVAL_DIR, runId, 'checkpoint.json');
+  return join(EVAL_DIR, runId, "checkpoint.json");
 }
 
 /**
@@ -27,7 +53,7 @@ function getCheckpointPath(runId: string): string {
  */
 export async function createCheckpoint(
   runId: string,
-  config: EvalRunnerConfig
+  config: EvalRunnerConfig,
 ): Promise<Checkpoint> {
   const checkpoint: Checkpoint = {
     runId,
@@ -57,11 +83,13 @@ export async function saveCheckpoint(checkpoint: Checkpoint): Promise<void> {
 /**
  * Load checkpoint from disk
  */
-export async function loadCheckpoint(runId: string): Promise<Checkpoint | null> {
+export async function loadCheckpoint(
+  runId: string,
+): Promise<Checkpoint | null> {
   const path = getCheckpointPath(runId);
 
   try {
-    const content = await readFile(path, 'utf-8');
+    const content = await readFile(path, "utf-8");
     return JSON.parse(content) as Checkpoint;
   } catch {
     return null;
@@ -73,7 +101,7 @@ export async function loadCheckpoint(runId: string): Promise<Checkpoint | null> 
  */
 export async function updateCheckpoint(
   checkpoint: Checkpoint,
-  result: EvaluationResult
+  result: EvaluationResult,
 ): Promise<void> {
   checkpoint.completedIds.push(result.problemId);
   checkpoint.results.push(result);

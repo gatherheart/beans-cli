@@ -22,22 +22,22 @@ import {
   loadCheckpoint,
   updateCheckpoint,
   getCompletedIds,
+  validateResumeConfig,
 } from "./checkpoint.js";
 import { MBPPBenchmark } from "../benchmarks/mbpp/index.js";
+import type { MBPPProblem } from "../benchmarks/mbpp/types.js";
 import { extractCode, cleanCode } from "../extraction/code-extractor.js";
 import { executeWithTests } from "../execution/python-runner.js";
-import { Config, createAgentManager } from "@beans/core";
-import type { AgentManager } from "@beans/core";
+import { ChatSession, type Config } from "@beans/core";
+import { createCodeGenSession } from "./code-gen-session.js";
+import { readFile } from "node:fs/promises";
 
 const MAX_ITERATIONS = 5;
 
 /**
  * Problem with text and tests (MBPP-style)
  */
-interface AgenticProblem extends BenchmarkProblem {
-  text: string;
-  tests: string[];
-}
+type AgenticProblem = MBPPProblem;
 
 /**
  * Critic analysis of what went wrong
@@ -74,20 +74,6 @@ function getBenchmark(
 }
 
 /**
- * Build prompt for the Coder Agent
- */
-function buildCoderPrompt(problem: AgenticProblem, tests: string[]): string {
-  return `Write a Python function to solve the following problem.
-
-Problem: ${problem.text}
-
-Your code will be tested with these assertions:
-${tests.map((t) => `  ${t}`).join("\n")}
-
-Write the Python function now. Output ONLY the code, no markdown blocks.`;
-}
-
-/**
  * Build prompt for the Critic Agent
  */
 function buildCriticPrompt(
@@ -98,6 +84,7 @@ function buildCriticPrompt(
   const failures = failedTests
     .map((t) => {
       let msg = `Test: ${t.assertion}`;
+      if (t.error) msg += `\n  Error: ${t.error}`;
       if (t.actual !== undefined && t.expected !== undefined) {
         msg += `\n  Expected: ${t.expected}`;
         msg += `\n  Got: ${t.actual}`;
@@ -111,6 +98,9 @@ function buildCriticPrompt(
 CODE:
 ${code}
 
+TEST SETUP:
+${problem.setupCode || "(none)"}
+
 FAILED TESTS:
 ${failures}
 
@@ -119,7 +109,7 @@ WRONG: [What specific mistake did the code make?]
 KEY: [What key requirement from the problem was missed or misunderstood?]
 HINT: [One specific fix suggestion]
 
-Be concise. One line each.`;
+Trace the failing call against the code before proposing a fix. Distinguish runtime errors, interface mismatches, and algorithm errors. Ground your diagnosis in the supplied failure; do not invent expected values. Give a concrete correction and check it against the other requirements. If the evidence is insufficient, state the uncertainty. One line per field; the HINT may be detailed.`;
 }
 
 /**
@@ -129,23 +119,18 @@ function buildRetryPrompt(
   problem: AgenticProblem,
   previousCode: string,
   criticAnalysis: CriticAnalysis,
-  tests: string[],
 ): string {
-  return `YOUR CODE IS WRONG. A code reviewer analyzed the error:
+  return `${new MBPPBenchmark().buildPrompt(problem)}
 
-** MISTAKE: ${criticAnalysis.whatWentWrong}
-** KEY REQUIREMENT: ${criticAnalysis.keyRequirement}
-** FIX: ${criticAnalysis.hint}
+Your previous attempt failed. A separate Critic reviewed it:
+MISTAKE: ${criticAnalysis.whatWentWrong}
+KEY REQUIREMENT: ${criticAnalysis.keyRequirement}
+FIX: ${criticAnalysis.hint}
 
-Problem: ${problem.text}
-
-Your wrong code:
+Previous code:
 ${previousCode}
 
-All tests that must pass:
-${tests.map((t) => `  ${t}`).join("\n")}
-
-Write the CORRECTED code. Apply the fix suggested above. Output ONLY Python code, no markdown.`;
+Write corrected Python code using the Critic's feedback.`;
 }
 
 /**
@@ -167,12 +152,24 @@ function parseCriticResponse(response: string): CriticAnalysis {
  * Agentic evaluation runner using multi-agent system
  */
 export class AgenticEvalRunner {
-  private agentManager: AgentManager;
+  private criticSession: ChatSession;
+  private initialSession: ChatSession;
   private verbose: boolean;
   private lastFailedTests: FailedTest[] = [];
 
   constructor(config: Config, options?: { verbose?: boolean }) {
-    this.agentManager = createAgentManager(config);
+    this.criticSession = new ChatSession(
+      config.getLLMClient(),
+      config.getToolRegistry(),
+      {
+        systemPrompt:
+          "You review Python solutions in a fresh context. Identify the root cause using the problem, code, test setup, and observed failures. Check imports, function signatures, data types, edge cases, and the algorithm. Return exactly WRONG, KEY, and HINT fields. Provide a specific repair with a brief reasoning trace. Do not invent missing evidence or reference solutions.",
+        modelConfig: config.getLLMConfig(),
+        toolConfig: { allowAllTools: false },
+        runConfig: { maxTurns: 1 },
+      },
+    );
+    this.initialSession = createCodeGenSession(config);
     this.verbose = options?.verbose ?? false;
   }
 
@@ -194,6 +191,7 @@ export class AgenticEvalRunner {
     if (config.runId) {
       checkpoint = await loadCheckpoint(config.runId);
       if (checkpoint) {
+        validateResumeConfig(checkpoint.config, config);
         resumed = true;
         runId = checkpoint.runId;
       }
@@ -214,6 +212,26 @@ export class AgenticEvalRunner {
     // Filter out already completed problems
     const completedIds = getCompletedIds(checkpoint);
     const remainingProblems = problems.filter((p) => !completedIds.has(p.id));
+    let baselineResults: Map<string, EvaluationResult> | undefined;
+    if (config.baselineReport) {
+      const baseline = JSON.parse(
+        await readFile(config.baselineReport, "utf8"),
+      ) as BenchmarkReport;
+      if (
+        baseline.model !== config.model ||
+        baseline.results.length !== problems.length ||
+        baseline.results.some(
+          (result, index) => result.problemId !== problems[index].id,
+        )
+      ) {
+        throw new Error(
+          "Baseline report must use the same model and ordered problem set",
+        );
+      }
+      baselineResults = new Map(
+        baseline.results.map((result) => [result.problemId, result]),
+      );
+    }
 
     const startTime = Date.now();
 
@@ -234,6 +252,8 @@ export class AgenticEvalRunner {
         tests,
         maxIterations,
         config.timeout ?? 30000,
+        baselineResults?.get(problem.id),
+        config.retryWithoutCritic ?? false,
       );
 
       // Save checkpoint
@@ -252,7 +272,13 @@ export class AgenticEvalRunner {
       benchmark.name,
       config.model,
       checkpoint.results,
-      Date.now() - startTime,
+      config.baselineReport
+        ? checkpoint.results.reduce(
+            (sum, result) => sum + result.metrics.timeMs,
+            0,
+          )
+        : Date.now() - startTime,
+      config.retryWithoutCritic ?? false,
     );
 
     return {
@@ -270,11 +296,34 @@ export class AgenticEvalRunner {
     tests: string[],
     maxIterations: number,
     timeout: number,
+    baseline?: EvaluationResult,
+    retryWithoutCritic = false,
   ): Promise<EvaluationResult> {
     const problemStartTime = Date.now();
-    let iteration = 0;
-    let lastCode = "";
-    const usage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+    if (baseline && (baseline.success || maxIterations <= 1)) return baseline;
+    let iteration = baseline ? 1 : 0;
+    let lastCode = baseline?.generatedCode ?? "";
+    const usage = {
+      promptTokens: baseline?.metrics.promptTokens ?? 0,
+      completionTokens: baseline?.metrics.completionTokens ?? 0,
+      totalTokens: baseline?.metrics.totalTokens ?? 0,
+    };
+    if (baseline) {
+      const initialTests = await executeWithTests(
+        lastCode,
+        tests,
+        problem.setupCode,
+        { timeout },
+      );
+      this.lastFailedTests = initialTests.results
+        .filter((result) => !result.passed)
+        .map((result) => ({
+          assertion: result.assertion,
+          error: result.error,
+          actual: result.actual,
+          expected: result.expected,
+        }));
+    }
 
     while (iteration < maxIterations) {
       iteration++;
@@ -284,7 +333,7 @@ export class AgenticEvalRunner {
       let criticAnalysis: CriticAnalysis | undefined;
 
       if (iteration === 1) {
-        prompt = buildCoderPrompt(problem, tests);
+        prompt = new MBPPBenchmark().buildPrompt(problem);
         if (this.verbose) {
           console.log(`\n${"=".repeat(60)}`);
           console.log(`[Problem ${problem.id}] Iteration ${iteration}`);
@@ -292,12 +341,21 @@ export class AgenticEvalRunner {
           console.log(`[CODER AGENT] Generating initial solution...`);
         }
       } else {
-        // Use Critic Agent to analyze what went wrong
+        // Blind retries receive no failed code, tests, or error feedback.
         if (this.verbose) {
-          console.log(`\n[CRITIC AGENT] Analyzing errors...`);
+          console.log(
+            retryWithoutCritic
+              ? "\n[CODER] Fresh sample with the original prompt..."
+              : "\n[CRITIC] Analyzing errors...",
+          );
         }
-        criticAnalysis = await this.runCriticAgent(problem, lastCode, usage);
-        if (this.verbose) {
+        if (retryWithoutCritic) {
+          prompt = new MBPPBenchmark().buildPrompt(problem);
+        } else {
+          criticAnalysis = await this.runCriticAgent(problem, lastCode, usage);
+          prompt = buildRetryPrompt(problem, lastCode, criticAnalysis);
+        }
+        if (this.verbose && criticAnalysis) {
           console.log(`  WRONG: ${criticAnalysis.whatWentWrong}`);
           console.log(`  KEY: ${criticAnalysis.keyRequirement}`);
           console.log(`  HINT: ${criticAnalysis.hint}`);
@@ -305,16 +363,19 @@ export class AgenticEvalRunner {
             `\n[CODER AGENT] Generating fix based on critic feedback...`,
           );
         }
-        prompt = buildRetryPrompt(problem, lastCode, criticAnalysis, tests);
       }
 
       // Run Coder Agent
       let generatedCode: string;
       try {
-        const result = await this.agentManager.spawn("coder", prompt);
+        const result = await this.initialSession.sendMessage(prompt);
+        this.initialSession.clearHistory();
         this.addUsage(usage, result.usage);
+        if (!result.success)
+          throw new Error(result.error ?? "LLM request failed");
         generatedCode = result.content;
       } catch (error) {
+        this.initialSession.clearHistory();
         return {
           problemId: problem.id,
           success: false,
@@ -322,15 +383,42 @@ export class AgenticEvalRunner {
           total: tests.length,
           generatedCode: lastCode,
           error: error instanceof Error ? error.message : String(error),
-          metrics: this.createMetrics(problemStartTime, iteration, usage),
+          metrics: this.createMetrics(
+            problemStartTime,
+            iteration,
+            usage,
+            baseline,
+          ),
         };
       }
 
       // Extract and clean code
       const extracted = extractCode(generatedCode);
-      const code = extracted.found
-        ? cleanCode(extracted.code)
-        : generatedCode.trim();
+      if (!extracted.found) {
+        lastCode = generatedCode;
+        this.lastFailedTests = [
+          {
+            assertion: "Return an executable Python function",
+            error: "No code found in response",
+          },
+        ];
+        if (iteration < maxIterations) continue;
+        return {
+          problemId: problem.id,
+          success: false,
+          passed: 0,
+          total: tests.length,
+          generatedCode: "",
+          error: "No code found in response",
+          metrics: this.createMetrics(
+            problemStartTime,
+            iteration,
+            usage,
+            baseline,
+          ),
+        };
+      }
+      const code = cleanCode(extracted.code);
       lastCode = code;
 
       if (this.verbose) {
@@ -341,9 +429,14 @@ export class AgenticEvalRunner {
       }
 
       // Run tests
-      const testResult = await executeWithTests(code, tests, undefined, {
-        timeout,
-      });
+      const testResult = await executeWithTests(
+        code,
+        tests,
+        problem.setupCode,
+        {
+          timeout,
+        },
+      );
 
       if (this.verbose) {
         console.log(
@@ -371,7 +464,12 @@ export class AgenticEvalRunner {
           passed: testResult.passed,
           total: testResult.total,
           generatedCode: code,
-          metrics: this.createMetrics(problemStartTime, iteration, usage),
+          metrics: this.createMetrics(
+            problemStartTime,
+            iteration,
+            usage,
+            baseline,
+          ),
         };
       }
 
@@ -399,7 +497,12 @@ export class AgenticEvalRunner {
           total: testResult.total,
           generatedCode: code,
           error: `Failed after ${maxIterations} iterations`,
-          metrics: this.createMetrics(problemStartTime, iteration, usage),
+          metrics: this.createMetrics(
+            problemStartTime,
+            iteration,
+            usage,
+            baseline,
+          ),
         };
       }
 
@@ -416,7 +519,7 @@ export class AgenticEvalRunner {
       total: tests.length,
       generatedCode: lastCode,
       error: "Unexpected end of iteration loop",
-      metrics: this.createMetrics(problemStartTime, iteration, usage),
+      metrics: this.createMetrics(problemStartTime, iteration, usage, baseline),
     };
   }
 
@@ -435,16 +538,20 @@ export class AgenticEvalRunner {
     const prompt = buildCriticPrompt(problem, code, this.lastFailedTests);
 
     try {
-      const result = await this.agentManager.spawn("critic", prompt);
+      const result = await this.criticSession.sendMessage(prompt);
       this.addUsage(usage, result.usage);
+      if (!result.success)
+        throw new Error(result.error ?? "Critic request failed");
+      if (
+        !["WRONG", "KEY", "HINT"].every((field) =>
+          new RegExp(`^${field}:\\s*\\S`, "m").test(result.content),
+        )
+      ) {
+        throw new Error("Critic returned an invalid analysis format");
+      }
       return parseCriticResponse(result.content);
-    } catch {
-      // Fallback if critic fails
-      return {
-        whatWentWrong: "Code produced incorrect output",
-        keyRequirement: "Re-read the problem carefully",
-        hint: "Check your logic against the expected output",
-      };
+    } finally {
+      this.criticSession.clearHistory();
     }
   }
 
@@ -456,13 +563,14 @@ export class AgenticEvalRunner {
       completionTokens: number;
       totalTokens: number;
     },
+    baseline?: EvaluationResult,
   ): ProblemMetrics {
     return {
       promptTokens: usage.promptTokens,
       completionTokens: usage.completionTokens,
       totalTokens: usage.totalTokens,
       turnCount: iterations,
-      timeMs: Date.now() - startTime,
+      timeMs: (baseline?.metrics.timeMs ?? 0) + Date.now() - startTime,
     };
   }
 
@@ -489,11 +597,12 @@ export class AgenticEvalRunner {
     model: string,
     results: EvaluationResult[],
     totalTimeMs: number,
+    retryWithoutCritic: boolean,
   ): BenchmarkReport {
     const summary = this.calculateSummary(results, totalTimeMs);
 
     return {
-      benchmarkName: `${benchmarkName}-agentic`,
+      benchmarkName: `${benchmarkName}-${retryWithoutCritic ? "blind-retry" : "agentic"}`,
       timestamp: new Date().toISOString(),
       model,
       summary,

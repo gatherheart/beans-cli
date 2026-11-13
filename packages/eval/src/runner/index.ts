@@ -4,10 +4,14 @@ export type {
   EvalProgressCallback,
   Checkpoint,
   EvalRunResult,
-} from './types.js';
+} from "./types.js";
 
-export { EvalRunner } from './eval-runner.js';
-export { AgenticEvalRunner } from './agentic-runner.js';
+export { EvalRunner } from "./eval-runner.js";
+export { AgenticEvalRunner } from "./agentic-runner.js";
+export {
+  createCodeGenSession,
+  CODE_GEN_SYSTEM_PROMPT,
+} from "./code-gen-session.js";
 
 export {
   generateRunId,
@@ -16,4 +20,4 @@ export {
   saveCheckpoint,
   updateCheckpoint,
   getCompletedIds,
-} from './checkpoint.js';
+} from "./checkpoint.js";

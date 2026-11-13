@@ -67,6 +67,8 @@ Evaluation:
   --timeout <ms>          Timeout per problem (default: 30000)
   --agentic               Enable agentic mode (iterate on failures)
   --max-iterations <n>    Max iterations per problem (default: 5)
+  --baseline-report <path> Reuse initial answers from a single-pass JSON report
+  --blind-retry           Retry failures with only the original prompt
 
 Examples:
   beans "help me refactor this code"

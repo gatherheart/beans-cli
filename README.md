@@ -35,7 +35,9 @@ Run `npm run dev -- --help` for CLI options. Other providers use `OPENAI_API_KEY
 
 ## Benchmarks
 
-The reports below use the same sanitized MBPP problem order for both modes. Agentic mode uses a Coder/Critic workflow with up to five attempts per problem.
+An [evaluation audit](docs/reports/evaluation-audit-2026-11-13.md) found defects that could affect the historical scores below: raw-code extraction discarded imports and globals, and the test harness rewrote assertions. These have been corrected. Earlier scores, including the [paired comparison](docs/reports/mbpp-paired-critic-20-five-runs-2026-11-13.md), remain archived as pipeline observations and should not be used as validated model-performance claims.
+
+The earlier exploratory reports below use the same sanitized MBPP problem order but different initial prompts. Agentic mode uses a Coder/Critic workflow with up to five attempts per problem.
 
 | Experiment                                                                                                     |     Single pass |         Agentic | Time                      | Token usage              |
 | -------------------------------------------------------------------------------------------------------------- | --------------: | --------------: | ------------------------- | ------------------------ |

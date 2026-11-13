@@ -5,7 +5,7 @@ export interface ExtractOptions {
   /** Language hint for markdown blocks */
   language?: string;
   /** Strategy for multiple code blocks */
-  strategy?: 'first' | 'last' | 'largest';
+  strategy?: "first" | "last" | "largest";
 }
 
 /**
@@ -27,15 +27,15 @@ export interface ExtractResult {
  */
 export function extractCode(
   text: string,
-  options: ExtractOptions = {}
+  options: ExtractOptions = {},
 ): ExtractResult {
-  const { language = 'python', strategy = 'last' } = options;
+  const { language = "python", strategy = "last" } = options;
 
   // Pattern for markdown code blocks
   // Matches ```python or ``` followed by content
   const codeBlockPattern = new RegExp(
     `\`\`\`(?:${language})?\\s*\\n([\\s\\S]*?)\`\`\``,
-    'gi'
+    "gi",
   );
 
   const blocks: string[] = [];
@@ -53,13 +53,13 @@ export function extractCode(
     let selectedCode: string;
 
     switch (strategy) {
-      case 'first':
+      case "first":
         selectedCode = blocks[0];
         break;
-      case 'largest':
+      case "largest":
         selectedCode = blocks.reduce((a, b) => (a.length >= b.length ? a : b));
         break;
-      case 'last':
+      case "last":
       default:
         selectedCode = blocks[blocks.length - 1];
         break;
@@ -74,34 +74,27 @@ export function extractCode(
 
   // No markdown blocks found - try to extract raw code
   // Look for function definitions as indicators of code
-  const functionPattern = /^def\s+\w+\s*\(/m;
+  const functionPattern =
+    /^(?:async\s+def\s+\w+\s*\(|def\s+\w+\s*\(|class\s+\w+)/m;
   if (functionPattern.test(text)) {
     // Extract everything that looks like Python code
-    const lines = text.split('\n');
+    const lines = text.split("\n");
     const codeLines: string[] = [];
-    let inCode = false;
-
     for (const line of lines) {
-      // Start capturing at function definition
-      if (line.match(/^def\s+\w+\s*\(/)) {
-        inCode = true;
+      // Preserve imports, decorators, helpers, and globals before the function.
+      // Stop at obvious non-code markers
+      if (
+        line.match(/^(Example|Test|Output|Note|Explanation):/i) &&
+        !line.startsWith(" ")
+      ) {
+        break;
       }
-
-      if (inCode) {
-        // Stop at obvious non-code markers
-        if (
-          line.match(/^(Example|Test|Output|Note|Explanation):/i) &&
-          !line.startsWith(' ')
-        ) {
-          break;
-        }
-        codeLines.push(line);
-      }
+      codeLines.push(line);
     }
 
     if (codeLines.length > 0) {
       return {
-        code: codeLines.join('\n').trim(),
+        code: codeLines.join("\n").trim(),
         found: true,
         blockCount: 0,
       };
@@ -110,7 +103,7 @@ export function extractCode(
 
   // No code found
   return {
-    code: '',
+    code: "",
     found: false,
     blockCount: 0,
   };
@@ -123,7 +116,7 @@ export function extractCode(
  */
 export function cleanCode(code: string): string {
   return code
-    .replace(/\r\n/g, '\n') // Normalize line endings
-    .replace(/\t/g, '    ') // Convert tabs to spaces
+    .replace(/\r\n/g, "\n") // Normalize line endings
+    .replace(/\t/g, "    ") // Convert tabs to spaces
     .trim();
 }

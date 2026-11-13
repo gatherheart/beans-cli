@@ -2,33 +2,29 @@
  * Evaluation command handler
  */
 
-import type { CLIArgs } from './args.js';
-import { Config, ChatSession } from '@beans/core';
+import type { CLIArgs } from "./args.js";
+import { Config } from "@beans/core";
 import {
   EvalRunner,
   AgenticEvalRunner,
+  createCodeGenSession,
   generateMarkdownReport,
   writeJsonReport,
   writeMarkdownReport,
   type EvalRunnerConfig,
-} from '@beans/eval';
-
-const CODE_GEN_SYSTEM_PROMPT = `You are a Python code generator. When given a problem description, write a Python function that solves it.
-
-Rules:
-- Output ONLY the Python code, no explanations
-- Use proper Python syntax and conventions
-- Include the function definition
-- Do not include test cases or examples`;
+} from "@beans/eval";
 
 /**
  * Run benchmark evaluation
  */
 export async function runEval(args: CLIArgs): Promise<void> {
   if (!args.benchmark) {
-    console.error('Error: --benchmark is required for --eval');
-    console.error('Usage: beans --eval --benchmark mbpp');
+    console.error("Error: --benchmark is required for --eval");
+    console.error("Usage: beans --eval --benchmark mbpp");
     process.exit(1);
+  }
+  if ((args.baselineReport || args.retryWithoutCritic) && !args.agentic) {
+    throw new Error("--baseline-report and --blind-retry require --agentic");
   }
 
   // Initialize configuration
@@ -47,10 +43,12 @@ export async function runEval(args: CLIArgs): Promise<void> {
 
   console.log(`\n📊 Starting ${args.benchmark.toUpperCase()} Evaluation`);
   console.log(`   Model: ${llmConfig.model}`);
-  console.log(`   Mode: ${isAgentic ? `Agentic (max ${maxIterations} iterations)` : 'Single-shot'}`);
+  console.log(
+    `   Mode: ${isAgentic ? `Agentic (max ${maxIterations} iterations)` : "Single-shot"}`,
+  );
   if (args.limit) console.log(`   Limit: ${args.limit} problems`);
   if (args.resume) console.log(`   Resuming from: ${args.resume}`);
-  console.log('');
+  console.log("");
 
   // Build runner config
   const evalConfig: EvalRunnerConfig = {
@@ -64,6 +62,8 @@ export async function runEval(args: CLIArgs): Promise<void> {
     sanitized: true,
     agentic: isAgentic,
     maxIterations,
+    baselineReport: args.baselineReport,
+    retryWithoutCritic: args.retryWithoutCritic,
   };
 
   // Create appropriate runner
@@ -73,11 +73,7 @@ export async function runEval(args: CLIArgs): Promise<void> {
     runner = new AgenticEvalRunner(config, { verbose: args.verbose });
   } else {
     // Single-shot mode uses ChatSession
-    const session = new ChatSession(config.getLLMClient(), config.getToolRegistry(), {
-      systemPrompt: CODE_GEN_SYSTEM_PROMPT,
-      modelConfig: llmConfig,
-      toolConfig: { allowAllTools: false },
-    });
+    const session = createCodeGenSession(config);
     runner = new EvalRunner(session);
   }
 
@@ -95,44 +91,48 @@ export async function runEval(args: CLIArgs): Promise<void> {
     const pct = ((progress.current / progress.total) * 100).toFixed(1);
     const status = progress.result
       ? progress.result.success
-        ? '✅'
-        : '❌'
-      : '⏳';
+        ? "✅"
+        : "❌"
+      : "⏳";
     const iterations = progress.result?.metrics.turnCount ?? 0;
-    const iterInfo = isAgentic && iterations > 0 ? ` [${iterations} iter]` : '';
+    const iterInfo = isAgentic && iterations > 0 ? ` [${iterations} iter]` : "";
     process.stdout.write(
-      `\r   ${status} Problem ${progress.problemId}${iterInfo} (${progress.current}/${progress.total} - ${pct}%)   `
+      `\r   ${status} Problem ${progress.problemId}${iterInfo} (${progress.current}/${progress.total} - ${pct}%)   `,
     );
   });
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-  console.log('\n');
+  console.log("\n");
 
   // Print summary
-  console.log('📈 Results Summary');
+  console.log("📈 Results Summary");
   console.log(`   Total: ${result.report.summary.total}`);
   console.log(`   Passed: ${result.report.summary.passed}`);
-  console.log(`   Pass Rate: ${(result.report.summary.passRate * 100).toFixed(1)}%`);
+  console.log(
+    `   Pass Rate: ${(result.report.summary.passRate * 100).toFixed(1)}%`,
+  );
   if (isAgentic && result.report.summary.avgIterations !== undefined) {
-    console.log(`   Avg Iterations: ${result.report.summary.avgIterations.toFixed(1)}`);
+    console.log(
+      `   Avg Iterations: ${result.report.summary.avgIterations.toFixed(1)}`,
+    );
   }
   console.log(`   Duration: ${duration}s`);
   console.log(`   Run ID: ${result.runId}`);
   if (result.resumed) console.log(`   (Resumed from previous run)`);
-  console.log('');
+  console.log("");
 
   // Output reports
   if (args.output) {
-    if (args.output.endsWith('.json')) {
+    if (args.output.endsWith(".json")) {
       await writeJsonReport(result.report, args.output);
       console.log(`📄 JSON report saved to: ${args.output}`);
-    } else if (args.output.endsWith('.md')) {
+    } else if (args.output.endsWith(".md")) {
       await writeMarkdownReport(result.report, args.output);
       console.log(`📄 Markdown report saved to: ${args.output}`);
     } else {
       // Default to JSON
-      const jsonPath = args.output + '.json';
-      const mdPath = args.output + '.md';
+      const jsonPath = args.output + ".json";
+      const mdPath = args.output + ".md";
       await writeJsonReport(result.report, jsonPath);
       await writeMarkdownReport(result.report, mdPath);
       console.log(`📄 Reports saved to: ${jsonPath}, ${mdPath}`);

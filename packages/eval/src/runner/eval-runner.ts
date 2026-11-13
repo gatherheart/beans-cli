@@ -17,6 +17,7 @@ import {
   loadCheckpoint,
   updateCheckpoint,
   getCompletedIds,
+  validateResumeConfig,
 } from "./checkpoint.js";
 import { MBPPBenchmark } from "../benchmarks/mbpp/index.js";
 import type { ChatSession } from "@beans/core/agents";
@@ -63,6 +64,7 @@ export class EvalRunner {
     if (config.runId) {
       checkpoint = await loadCheckpoint(config.runId);
       if (checkpoint) {
+        validateResumeConfig(checkpoint.config, config);
         resumed = true;
         runId = checkpoint.runId;
       }
@@ -111,6 +113,7 @@ export class EvalRunner {
         | undefined;
       try {
         const response = await this.session.sendMessage(prompt);
+        usage = response.usage;
         if (!response.success) {
           throw new Error(response.error ?? "LLM request failed");
         }
@@ -122,13 +125,15 @@ export class EvalRunner {
           problemId: problem.id,
           success: false,
           passed: 0,
-          total: 3, // Assume standard test count
+          total:
+            (problem as BenchmarkProblem & { tests?: string[] }).tests
+              ?.length ?? 0,
           generatedCode: "",
           error: error instanceof Error ? error.message : String(error),
           metrics: {
-            promptTokens: 0,
-            completionTokens: 0,
-            totalTokens: 0,
+            promptTokens: usage?.promptTokens ?? 0,
+            completionTokens: usage?.completionTokens ?? 0,
+            totalTokens: usage?.totalTokens ?? 0,
             turnCount: 1,
             timeMs: Date.now() - llmStartTime,
           },
@@ -144,6 +149,8 @@ export class EvalRunner {
         });
 
         continue;
+      } finally {
+        this.session.clearHistory();
       }
 
       // Evaluate the solution

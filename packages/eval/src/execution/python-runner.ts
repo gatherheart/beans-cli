@@ -1,10 +1,10 @@
-import { spawn } from 'child_process';
+import { spawn } from "child_process";
 import type {
   ExecutionResult,
   ExecutionOptions,
   TestExecutionResult,
   TestResult,
-} from './types.js';
+} from "./types.js";
 
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 
@@ -13,35 +13,34 @@ const DEFAULT_TIMEOUT = 30000; // 30 seconds
  */
 export async function executePython(
   code: string,
-  options: ExecutionOptions = {}
+  options: ExecutionOptions = {},
 ): Promise<ExecutionResult> {
   const { timeout = DEFAULT_TIMEOUT, cwd } = options;
 
   return new Promise((resolve) => {
-    const process = spawn('python3', ['-c', code], {
+    const process = spawn("python3", ["-c", code], {
       cwd,
-      timeout,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ["pipe", "pipe", "pipe"],
     });
 
-    let stdout = '';
-    let stderr = '';
+    let stdout = "";
+    let stderr = "";
     let timedOut = false;
 
-    process.stdout.on('data', (data: Buffer) => {
+    process.stdout.on("data", (data: Buffer) => {
       stdout += data.toString();
     });
 
-    process.stderr.on('data', (data: Buffer) => {
+    process.stderr.on("data", (data: Buffer) => {
       stderr += data.toString();
     });
 
     const timer = setTimeout(() => {
       timedOut = true;
-      process.kill('SIGKILL');
+      process.kill("SIGKILL");
     }, timeout);
 
-    process.on('close', (exitCode) => {
+    process.on("close", (exitCode) => {
       clearTimeout(timer);
 
       resolve({
@@ -50,16 +49,16 @@ export async function executePython(
         stderr: stderr.trim(),
         exitCode: exitCode ?? -1,
         timedOut,
-        error: timedOut ? 'Execution timed out' : undefined,
+        error: timedOut ? "Execution timed out" : undefined,
       });
     });
 
-    process.on('error', (err) => {
+    process.on("error", (err) => {
       clearTimeout(timer);
 
       resolve({
         success: false,
-        stdout: '',
+        stdout: "",
         stderr: err.message,
         exitCode: -1,
         timedOut: false,
@@ -80,7 +79,7 @@ export async function executeWithTests(
   code: string,
   tests: string[],
   setupCode?: string,
-  options: ExecutionOptions = {}
+  options: ExecutionOptions = {},
 ): Promise<TestExecutionResult> {
   const results: TestResult[] = [];
 
@@ -94,8 +93,12 @@ export async function executeWithTests(
       success: false,
       passed: 0,
       total: tests.length,
-      results: tests.map((t) => ({ passed: false, assertion: t, error: 'Timeout' })),
-      error: 'Execution timed out',
+      results: tests.map((t) => ({
+        passed: false,
+        assertion: t,
+        error: "Timeout",
+      })),
+      error: "Execution timed out",
     };
   }
 
@@ -114,65 +117,37 @@ export async function executeWithTests(
     };
   }
 
-  // Parse test results from stdout
-  try {
-    const lines = execResult.stdout.split('\n').filter((l) => l.startsWith('TEST:'));
-
-    for (let i = 0; i < tests.length; i++) {
-      const line = lines[i];
-      if (line) {
-        const passed = line.includes(':PASS');
-
-        // Parse error and actual/expected values
-        // Format: TEST:0:FAIL:message|ACTUAL:value|EXPECTED:value
-        let error: string | undefined;
-        let actual: string | undefined;
-        let expected: string | undefined;
-
-        if (!passed) {
-          const failMatch = line.match(/:FAIL:([^|]+)/);
-          const actualMatch = line.match(/\|ACTUAL:([^|]+)/);
-          const expectedMatch = line.match(/\|EXPECTED:(.+)$/);
-
-          error = failMatch ? failMatch[1] : undefined;
-          actual = actualMatch ? actualMatch[1] : undefined;
-          expected = expectedMatch ? expectedMatch[1] : undefined;
-        }
-
-        results.push({
-          passed,
-          assertion: tests[i],
-          error,
-          actual,
-          expected,
-        });
-      } else {
-        results.push({
-          passed: false,
-          assertion: tests[i],
-          error: 'No result received',
-        });
+  // Only accept a structured result for its explicit test index.
+  const records = new Map<number, { passed: boolean; error?: string }>();
+  for (const line of execResult.stdout.split("\n")) {
+    if (!line.startsWith("BEANS_TEST:")) continue;
+    try {
+      const record = JSON.parse(line.slice("BEANS_TEST:".length));
+      if (
+        Number.isInteger(record.index) &&
+        typeof record.passed === "boolean"
+      ) {
+        records.set(record.index, record);
       }
+    } catch {
+      /* Unrelated output is not a test result. */
     }
-  } catch {
-    // Fallback: if we can't parse, check if all assertions passed
-    const allPassed = !execResult.stderr && execResult.exitCode === 0;
-    return {
-      success: allPassed,
-      passed: allPassed ? tests.length : 0,
-      total: tests.length,
-      results: tests.map((t) => ({
-        passed: allPassed,
-        assertion: t,
-        error: allPassed ? undefined : execResult.stderr,
-      })),
-    };
+  }
+  for (let index = 0; index < tests.length; index++) {
+    const record = records.get(index);
+    results.push({
+      passed: record?.passed === true,
+      assertion: tests[index],
+      error:
+        record?.error ??
+        (record ? undefined : execResult.stderr || "No result received"),
+    });
   }
 
   const passed = results.filter((r) => r.passed).length;
 
   return {
-    success: passed === tests.length,
+    success: execResult.success && tests.length > 0 && passed === tests.length,
     passed,
     total: tests.length,
     results,
@@ -183,42 +158,30 @@ export async function executeWithTests(
  * Build a Python script that runs tests and reports results
  * Captures actual vs expected values for better feedback
  */
-function buildTestScript(code: string, tests: string[], setupCode?: string): string {
-  const setupSection = setupCode ? `${setupCode}\n` : '';
+function buildTestScript(
+  code: string,
+  tests: string[],
+  setupCode?: string,
+): string {
+  const setupSection = setupCode ? `${setupCode}\n` : "";
 
   // Helper function to evaluate and compare
   const helperCode = `
-import re
+import json as _beans_json
+import traceback as _beans_traceback
 
 def _run_test(test_str, test_idx):
-    """Run a test and capture actual vs expected values."""
-    # Try to parse assertion: assert expr == expected or assert expr
-    match = re.match(r'assert\\s+(.+?)\\s*==\\s*(.+)$', test_str.strip())
-    if match:
-        expr, expected_str = match.groups()
-        try:
-            actual = eval(expr)
-            expected = eval(expected_str)
-            if actual == expected:
-                print(f"TEST:{test_idx}:PASS")
-            else:
-                print(f"TEST:{test_idx}:FAIL:Expected {repr(expected)}, got {repr(actual)}|ACTUAL:{repr(actual)}|EXPECTED:{repr(expected)}")
-        except Exception as e:
-            print(f"TEST:{test_idx}:FAIL:{type(e).__name__}: {e}")
-    else:
-        # Fallback for non-equality assertions
-        try:
-            exec(test_str)
-            print(f"TEST:{test_idx}:PASS")
-        except AssertionError as e:
-            print(f"TEST:{test_idx}:FAIL:{e}")
-        except Exception as e:
-            print(f"TEST:{test_idx}:FAIL:{type(e).__name__}: {e}")
+    try:
+        exec(test_str, globals())
+        result = {"index": test_idx, "passed": True}
+    except Exception:
+        result = {"index": test_idx, "passed": False, "error": _beans_traceback.format_exc()}
+    print("BEANS_TEST:" + _beans_json.dumps(result))
 `;
 
   const testSection = tests
     .map((test, i) => `_run_test(${JSON.stringify(test)}, ${i})`)
-    .join('\n');
+    .join("\n");
 
   return `${setupSection}${code}\n\n${helperCode}\n${testSection}`;
 }
