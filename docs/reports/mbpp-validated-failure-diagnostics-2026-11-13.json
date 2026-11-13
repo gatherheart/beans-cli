@@ -1,0 +1,102 @@
+[
+  {
+    "problemId": "229",
+    "problem": "Write a function that takes in an array and an integer n, and re-arranges the first n elements of the given array so that all negative elements appear before positive ones, and where the relative order among negative and positive elements is preserved.",
+    "code": "def re_arrange_array(arr, n):\n    negs = [x for x in arr[:n] if x < 0]\n    pos = [x for x in arr[:n] if x >= 0]\n    return negs + pos + arr[n:]",
+    "tests": {
+      "success": false,
+      "passed": 2,
+      "total": 3,
+      "results": [
+        {
+          "passed": false,
+          "assertion": "assert re_arrange_array([-1, 2, -3, 4, 5, 6, -7, 8, 9], 9) == [-1, -3, -7, 4, 5, 6, 2, 8, 9]",
+          "error": "Traceback (most recent call last):\n  File \"<string>\", line 12, in _run_test\n  File \"<string>\", line 1, in <module>\nAssertionError\n"
+        },
+        {
+          "passed": true,
+          "assertion": "assert re_arrange_array([12, -14, -26, 13, 15], 5) == [-14, -26, 12, 13, 15]"
+        },
+        {
+          "passed": true,
+          "assertion": "assert re_arrange_array([10, 24, 36, -42, -39, -78, 85], 7) == [-42, -39, -78, 10, 24, 36, 85]"
+        }
+      ]
+    }
+  },
+  {
+    "problemId": "311",
+    "problem": "Write a python function to set the left most unset bit.",
+    "code": "def set_left_most_unset_bit(n):\n    if n == 0:\n        return 1\n    m = n.bit_length()\n    for i in range(m - 1, -1, -1):\n        if not (n & (1 << i)):\n            return n | (1 << i)\n    return n | (1 << m)",
+    "tests": {
+      "success": false,
+      "passed": 2,
+      "total": 3,
+      "results": [
+        {
+          "passed": true,
+          "assertion": "assert set_left_most_unset_bit(10) == 14"
+        },
+        {
+          "passed": true,
+          "assertion": "assert set_left_most_unset_bit(12) == 14"
+        },
+        {
+          "passed": false,
+          "assertion": "assert set_left_most_unset_bit(15) == 15",
+          "error": "Traceback (most recent call last):\n  File \"<string>\", line 16, in _run_test\n  File \"<string>\", line 1, in <module>\nAssertionError\n"
+        }
+      ]
+    }
+  },
+  {
+    "problemId": "398",
+    "problem": "Write a function to compute the sum of digits of each number of a given list.",
+    "code": "def sum_of_digits(nums):\n    return sum(int(digit) for num in nums for digit in str(abs(num)))",
+    "tests": {
+      "success": false,
+      "passed": 2,
+      "total": 3,
+      "results": [
+        {
+          "passed": true,
+          "assertion": "assert sum_of_digits([10,2,56])==14"
+        },
+        {
+          "passed": false,
+          "assertion": "assert sum_of_digits([[10,20,4,5,'b',70,'a']])==19",
+          "error": "Traceback (most recent call last):\n  File \"<string>\", line 10, in _run_test\n  File \"<string>\", line 1, in <module>\n  File \"<string>\", line 2, in sum_of_digits\n  File \"<string>\", line 2, in <genexpr>\nTypeError: bad operand type for abs(): 'list'\n"
+        },
+        {
+          "passed": true,
+          "assertion": "assert sum_of_digits([10,20,-4,5,-70])==19"
+        }
+      ]
+    }
+  },
+  {
+    "problemId": "407",
+    "problem": "Write a function to create the next bigger number by rearranging the digits of a given number.",
+    "code": "def rearrange_bigger(n):\n    digits = list(str(n))\n    length = len(digits)\n\n    i = length - 2\n    while i >= 0 and digits[i] >= digits[i + 1]:\n        i -= 1\n\n    if i < 0:\n        return -1\n\n    j = length - 1\n    while digits[j] <= digits[i]:\n        j -= 1\n\n    digits[i], digits[j] = digits[j], digits[i]\n    digits[i + 1 :] = reversed(digits[i + 1 :])\n\n    return int(\"\".join(digits))",
+    "tests": {
+      "success": false,
+      "passed": 2,
+      "total": 3,
+      "results": [
+        {
+          "passed": true,
+          "assertion": "assert rearrange_bigger(12)==21"
+        },
+        {
+          "passed": false,
+          "assertion": "assert rearrange_bigger(10)==False",
+          "error": "Traceback (most recent call last):\n  File \"<string>\", line 27, in _run_test\n  File \"<string>\", line 1, in <module>\nAssertionError\n"
+        },
+        {
+          "passed": true,
+          "assertion": "assert rearrange_bigger(102)==120"
+        }
+      ]
+    }
+  }
+]

@@ -26,3 +26,7 @@ The test runner executes generated Python as a local subprocess with a timeout. 
 ## Execution status
 
 The new 100-problem screening run was interrupted after the API reported that the project monthly spending cap had been exceeded. During the audit, the dataset-schema defect was also discovered. That interrupted run is not a valid baseline and will not be used for Critic comparison. A corrected run has not been completed. No spending limit was changed.
+
+## Subsequent corrected run
+
+After the spending cap was increased, a fresh run using the corrected pipeline completed all 100 problems without API failures. See the [corrected evaluation report](./mbpp-validated-100-2026-11-13.md). This supersedes the interrupted screening run; historical invalid reports remain invalid.

@@ -35,7 +35,7 @@ Run `npm run dev -- --help` for CLI options. Other providers use `OPENAI_API_KEY
 
 ## Benchmarks
 
-An [evaluation audit](docs/reports/evaluation-audit-2026-11-13.md) found that the old loader missed sanitized MBPP problem statements, raw-code extraction discarded imports and globals, and the test harness rewrote assertions. These defects have been corrected. All earlier scores below are archived pipeline outputs and are **invalid as MBPP performance evidence**. A fresh corrected benchmark is pending API availability.
+An [evaluation audit](docs/reports/evaluation-audit-2026-11-13.md) found that the old loader missed sanitized MBPP problem statements, raw-code extraction discarded imports and globals, and the test harness rewrote assertions. These defects have been corrected. All earlier scores below are archived pipeline outputs and are **invalid as MBPP performance evidence**. The [first corrected 100-problem evaluation](docs/reports/mbpp-validated-100-2026-11-13.md) recorded 96/100 for single-call generation and 99/100 after iterative Critic feedback, using 27.5% more recorded time and 31.0% more tokens. This is one run with four initial failures, including one inconsistent test; the report documents the limits of this comparison.
 
 Archived outputs are retained for transparency: [the original 100-problem comparison](docs/reports/mbpp-gemini-3.6-flash-single-vs-agentic-100-2026-11-12.md), [the original repeated 20-problem comparison](docs/reports/mbpp-gemini-3.6-flash-20-five-runs-2026-11-12.md), and [the pre-audit paired comparison](docs/reports/mbpp-paired-critic-20-five-runs-2026-11-13.md). Their JSON reports are explicitly marked invalid and cannot be replayed as new baselines.
 
