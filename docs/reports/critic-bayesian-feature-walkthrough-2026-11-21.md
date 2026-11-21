@@ -10,7 +10,7 @@ Define Y = 1 when a proposed counterexample passes the input constraints and ind
 
 Use buildable, fixed code snapshots for the first dataset. Track compile failures and their wasted work separately. Keep the review-computation budget and verification budget independent of time spent waiting for a build artifact, so that changing start time does not silently change the label definition. End-to-end time to verified feedback is a separate scheduling metric.
 
-The observation key must include the Critic model, prompt version, token/time budgets, verifier version, language and code snapshot. Do not pool outcomes from different review policies by default. Repeated reviews, translations and revisions of the same problem must stay in the same evaluation group; they are not independent new problems. Both early and deferred reviews should produce labels after completion.
+The observation key must include the Critic model, prompt version, token/time budgets, verifier version, language and code snapshot. Do not pool outcomes from different review policies by default. Repeated reviews, translations and revisions of the same problem must stay in the same evaluation group; they are not independent new problems. Both early and deferred reviews should produce labels after completion. A skipped review has an unknown outcome, not label 0. Use separately budgeted random audits or a fully reviewed held-out sample to measure missed opportunities and avoid learning only from selected high-probability cases.
 
 ## Features to extract
 
@@ -73,7 +73,11 @@ The equal-tailed 95 percent credible interval for the group's rate is approximat
 
 After a new confirmed counterexample, update to Beta(10, 5), mean 0.667. After an eligible attempt without evidence within budget, update to Beta(9, 6), mean 0.600. An infrastructure failure leaves the posterior unchanged. Update after the result, never before the scheduling decision for that same snapshot.
 
-## Decide whether to start early
+## Decide whether to review and then when to start
+
+The current policy first decides whether the expected usefulness of a Critic call justifies its resource cost. Low-value candidates may be skipped altogether, with reassessment if tests later reveal new evidence. A possible rule is `predicted probability * value of confirmed feedback > expected review and validation cost`, using compatible units. Alternatively, impose an explicit token or compute budget and evaluate the resulting findings/cost tradeoff. These policy choices are separate from the probability model; no resource threshold has been fitted or validated yet.
+
+The following timing calculation applies only after a review has passed that admission decision. The existing demonstration script implements this timing calculation and hypothetical posterior arithmetic, not the new skip-versus-review admission layer.
 
 For a deliberately simple teaching policy, suppose there is one scarce early-review slot and it is currently available. Start Critic early only if the posterior predictive mean is at least 0.60 and the possible overlap is at least one second. Both thresholds are illustrative and unoptimized.
 
@@ -101,9 +105,11 @@ The program returned 10, while choosing the two touching five-unit jobs yields 1
 
 ## What must be established before using prediction
 
-If every candidate is eventually reviewed, there is no resource limit, and overlap introduces no interference or extra cost, starting every Critic immediately is the latency baseline to beat. A probability gate alone cannot improve on that ideal. Its potential value lies in allocating scarce concurrent slots, managing queue pressure, or avoiding stale work. Record which of those constraints actually exists before claiming a scheduling benefit.
+The Critic's own tokens and compute are part of the optimization objective. Skipping low-value calls can therefore be useful even without concurrency limits. Always-parallel and always-sequential review remain comparison policies, but neither represents the selective policy's goal. Report resource savings alongside the verified counterexamples missed through skipping; do not call a lower token count an improvement without that quality comparison.
 
-Keep code-quality prediction, statistical uncertainty, and runtime scheduling separate. A high predicted witness probability does not mean high model uncertainty, and it does not guarantee enough build time to hide a review. Evaluate calibration on held-out problem groups, time to confirmed feedback, analysis overhead and predictor cost against both always-parallel and always-sequential baselines.
+Among reviews already admitted, starting immediately can reduce latency when overlap is possible and introduces no interference. The earlier always-parallel observation applies only to that timing subproblem, not to whether every candidate should be reviewed.
+
+Keep probability estimation, statistical uncertainty, review admission and runtime scheduling separate. A high predicted witness probability does not mean high model uncertainty, and it does not guarantee enough build time to hide a review. Evaluate calibration on held-out problem groups, audited missed findings, time to confirmed feedback, analysis overhead and total resource cost against both always-parallel and always-sequential baselines.
 
 The existing [ReviewNeedPredictor](../../packages/eval/src/speculation/review-preparation.ts) uses loop/branch/plain regex groups and learns whether a test outcome needs review. That label is different from verified counterexample generation. Its old counts and checkpoints must not be reused under the new meaning; the production predictor remains unchanged.
 
