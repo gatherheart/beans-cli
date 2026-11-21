@@ -1,6 +1,8 @@
 # Static Features and Bayesian Critic Scheduling Walkthrough
 
-The first predictor should estimate how often a fixed Critic produces an independently verified counterexample for a comparable code snapshot under a fixed review budget. Static analysis supplies observable code features; past verified outcomes supply the evidence for the probability. Static analysis does not itself establish that a pruning decision or algorithm is incorrect.
+This document preserves an illustrative bucket-based baseline. The current intended architecture is the [feature-conditioned probability model](critic-conditional-probability-model-2026-11-21.md), which learns from individual AST feature vectors and verified Critic outcomes rather than assigning a single rate to manually chosen groups.
+
+The baseline below estimates how often a fixed Critic produces an independently verified counterexample for a comparable code snapshot under a fixed review budget. Static analysis supplies observable code features; past verified outcomes supply the evidence for the probability. Static analysis does not itself establish that a pruning decision or algorithm is incorrect.
 
 This walkthrough uses real Clang AST extraction from the existing C++ fixture and measured timings from the preceding pilot. Its training counts, probability threshold, minimum overlap threshold, and eight-second build are explicitly hypothetical. No new LLM calls, predictor training, or production scheduling changes are made.
 
