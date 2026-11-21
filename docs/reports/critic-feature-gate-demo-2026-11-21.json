@@ -1,0 +1,177 @@
+{
+  "scope": "Offline teaching example. Real AST extraction and prior pilot timing; invented training counts and scheduling thresholds. No trained predictor or new LLM calls.",
+  "source": "tests/fixtures/compiled-critic/Main.cpp",
+  "sourceSha256": "0cac6eb425dfa4040caed260131ec4f3e71fb54318a865f19a70f4a11ae5dfa7",
+  "staticAnalysisRuns": [
+    {
+      "command": [
+        "clang++",
+        "-std=c++17",
+        "-Xclang",
+        "-ast-dump=json",
+        "-Xclang",
+        "-ast-dump-filter=solve",
+        "-fsyntax-only",
+        "/Users/bean/kakao/beans-code/tests/fixtures/compiled-critic/Main.cpp"
+      ],
+      "features": {
+        "explicit_loop_count": 3,
+        "max_loop_nesting": 2,
+        "if_count": 2,
+        "conditional_erase_inside_loop": true,
+        "has_sort_call": true,
+        "has_push_back_call": true,
+        "declared_local_types": {
+          "chosen": "std::vector<Job>",
+          "job": "std::array<int, 3> const &",
+          "conflicts": "int",
+          "old": "std::array<int, 3> const &",
+          "result": "int"
+        },
+        "time_complexity": "unknown",
+        "space_complexity": "unknown",
+        "nonempty_function_lines": 20,
+        "bucket": "erase=1;nested=1"
+      },
+      "evidence": [
+        {
+          "feature": "conditional_erase_inside_loop",
+          "line": 17
+        }
+      ],
+      "elapsedSeconds": 0.51272975
+    },
+    {
+      "command": [
+        "clang++",
+        "-std=c++17",
+        "-Xclang",
+        "-ast-dump=json",
+        "-Xclang",
+        "-ast-dump-filter=solve",
+        "-fsyntax-only",
+        "/Users/bean/kakao/beans-code/tests/fixtures/compiled-critic/Main.cpp"
+      ],
+      "features": {
+        "explicit_loop_count": 3,
+        "max_loop_nesting": 2,
+        "if_count": 2,
+        "conditional_erase_inside_loop": true,
+        "has_sort_call": true,
+        "has_push_back_call": true,
+        "declared_local_types": {
+          "chosen": "std::vector<Job>",
+          "job": "std::array<int, 3> const &",
+          "conflicts": "int",
+          "old": "std::array<int, 3> const &",
+          "result": "int"
+        },
+        "time_complexity": "unknown",
+        "space_complexity": "unknown",
+        "nonempty_function_lines": 20,
+        "bucket": "erase=1;nested=1"
+      },
+      "evidence": [
+        {
+          "feature": "conditional_erase_inside_loop",
+          "line": 17
+        }
+      ],
+      "elapsedSeconds": 0.256984792
+    },
+    {
+      "command": [
+        "clang++",
+        "-std=c++17",
+        "-Xclang",
+        "-ast-dump=json",
+        "-Xclang",
+        "-ast-dump-filter=solve",
+        "-fsyntax-only",
+        "/Users/bean/kakao/beans-code/tests/fixtures/compiled-critic/Main.cpp"
+      ],
+      "features": {
+        "explicit_loop_count": 3,
+        "max_loop_nesting": 2,
+        "if_count": 2,
+        "conditional_erase_inside_loop": true,
+        "has_sort_call": true,
+        "has_push_back_call": true,
+        "declared_local_types": {
+          "chosen": "std::vector<Job>",
+          "job": "std::array<int, 3> const &",
+          "conflicts": "int",
+          "old": "std::array<int, 3> const &",
+          "result": "int"
+        },
+        "time_complexity": "unknown",
+        "space_complexity": "unknown",
+        "nonempty_function_lines": 20,
+        "bucket": "erase=1;nested=1"
+      },
+      "evidence": [
+        {
+          "feature": "conditional_erase_inside_loop",
+          "line": 17
+        }
+      ],
+      "elapsedSeconds": 0.24612562500000013
+    }
+  ],
+  "analysisMedianSeconds": 0.256984792,
+  "featureSemantics": "Syntactic observations only; conditional erase does not prove an invalid pruning decision. Complexity is deliberately unknown.",
+  "hypotheticalHistory": {
+    "bucket": "erase=1;nested=1",
+    "eligiblePriorExamples": 10,
+    "verifiedWitnesses": 8,
+    "noVerifiedWitness": 2
+  },
+  "posterior": {
+    "priorAlpha": 1,
+    "priorBeta": 3,
+    "alpha": 9,
+    "beta": 5,
+    "predictiveProbability": 0.6428571428571429,
+    "credibleInterval95": [0.3857383382492947, 0.8614206611098392],
+    "afterConfirmedWitness": {
+      "alpha": 10,
+      "beta": 5,
+      "mean": 0.6666666666666666
+    },
+    "afterNoWitnessWithinBudget": {
+      "alpha": 9,
+      "beta": 6,
+      "mean": 0.6
+    },
+    "infrastructureFailure": "no update"
+  },
+  "policyAssumptions": "One scarce early-review slot, available for this example. Thresholds are illustrative, not optimized. All candidates are eventually reviewed. Without a capacity or cost constraint, always-parallel is the latency baseline to beat.",
+  "priorPilotTiming": {
+    "compileMedianSeconds": 0.33224558299999885,
+    "criticSeconds": 9.312277459000004
+  },
+  "observedSmallProgramTimingScenario": {
+    "buildTotalSeconds": 0.33224558299999885,
+    "remainingBuildSeconds": 0.07526079099999883,
+    "potentialOverlapSeconds": 0.07526079099999883,
+    "probabilityThreshold": 0.6,
+    "minimumOverlapSeconds": 1.0,
+    "earlySlotAvailable": true,
+    "decision": "defer_until_build_finishes",
+    "sequentialFeedbackSecondsExcludingValidation": 9.644523042000003,
+    "earlyFeedbackSecondsExcludingValidation": 9.569262251000005,
+    "expectedUsefulFeedbackAdvanceSeconds": 0.04838193707142782
+  },
+  "hypotheticalEightSecondBuildScenario": {
+    "buildTotalSeconds": 8.0,
+    "remainingBuildSeconds": 7.743015208,
+    "potentialOverlapSeconds": 7.743015208,
+    "probabilityThreshold": 0.6,
+    "minimumOverlapSeconds": 1.0,
+    "earlySlotAvailable": true,
+    "decision": "start_critic_now",
+    "sequentialFeedbackSecondsExcludingValidation": 17.312277459000004,
+    "earlyFeedbackSecondsExcludingValidation": 9.569262251000005,
+    "expectedUsefulFeedbackAdvanceSeconds": 4.977652633714286
+  }
+}

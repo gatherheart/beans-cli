@@ -12,6 +12,8 @@ For the feasibility pilot, measure one authored implementation of the same small
 
 ## Predictor designs to compare later
 
+The [static-feature and Bayesian walkthrough](critic-bayesian-feature-walkthrough-2026-11-21.md) specifies initial observations, a small Beta-Bernoulli grouping rule, label semantics, and an early-start decision. Its training counts and scheduling thresholds are illustrative, not fitted pilot results.
+
 One design sends a partial or completed code snapshot to a lightweight Reviewer, which estimates the probability of a validated Critic counterexample. Include that Reviewer's latency and tokens in the scheduling comparison. Partial-snapshot predictions must record how much code was available and how predictions changed as Coder continued.
 
 A second design extracts static features and updates a Bayesian predictor from prior completed outcomes. Candidate features include source length, branch count, loop nesting, recursion indicators, container types, index dimensions, state-discard branches, and compiler or analyzer diagnostics. These are measurable features or heuristics, not automatic proofs of time or space complexity. General asymptotic complexity inference is not assumed to be exact; unknown estimates remain unknown. Source length and syntactic nesting alone do not establish runtime behavior.
