@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "problems": {
+    "bounded_route": "Implement solve(n, edges, source, target, max_edges). The directed graph has nodes 0 through n-1. Each edge is [u, v, cost], where cost is a positive integer. Return the minimum total cost of a route from source to target using at most max_edges edges, or -1 if no such route exists. Nodes and edges may be revisited. Constraints: 2 <= n <= 8; source and target are distinct valid nodes; 0 <= max_edges <= 7; edge costs are between 1 and 20; there are no self-loops or duplicate directed edges.",
+    "weighted_intervals": "Implement solve(jobs). Each job is [start, end, reward], with integer times, 0 <= start < end <= 20, and a positive integer reward between 1 and 30. Choose a subset of jobs with no overlaps to maximize the sum of rewards, and return that sum. Jobs occupy half-open intervals [start, end), so one job may start exactly when another ends. The input contains between 0 and 12 jobs. Each job may be selected at most once. Selecting no jobs is allowed.",
+    "bottleneck_route": "Implement solve(n, edges, source, target). The undirected graph has nodes 0 through n-1. Each edge is [u, v, weight], where weight is a positive integer. A route is scored by the largest edge weight on that route. Return the smallest possible route score from source to target, or -1 if no route exists. Constraints: 2 <= n <= 8; source and target are distinct valid nodes; weights are between 1 and 20; there are no self-loops or duplicate undirected edges."
+  },
+  "controls": [
+    {
+      "id": "C1",
+      "family": "weighted_intervals",
+      "origin": "authored_control",
+      "expectedVerdict": "correct",
+      "code": "from bisect import bisect_right\n\ndef solve(jobs):\n    ordered = sorted(jobs, key=lambda job: (job[1], job[0]))\n    ends = [end for start, end, reward in ordered]\n    best = [0] * (len(ordered) + 1)\n    for i, (start, end, reward) in enumerate(ordered):\n        compatible = bisect_right(ends, start, 0, i)\n        best[i + 1] = max(best[i], best[compatible] + reward)\n    return best[-1]\n"
+    },
+    {
+      "id": "C2",
+      "family": "bounded_route",
+      "origin": "authored_control",
+      "expectedVerdict": "incorrect",
+      "code": "from heapq import heappop, heappush\n\ndef solve(n, edges, source, target, max_edges):\n    graph = [[] for _ in range(n)]\n    for u, v, weight in edges:\n        graph[u].append((v, weight))\n    best = [[float(\"inf\")] * (max_edges + 1) for _ in range(n)]\n    best[source][0] = 0\n    queue = [(0, 0, source)]\n    while queue:\n        cost, used, node = heappop(queue)\n        if cost != best[node][used]:\n            continue\n        if any(best[node][h] <= cost for h in range(max_edges + 1) if h != used):\n            continue\n        if node == target:\n            return cost\n        if used == max_edges:\n            continue\n        for nxt, weight in graph[node]:\n            new_used = used + 1\n            new_cost = cost + weight\n            if new_cost < best[nxt][new_used]:\n                best[nxt][new_used] = new_cost\n                heappush(queue, (new_cost, new_used, nxt))\n    return -1\n"
+    },
+    {
+      "id": "C3",
+      "family": "bottleneck_route",
+      "origin": "authored_control",
+      "expectedVerdict": "correct",
+      "code": "def solve(n, edges, source, target):\n    parent = list(range(n))\n    size = [1] * n\n\n    def find(node):\n        while node != parent[node]:\n            parent[node] = parent[parent[node]]\n            node = parent[node]\n        return node\n\n    for u, v, weight in sorted(edges, key=lambda edge: edge[2]):\n        left, right = find(u), find(v)\n        if left != right:\n            if size[left] < size[right]:\n                left, right = right, left\n            parent[right] = left\n            size[left] += size[right]\n        if find(source) == find(target):\n            return weight\n    return -1\n"
+    },
+    {
+      "id": "C4",
+      "family": "bounded_route",
+      "origin": "authored_control",
+      "expectedVerdict": "correct",
+      "code": "from heapq import heappop, heappush\n\ndef solve(n, edges, source, target, max_edges):\n    graph = [[] for _ in range(n)]\n    for u, v, weight in edges:\n        graph[u].append((v, weight))\n    best = [[float(\"inf\")] * (max_edges + 1) for _ in range(n)]\n    best[source][0] = 0\n    queue = [(0, 0, source)]\n    while queue:\n        cost, used, node = heappop(queue)\n        if cost != best[node][used]:\n            continue\n        if any(best[node][h] <= cost for h in range(used)):\n            continue\n        if node == target:\n            return cost\n        if used == max_edges:\n            continue\n        for nxt, weight in graph[node]:\n            new_used = used + 1\n            new_cost = cost + weight\n            if new_cost < best[nxt][new_used]:\n                best[nxt][new_used] = new_cost\n                heappush(queue, (new_cost, new_used, nxt))\n    return -1\n"
+    },
+    {
+      "id": "C5",
+      "family": "weighted_intervals",
+      "origin": "authored_control",
+      "expectedVerdict": "incorrect",
+      "code": "def solve(jobs):\n    ordered = sorted(jobs, key=lambda job: (job[1], job[0]))\n    chosen = []\n    for start, end, reward in ordered:\n        conflicts = [\n            job for job in chosen\n            if job[0] < end and start < job[1]\n        ]\n        if reward > sum(job[2] for job in conflicts):\n            chosen = [\n                job for job in chosen\n                if job[1] <= start or end <= job[0]\n            ]\n            chosen.append([start, end, reward])\n    return sum(job[2] for job in chosen)\n"
+    },
+    {
+      "id": "C6",
+      "family": "bottleneck_route",
+      "origin": "authored_control",
+      "expectedVerdict": "incorrect",
+      "code": "from heapq import heappop, heappush\n\ndef solve(n, edges, source, target):\n    graph = [[] for _ in range(n)]\n    for u, v, weight in edges:\n        graph[u].append((v, weight))\n        graph[v].append((u, weight))\n    best = [float(\"inf\")] * n\n    best[source] = 0\n    queue = [(0, 0, source)]\n    while queue:\n        total, largest, node = heappop(queue)\n        if total != best[node]:\n            continue\n        if node == target:\n            return largest\n        for nxt, weight in graph[node]:\n            new_total = total + weight\n            if new_total < best[nxt]:\n                best[nxt] = new_total\n                heappush(queue, (new_total, max(largest, weight), nxt))\n    return -1\n"
+    }
+  ]
+}

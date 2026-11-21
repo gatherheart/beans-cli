@@ -50,6 +50,6 @@ A real project or a clearly scoped standalone program must be identified before 
 
 ## Local readiness
 
-On 2026-11-21, the workspace had working Rust 1.94.1, javac 17.0.15, and Apple clang 17.0.0 commands. Kotlin compiler jars are present in the local Gradle cache, but no `kotlinc` executable is on PATH; a runnable Kotlin invocation has not yet been verified. The beans-code repository itself contains no Rust, Java, Kotlin, or C++ project to use as a representative build workload.
+On 2026-11-21, the workspace had working Rust 1.94.1, javac 17.0.15, and Apple clang 17.0.0 commands. Kotlin 2.3.0 was subsequently verified through compiler jars already present in the local Gradle cache. No `kotlinc` executable is on PATH; the pilot invokes the cached compiler through Java without downloads. The beans-code repository itself contains no Rust, Java, Kotlin, or C++ project to use as a representative build workload.
 
 This is the next experiment plan. The current Python pilot evaluates review behavior and does not implement or validate this concurrent compiled-language workflow.

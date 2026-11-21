@@ -1,0 +1,534 @@
+{
+  "status": "complete",
+  "versions": {
+    "rust": {
+      "command": ["rustc", "--version"],
+      "seconds": 0.12353095900000001,
+      "exitCode": 0,
+      "stdout": "rustc 1.94.1 (e408947bf 2026-03-25)\n",
+      "stderr": ""
+    },
+    "java": {
+      "command": ["javac", "-version"],
+      "seconds": 0.166602833,
+      "exitCode": 0,
+      "stdout": "javac 17.0.15\n",
+      "stderr": ""
+    },
+    "cpp": {
+      "command": ["clang++", "--version"],
+      "seconds": 0.08521424999999999,
+      "exitCode": 0,
+      "stdout": "Apple clang version 17.0.0 (clang-1700.3.19.1)\nTarget: arm64-apple-darwin25.3.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+      "stderr": ""
+    },
+    "kotlin": {
+      "command": [
+        "java",
+        "-cp",
+        "/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-compiler-embeddable/2.3.0/dfa7ae7e29f042fe2abf0708315aa367989bb07d/kotlin-compiler-embeddable-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.3.0/ebc4eb2b6e6c91b6c844c1e3183920d86f2ef656/kotlin-stdlib-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains/annotations/13.0/919f0dfe192fb4e063e7dacadee7f8bb9a2672a9/annotations-13.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-script-runtime/2.3.0/fb89e0ab064ea19d08c6d6bc9f044d16c5487fc4/kotlin-script-runtime-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-daemon-embeddable/2.3.0/3362fbd68a4dfd1df3818cfee0b8d5f4f6a7e35f/kotlin-daemon-embeddable-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-reflect/1.6.10/1cbe9c92c12a94eea200d23c2bbaedaf3daf5132/kotlin-reflect-1.6.10.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm/1.8.0/ac1dc37a30a93150b704022f8d895ee1bd3a36b3/kotlinx-coroutines-core-jvm-1.8.0.jar",
+        "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler",
+        "-version"
+      ],
+      "seconds": 1.0494394580000002,
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": "info: kotlinc-jvm 2.3.0 (JRE 17.0.15+6)\nwarning: unable to find kotlin-stdlib.jar in the Kotlin home directory. Pass either '-no-stdlib' to prevent adding it to the classpath, or the correct '-kotlin-home'\nwarning: unable to find kotlin-script-runtime.jar in the Kotlin home directory. Pass either '-no-stdlib' to prevent adding it to the classpath, or the correct '-kotlin-home'\nwarning: unable to find kotlin-reflect.jar in the Kotlin home directory. Pass either '-no-reflect' or '-no-stdlib' to prevent adding it to the classpath, or the correct '-kotlin-home'\n"
+    }
+  },
+  "candidates": [
+    {
+      "language": "rust",
+      "sourcePath": "tests/fixtures/compiled-critic/main.rs",
+      "source": "use std::io::{self, Read};\n\nfn solve(mut jobs: Vec<[i32; 3]>) -> i32 {\n    jobs.sort_by_key(|j| (j[1], j[0]));\n    let mut chosen: Vec<[i32; 3]> = Vec::new();\n    for job in jobs {\n        let conflicts: i32 = chosen.iter()\n            .filter(|old| old[0] < job[1] && job[0] < old[1])\n            .map(|old| old[2]).sum();\n        if job[2] > conflicts {\n            chosen.retain(|old| old[1] <= job[0] || job[1] <= old[0]);\n            chosen.push(job);\n        }\n    }\n    chosen.iter().map(|job| job[2]).sum()\n}\n\nfn main() {\n    let mut input = String::new();\n    io::stdin().read_to_string(&mut input).unwrap();\n    let mut values = input.split_whitespace().map(|s| s.parse::<i32>().unwrap());\n    let cases = values.next().unwrap();\n    for _ in 0..cases {\n        let n = values.next().unwrap();\n        let jobs = (0..n).map(|_| [values.next().unwrap(), values.next().unwrap(), values.next().unwrap()]).collect();\n        println!(\"{}\", solve(jobs));\n    }\n}\n",
+      "sourceSha256": "e9b949ca5d7008ddea5eefbf3d3fb73540cb169bd00980b64130ebae7f6fe932",
+      "builds": [
+        {
+          "repetition": 1,
+          "command": [
+            "rustc",
+            "--edition=2021",
+            "-O",
+            "/Users/bean/kakao/beans-code/tests/fixtures/compiled-critic/main.rs",
+            "-o",
+            "/Users/bean/kakao/beans-code/node_modules/.cache/compiled-critic-pilot-2026-11-21/rust/1/candidate"
+          ],
+          "seconds": 0.5799308750000001,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "repetition": 2,
+          "command": [
+            "rustc",
+            "--edition=2021",
+            "-O",
+            "/Users/bean/kakao/beans-code/tests/fixtures/compiled-critic/main.rs",
+            "-o",
+            "/Users/bean/kakao/beans-code/node_modules/.cache/compiled-critic-pilot-2026-11-21/rust/2/candidate"
+          ],
+          "seconds": 0.17659541600000006,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "repetition": 3,
+          "command": [
+            "rustc",
+            "--edition=2021",
+            "-O",
+            "/Users/bean/kakao/beans-code/tests/fixtures/compiled-critic/main.rs",
+            "-o",
+            "/Users/bean/kakao/beans-code/node_modules/.cache/compiled-critic-pilot-2026-11-21/rust/3/candidate"
+          ],
+          "seconds": 0.18060341699999993,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "executionCommand": [
+        "/Users/bean/kakao/beans-code/node_modules/.cache/compiled-critic-pilot-2026-11-21/rust/3/candidate"
+      ],
+      "privateCheck": {
+        "inputs": 200,
+        "failures": 25,
+        "executionSeconds": 0.5347575830000002
+      }
+    },
+    {
+      "language": "java",
+      "sourcePath": "tests/fixtures/compiled-critic/Main.java",
+      "source": "import java.util.ArrayList;\nimport java.util.Comparator;\nimport java.util.List;\nimport java.util.Scanner;\n\npublic class Main {\n    static int solve(List<int[]> jobs) {\n        jobs.sort(Comparator.<int[]>comparingInt(j -> j[1]).thenComparingInt(j -> j[0]));\n        List<int[]> chosen = new ArrayList<>();\n        for (int[] job : jobs) {\n            int conflicts = 0;\n            for (int[] old : chosen) {\n                if (old[0] < job[1] && job[0] < old[1]) conflicts += old[2];\n            }\n            if (job[2] > conflicts) {\n                chosen.removeIf(old -> old[0] < job[1] && job[0] < old[1]);\n                chosen.add(job);\n            }\n        }\n        return chosen.stream().mapToInt(j -> j[2]).sum();\n    }\n\n    public static void main(String[] args) {\n        Scanner scanner = new Scanner(System.in);\n        int cases = scanner.nextInt();\n        for (int c = 0; c < cases; c++) {\n            int n = scanner.nextInt();\n            List<int[]> jobs = new ArrayList<>();\n            for (int i = 0; i < n; i++) {\n                jobs.add(new int[]{scanner.nextInt(), scanner.nextInt(), scanner.nextInt()});\n            }\n            System.out.println(solve(jobs));\n        }\n    }\n}\n",
+      "sourceSha256": "2cb1350d428a85941f890a267dcda524cc588b0ab568ff7a9666782549cad5f5",
+      "builds": [
+        {
+          "repetition": 1,
+          "command": [
+            "javac",
+            "-d",
+            "/Users/bean/kakao/beans-code/node_modules/.cache/compiled-critic-pilot-2026-11-21/java/1",
+            "/Users/bean/kakao/beans-code/tests/fixtures/compiled-critic/Main.java"
+          ],
+          "seconds": 0.2837255830000003,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "repetition": 2,
+          "command": [
+            "javac",
+            "-d",
+            "/Users/bean/kakao/beans-code/node_modules/.cache/compiled-critic-pilot-2026-11-21/java/2",
+            "/Users/bean/kakao/beans-code/tests/fixtures/compiled-critic/Main.java"
+          ],
+          "seconds": 0.2525862499999998,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "repetition": 3,
+          "command": [
+            "javac",
+            "-d",
+            "/Users/bean/kakao/beans-code/node_modules/.cache/compiled-critic-pilot-2026-11-21/java/3",
+            "/Users/bean/kakao/beans-code/tests/fixtures/compiled-critic/Main.java"
+          ],
+          "seconds": 0.2570464170000002,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "executionCommand": [
+        "java",
+        "-cp",
+        "/Users/bean/kakao/beans-code/node_modules/.cache/compiled-critic-pilot-2026-11-21/java/3",
+        "Main"
+      ],
+      "privateCheck": {
+        "inputs": 200,
+        "failures": 25,
+        "executionSeconds": 0.06764087499999993
+      }
+    },
+    {
+      "language": "kotlin",
+      "sourcePath": "tests/fixtures/compiled-critic/Main.kt",
+      "source": "import java.util.Scanner\n\nfun solve(jobs: List<IntArray>): Int {\n    val ordered = jobs.sortedWith(compareBy<IntArray> { it[1] }.thenBy { it[0] })\n    val chosen = mutableListOf<IntArray>()\n    for (job in ordered) {\n        val conflicts = chosen.filter { it[0] < job[1] && job[0] < it[1] }.sumOf { it[2] }\n        if (job[2] > conflicts) {\n            chosen.removeAll { it[0] < job[1] && job[0] < it[1] }\n            chosen.add(job)\n        }\n    }\n    return chosen.sumOf { it[2] }\n}\n\nfun main() {\n    val scanner = Scanner(System.`in`)\n    repeat(scanner.nextInt()) {\n        val jobs = List(scanner.nextInt()) {\n            intArrayOf(scanner.nextInt(), scanner.nextInt(), scanner.nextInt())\n        }\n        println(solve(jobs))\n    }\n}\n",
+      "sourceSha256": "84389e806a8ffae78f9e89e3b449c790061c1c1fb9388d588868039c8efcae46",
+      "builds": [
+        {
+          "repetition": 1,
+          "command": [
+            "java",
+            "-cp",
+            "/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-compiler-embeddable/2.3.0/dfa7ae7e29f042fe2abf0708315aa367989bb07d/kotlin-compiler-embeddable-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.3.0/ebc4eb2b6e6c91b6c844c1e3183920d86f2ef656/kotlin-stdlib-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains/annotations/13.0/919f0dfe192fb4e063e7dacadee7f8bb9a2672a9/annotations-13.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-script-runtime/2.3.0/fb89e0ab064ea19d08c6d6bc9f044d16c5487fc4/kotlin-script-runtime-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-daemon-embeddable/2.3.0/3362fbd68a4dfd1df3818cfee0b8d5f4f6a7e35f/kotlin-daemon-embeddable-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-reflect/1.6.10/1cbe9c92c12a94eea200d23c2bbaedaf3daf5132/kotlin-reflect-1.6.10.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm/1.8.0/ac1dc37a30a93150b704022f8d895ee1bd3a36b3/kotlinx-coroutines-core-jvm-1.8.0.jar",
+            "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler",
+            "-no-stdlib",
+            "-no-reflect",
+            "-classpath",
+            "/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.3.0/ebc4eb2b6e6c91b6c844c1e3183920d86f2ef656/kotlin-stdlib-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains/annotations/13.0/919f0dfe192fb4e063e7dacadee7f8bb9a2672a9/annotations-13.0.jar",
+            "-d",
+            "/Users/bean/kakao/beans-code/node_modules/.cache/compiled-critic-pilot-2026-11-21/kotlin/1",
+            "/Users/bean/kakao/beans-code/tests/fixtures/compiled-critic/Main.kt"
+          ],
+          "seconds": 2.2160997919999996,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "repetition": 2,
+          "command": [
+            "java",
+            "-cp",
+            "/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-compiler-embeddable/2.3.0/dfa7ae7e29f042fe2abf0708315aa367989bb07d/kotlin-compiler-embeddable-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.3.0/ebc4eb2b6e6c91b6c844c1e3183920d86f2ef656/kotlin-stdlib-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains/annotations/13.0/919f0dfe192fb4e063e7dacadee7f8bb9a2672a9/annotations-13.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-script-runtime/2.3.0/fb89e0ab064ea19d08c6d6bc9f044d16c5487fc4/kotlin-script-runtime-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-daemon-embeddable/2.3.0/3362fbd68a4dfd1df3818cfee0b8d5f4f6a7e35f/kotlin-daemon-embeddable-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-reflect/1.6.10/1cbe9c92c12a94eea200d23c2bbaedaf3daf5132/kotlin-reflect-1.6.10.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm/1.8.0/ac1dc37a30a93150b704022f8d895ee1bd3a36b3/kotlinx-coroutines-core-jvm-1.8.0.jar",
+            "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler",
+            "-no-stdlib",
+            "-no-reflect",
+            "-classpath",
+            "/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.3.0/ebc4eb2b6e6c91b6c844c1e3183920d86f2ef656/kotlin-stdlib-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains/annotations/13.0/919f0dfe192fb4e063e7dacadee7f8bb9a2672a9/annotations-13.0.jar",
+            "-d",
+            "/Users/bean/kakao/beans-code/node_modules/.cache/compiled-critic-pilot-2026-11-21/kotlin/2",
+            "/Users/bean/kakao/beans-code/tests/fixtures/compiled-critic/Main.kt"
+          ],
+          "seconds": 1.8674838329999996,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "repetition": 3,
+          "command": [
+            "java",
+            "-cp",
+            "/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-compiler-embeddable/2.3.0/dfa7ae7e29f042fe2abf0708315aa367989bb07d/kotlin-compiler-embeddable-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.3.0/ebc4eb2b6e6c91b6c844c1e3183920d86f2ef656/kotlin-stdlib-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains/annotations/13.0/919f0dfe192fb4e063e7dacadee7f8bb9a2672a9/annotations-13.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-script-runtime/2.3.0/fb89e0ab064ea19d08c6d6bc9f044d16c5487fc4/kotlin-script-runtime-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-daemon-embeddable/2.3.0/3362fbd68a4dfd1df3818cfee0b8d5f4f6a7e35f/kotlin-daemon-embeddable-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-reflect/1.6.10/1cbe9c92c12a94eea200d23c2bbaedaf3daf5132/kotlin-reflect-1.6.10.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm/1.8.0/ac1dc37a30a93150b704022f8d895ee1bd3a36b3/kotlinx-coroutines-core-jvm-1.8.0.jar",
+            "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler",
+            "-no-stdlib",
+            "-no-reflect",
+            "-classpath",
+            "/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.3.0/ebc4eb2b6e6c91b6c844c1e3183920d86f2ef656/kotlin-stdlib-2.3.0.jar:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains/annotations/13.0/919f0dfe192fb4e063e7dacadee7f8bb9a2672a9/annotations-13.0.jar",
+            "-d",
+            "/Users/bean/kakao/beans-code/node_modules/.cache/compiled-critic-pilot-2026-11-21/kotlin/3",
+            "/Users/bean/kakao/beans-code/tests/fixtures/compiled-critic/Main.kt"
+          ],
+          "seconds": 1.9749974170000009,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "executionCommand": [
+        "java",
+        "-cp",
+        "/Users/bean/kakao/beans-code/node_modules/.cache/compiled-critic-pilot-2026-11-21/kotlin/3:/Users/bean/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.3.0/ebc4eb2b6e6c91b6c844c1e3183920d86f2ef656/kotlin-stdlib-2.3.0.jar",
+        "MainKt"
+      ],
+      "privateCheck": {
+        "inputs": 200,
+        "failures": 25,
+        "executionSeconds": 0.07539550000000084
+      }
+    },
+    {
+      "language": "cpp",
+      "sourcePath": "tests/fixtures/compiled-critic/Main.cpp",
+      "source": "#include <algorithm>\n#include <array>\n#include <iostream>\n#include <vector>\nusing Job = std::array<int, 3>;\n\nint solve(std::vector<Job> jobs) {\n    std::sort(jobs.begin(), jobs.end(), [](const Job& a, const Job& b) {\n        return a[1] != b[1] ? a[1] < b[1] : a[0] < b[0];\n    });\n    std::vector<Job> chosen;\n    for (const auto& job : jobs) {\n        int conflicts = 0;\n        for (const auto& old : chosen)\n            if (old[0] < job[1] && job[0] < old[1]) conflicts += old[2];\n        if (job[2] > conflicts) {\n            chosen.erase(std::remove_if(chosen.begin(), chosen.end(), [&](const Job& old) {\n                return old[0] < job[1] && job[0] < old[1];\n            }), chosen.end());\n            chosen.push_back(job);\n        }\n    }\n    int result = 0;\n    for (const auto& job : chosen) result += job[2];\n    return result;\n}\n\nint main() {\n    int cases;\n    std::cin >> cases;\n    while (cases--) {\n        int n;\n        std::cin >> n;\n        std::vector<Job> jobs(n);\n        for (auto& job : jobs) std::cin >> job[0] >> job[1] >> job[2];\n        std::cout << solve(jobs) << '\\n';\n    }\n}\n",
+      "sourceSha256": "0cac6eb425dfa4040caed260131ec4f3e71fb54318a865f19a70f4a11ae5dfa7",
+      "builds": [
+        {
+          "repetition": 1,
+          "command": [
+            "clang++",
+            "-std=c++17",
+            "-O2",
+            "/Users/bean/kakao/beans-code/tests/fixtures/compiled-critic/Main.cpp",
+            "-o",
+            "/Users/bean/kakao/beans-code/node_modules/.cache/compiled-critic-pilot-2026-11-21/cpp/1/candidate"
+          ],
+          "seconds": 0.5828988750000015,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "repetition": 2,
+          "command": [
+            "clang++",
+            "-std=c++17",
+            "-O2",
+            "/Users/bean/kakao/beans-code/tests/fixtures/compiled-critic/Main.cpp",
+            "-o",
+            "/Users/bean/kakao/beans-code/node_modules/.cache/compiled-critic-pilot-2026-11-21/cpp/2/candidate"
+          ],
+          "seconds": 0.32975437500000027,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "repetition": 3,
+          "command": [
+            "clang++",
+            "-std=c++17",
+            "-O2",
+            "/Users/bean/kakao/beans-code/tests/fixtures/compiled-critic/Main.cpp",
+            "-o",
+            "/Users/bean/kakao/beans-code/node_modules/.cache/compiled-critic-pilot-2026-11-21/cpp/3/candidate"
+          ],
+          "seconds": 0.33224558299999885,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "executionCommand": [
+        "/Users/bean/kakao/beans-code/node_modules/.cache/compiled-critic-pilot-2026-11-21/cpp/3/candidate"
+      ],
+      "privateCheck": {
+        "inputs": 200,
+        "failures": 25,
+        "executionSeconds": 0.42871854200000037
+      }
+    }
+  ],
+  "reviews": [
+    {
+      "language": "rust",
+      "request": {
+        "model": "gemini-3.6-flash",
+        "provider": "google",
+        "temperature": 0.7,
+        "maxTokens": 8192,
+        "systemPrompt": "You are a programming assistant. Follow the current request. No tools or external resources are available.",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Assess correctness by seeking a falsifiable violation. Identify a necessary condition implied by the problem and inspect a code decision that could violate it. Challenge state merging, pruning, local choices, and the optimized objective where relevant. Try to construct a small valid counterexample or a valid input transformation whose outputs must obey a relation. Check the proposed evidence against the actual code before reporting it. A different implementation or an unfamiliar pattern is not evidence of a bug. Accept correct code and use uncertain if you cannot justify a conclusion.\n\nReturn JSON only:\n{\n  \"verdict\": \"correct\" | \"incorrect\" | \"uncertain\",\n  \"relevant_requirement\": \"requirement supporting the assessment\",\n  \"code_lines\": [one-based source line numbers],\n  \"explanation\": \"concise explanation grounded in the code\",\n  \"evidence\": null OR {\n    \"kind\": \"counterexample\",\n    \"input\": {function parameter names: JSON values},\n    \"expected\": integer,\n    \"predicted_actual\": integer or null if an exception is predicted\n  } OR {\n    \"kind\": \"metamorphic\",\n    \"relation\": \"edge_addition\" | \"budget_relaxation\" | \"input_permutation\",\n    \"input\": {function parameter names: JSON values},\n    \"followup_input\": {function parameter names: JSON values}\n  }\n}\nIf you supply evidence, construct it yourself. No example, expected answer, or test result is provided. A metamorphic test must satisfy its transformation's preconditions and demonstrate an output-relation violation. If no evidence is available, use null. Do not write replacement code. Do not assume that every implementation contains a defect.\n\nProblem:\nImplement solve(jobs). Each job is [start, end, reward], with integer times, 0 <= start < end <= 20, and a positive integer reward between 1 and 30. Choose a subset of jobs with no overlaps to maximize the sum of rewards, and return that sum. Jobs occupy half-open intervals [start, end), so one job may start exactly when another ends. The input contains between 0 and 12 jobs. Each job may be selected at most once. Selecting no jobs is allowed. The implementation is in rust. The driver reads a case count, then for each case a job count followed by that many start/end/reward triples. Review solve and its use by the driver. Inputs satisfy the stated constraints.\n\nCode:\n```rust\nuse std::io::{self, Read};\n\nfn solve(mut jobs: Vec<[i32; 3]>) -> i32 {\n    jobs.sort_by_key(|j| (j[1], j[0]));\n    let mut chosen: Vec<[i32; 3]> = Vec::new();\n    for job in jobs {\n        let conflicts: i32 = chosen.iter()\n            .filter(|old| old[0] < job[1] && job[0] < old[1])\n            .map(|old| old[2]).sum();\n        if job[2] > conflicts {\n            chosen.retain(|old| old[1] <= job[0] || job[1] <= old[0]);\n            chosen.push(job);\n        }\n    }\n    chosen.iter().map(|job| job[2]).sum()\n}\n\nfn main() {\n    let mut input = String::new();\n    io::stdin().read_to_string(&mut input).unwrap();\n    let mut values = input.split_whitespace().map(|s| s.parse::<i32>().unwrap());\n    let cases = values.next().unwrap();\n    for _ in 0..cases {\n        let n = values.next().unwrap();\n        let jobs = (0..n).map(|_| [values.next().unwrap(), values.next().unwrap(), values.next().unwrap()]).collect();\n        println!(\"{}\", solve(jobs));\n    }\n}\n\n```"
+          }
+        ]
+      },
+      "response": {
+        "content": "```json\n{\n  \"verdict\": \"incorrect\",\n  \"relevant_requirement\": \"Choose a subset of jobs with no overlaps to maximize the sum of rewards, and return that sum.\",\n  \"code_lines\": [4, 7, 8, 9, 10, 11, 12, 13],\n  \"explanation\": \"The greedy replacement algorithm fails to compute the maximum weight independent set of intervals. When processing jobs sorted by end time (and start time), replacing conflicting jobs locally or skipping a job whose reward is less than the current conflicting set's reward can permanently discard an optimal combination of non-overlapping jobs.\",\n  \"evidence\": {\n    \"kind\": \"counterexample\",\n    \"input\": {\n      \"jobs\": [\n        [0, 5, 10],\n        [5, 10, 10],\n        [0, 10, 15]\n      ]\n    },\n    \"expected\": 20,\n    \"predicted_actual\": 15\n  }\n}\n```",
+        "usage": {
+          "promptTokens": 886,
+          "completionTokens": 238,
+          "totalTokens": 3363
+        },
+        "model": "gemini-3.6-flash",
+        "finishReason": "stop"
+      },
+      "elapsedMs": 12193.443125,
+      "review": {
+        "verdict": "incorrect",
+        "relevant_requirement": "Choose a subset of jobs with no overlaps to maximize the sum of rewards, and return that sum.",
+        "code_lines": [4, 7, 8, 9, 10, 11, 12, 13],
+        "explanation": "The greedy replacement algorithm fails to compute the maximum weight independent set of intervals. When processing jobs sorted by end time (and start time), replacing conflicting jobs locally or skipping a job whose reward is less than the current conflicting set's reward can permanently discard an optimal combination of non-overlapping jobs.",
+        "evidence": {
+          "kind": "counterexample",
+          "input": {
+            "jobs": [
+              [0, 5, 10],
+              [5, 10, 10],
+              [0, 10, 15]
+            ]
+          },
+          "expected": 20,
+          "predicted_actual": 15
+        }
+      },
+      "validation": {
+        "status": "confirmed",
+        "confirmed": true,
+        "expected": 20,
+        "actual": 15,
+        "fullyValidated": true,
+        "executionSeconds": 0.004750667
+      },
+      "validationMs": 71.97966700000143
+    },
+    {
+      "language": "java",
+      "request": {
+        "model": "gemini-3.6-flash",
+        "provider": "google",
+        "temperature": 0.7,
+        "maxTokens": 8192,
+        "systemPrompt": "You are a programming assistant. Follow the current request. No tools or external resources are available.",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Assess correctness by seeking a falsifiable violation. Identify a necessary condition implied by the problem and inspect a code decision that could violate it. Challenge state merging, pruning, local choices, and the optimized objective where relevant. Try to construct a small valid counterexample or a valid input transformation whose outputs must obey a relation. Check the proposed evidence against the actual code before reporting it. A different implementation or an unfamiliar pattern is not evidence of a bug. Accept correct code and use uncertain if you cannot justify a conclusion.\n\nReturn JSON only:\n{\n  \"verdict\": \"correct\" | \"incorrect\" | \"uncertain\",\n  \"relevant_requirement\": \"requirement supporting the assessment\",\n  \"code_lines\": [one-based source line numbers],\n  \"explanation\": \"concise explanation grounded in the code\",\n  \"evidence\": null OR {\n    \"kind\": \"counterexample\",\n    \"input\": {function parameter names: JSON values},\n    \"expected\": integer,\n    \"predicted_actual\": integer or null if an exception is predicted\n  } OR {\n    \"kind\": \"metamorphic\",\n    \"relation\": \"edge_addition\" | \"budget_relaxation\" | \"input_permutation\",\n    \"input\": {function parameter names: JSON values},\n    \"followup_input\": {function parameter names: JSON values}\n  }\n}\nIf you supply evidence, construct it yourself. No example, expected answer, or test result is provided. A metamorphic test must satisfy its transformation's preconditions and demonstrate an output-relation violation. If no evidence is available, use null. Do not write replacement code. Do not assume that every implementation contains a defect.\n\nProblem:\nImplement solve(jobs). Each job is [start, end, reward], with integer times, 0 <= start < end <= 20, and a positive integer reward between 1 and 30. Choose a subset of jobs with no overlaps to maximize the sum of rewards, and return that sum. Jobs occupy half-open intervals [start, end), so one job may start exactly when another ends. The input contains between 0 and 12 jobs. Each job may be selected at most once. Selecting no jobs is allowed. The implementation is in java. The driver reads a case count, then for each case a job count followed by that many start/end/reward triples. Review solve and its use by the driver. Inputs satisfy the stated constraints.\n\nCode:\n```java\nimport java.util.ArrayList;\nimport java.util.Comparator;\nimport java.util.List;\nimport java.util.Scanner;\n\npublic class Main {\n    static int solve(List<int[]> jobs) {\n        jobs.sort(Comparator.<int[]>comparingInt(j -> j[1]).thenComparingInt(j -> j[0]));\n        List<int[]> chosen = new ArrayList<>();\n        for (int[] job : jobs) {\n            int conflicts = 0;\n            for (int[] old : chosen) {\n                if (old[0] < job[1] && job[0] < old[1]) conflicts += old[2];\n            }\n            if (job[2] > conflicts) {\n                chosen.removeIf(old -> old[0] < job[1] && job[0] < old[1]);\n                chosen.add(job);\n            }\n        }\n        return chosen.stream().mapToInt(j -> j[2]).sum();\n    }\n\n    public static void main(String[] args) {\n        Scanner scanner = new Scanner(System.in);\n        int cases = scanner.nextInt();\n        for (int c = 0; c < cases; c++) {\n            int n = scanner.nextInt();\n            List<int[]> jobs = new ArrayList<>();\n            for (int i = 0; i < n; i++) {\n                jobs.add(new int[]{scanner.nextInt(), scanner.nextInt(), scanner.nextInt()});\n            }\n            System.out.println(solve(jobs));\n        }\n    }\n}\n\n```"
+          }
+        ]
+      },
+      "response": {
+        "content": "```json\n{\n  \"verdict\": \"incorrect\",\n  \"relevant_requirement\": \"Choose a subset of jobs with no overlaps to maximize the sum of rewards, and return that sum.\",\n  \"code_lines\": [13, 14, 15, 16, 17],\n  \"explanation\": \"The greedy replacement heuristic replaces previously selected jobs whenever a new job has a greater reward than the sum of conflicting jobs already chosen. This greedy local replacement is non-optimal for weighted interval scheduling, as replacing an earlier job can prevent subsequent non-overlapping jobs from being selected together to achieve a higher total reward.\",\n  \"evidence\": {\n    \"kind\": \"counterexample\",\n    \"input\": {\n      \"jobs\": [\n        [0, 4, 10],\n        [4, 8, 10],\n        [1, 6, 15]\n      ]\n    },\n    \"expected\": 20,\n    \"predicted_actual\": 15\n  }\n}\n```",
+        "usage": {
+          "promptTokens": 904,
+          "completionTokens": 230,
+          "totalTokens": 3604
+        },
+        "model": "gemini-3.6-flash",
+        "finishReason": "stop"
+      },
+      "elapsedMs": 12805.742625,
+      "review": {
+        "verdict": "incorrect",
+        "relevant_requirement": "Choose a subset of jobs with no overlaps to maximize the sum of rewards, and return that sum.",
+        "code_lines": [13, 14, 15, 16, 17],
+        "explanation": "The greedy replacement heuristic replaces previously selected jobs whenever a new job has a greater reward than the sum of conflicting jobs already chosen. This greedy local replacement is non-optimal for weighted interval scheduling, as replacing an earlier job can prevent subsequent non-overlapping jobs from being selected together to achieve a higher total reward.",
+        "evidence": {
+          "kind": "counterexample",
+          "input": {
+            "jobs": [
+              [0, 4, 10],
+              [4, 8, 10],
+              [1, 6, 15]
+            ]
+          },
+          "expected": 20,
+          "predicted_actual": 15
+        }
+      },
+      "validation": {
+        "status": "confirmed",
+        "confirmed": true,
+        "expected": 20,
+        "actual": 15,
+        "fullyValidated": true,
+        "executionSeconds": 0.09641329200000001
+      },
+      "validationMs": 156.44325000000026
+    },
+    {
+      "language": "kotlin",
+      "request": {
+        "model": "gemini-3.6-flash",
+        "provider": "google",
+        "temperature": 0.7,
+        "maxTokens": 8192,
+        "systemPrompt": "You are a programming assistant. Follow the current request. No tools or external resources are available.",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Assess correctness by seeking a falsifiable violation. Identify a necessary condition implied by the problem and inspect a code decision that could violate it. Challenge state merging, pruning, local choices, and the optimized objective where relevant. Try to construct a small valid counterexample or a valid input transformation whose outputs must obey a relation. Check the proposed evidence against the actual code before reporting it. A different implementation or an unfamiliar pattern is not evidence of a bug. Accept correct code and use uncertain if you cannot justify a conclusion.\n\nReturn JSON only:\n{\n  \"verdict\": \"correct\" | \"incorrect\" | \"uncertain\",\n  \"relevant_requirement\": \"requirement supporting the assessment\",\n  \"code_lines\": [one-based source line numbers],\n  \"explanation\": \"concise explanation grounded in the code\",\n  \"evidence\": null OR {\n    \"kind\": \"counterexample\",\n    \"input\": {function parameter names: JSON values},\n    \"expected\": integer,\n    \"predicted_actual\": integer or null if an exception is predicted\n  } OR {\n    \"kind\": \"metamorphic\",\n    \"relation\": \"edge_addition\" | \"budget_relaxation\" | \"input_permutation\",\n    \"input\": {function parameter names: JSON values},\n    \"followup_input\": {function parameter names: JSON values}\n  }\n}\nIf you supply evidence, construct it yourself. No example, expected answer, or test result is provided. A metamorphic test must satisfy its transformation's preconditions and demonstrate an output-relation violation. If no evidence is available, use null. Do not write replacement code. Do not assume that every implementation contains a defect.\n\nProblem:\nImplement solve(jobs). Each job is [start, end, reward], with integer times, 0 <= start < end <= 20, and a positive integer reward between 1 and 30. Choose a subset of jobs with no overlaps to maximize the sum of rewards, and return that sum. Jobs occupy half-open intervals [start, end), so one job may start exactly when another ends. The input contains between 0 and 12 jobs. Each job may be selected at most once. Selecting no jobs is allowed. The implementation is in kotlin. The driver reads a case count, then for each case a job count followed by that many start/end/reward triples. Review solve and its use by the driver. Inputs satisfy the stated constraints.\n\nCode:\n```kotlin\nimport java.util.Scanner\n\nfun solve(jobs: List<IntArray>): Int {\n    val ordered = jobs.sortedWith(compareBy<IntArray> { it[1] }.thenBy { it[0] })\n    val chosen = mutableListOf<IntArray>()\n    for (job in ordered) {\n        val conflicts = chosen.filter { it[0] < job[1] && job[0] < it[1] }.sumOf { it[2] }\n        if (job[2] > conflicts) {\n            chosen.removeAll { it[0] < job[1] && job[0] < it[1] }\n            chosen.add(job)\n        }\n    }\n    return chosen.sumOf { it[2] }\n}\n\nfun main() {\n    val scanner = Scanner(System.`in`)\n    repeat(scanner.nextInt()) {\n        val jobs = List(scanner.nextInt()) {\n            intArrayOf(scanner.nextInt(), scanner.nextInt(), scanner.nextInt())\n        }\n        println(solve(jobs))\n    }\n}\n\n```"
+          }
+        ]
+      },
+      "response": {
+        "content": "```json\n{\n  \"verdict\": \"incorrect\",\n  \"relevant_requirement\": \"Choose a subset of jobs with no overlaps to maximize the sum of rewards, and return that sum.\",\n  \"code_lines\": [6, 7, 8, 9, 10],\n  \"explanation\": \"The algorithm uses a greedy replacement strategy based on local total rewards of conflicting jobs. Accepting a middle job with a slightly higher reward can remove a previously chosen non-conflicting job and prevent a subsequent non-conflicting job from being selected, leading to a suboptimal total sum.\",\n  \"evidence\": {\n    \"kind\": \"counterexample\",\n    \"input\": {\n      \"jobs\": [\n        [0, 5, 10],\n        [4, 10, 11],\n        [9, 15, 10]\n      ]\n    },\n    \"expected\": 20,\n    \"predicted_actual\": 11\n  }\n}\n```",
+        "usage": {
+          "promptTokens": 789,
+          "completionTokens": 222,
+          "totalTokens": 3474
+        },
+        "model": "gemini-3.6-flash",
+        "finishReason": "stop"
+      },
+      "elapsedMs": 12861.842916999998,
+      "review": {
+        "verdict": "incorrect",
+        "relevant_requirement": "Choose a subset of jobs with no overlaps to maximize the sum of rewards, and return that sum.",
+        "code_lines": [6, 7, 8, 9, 10],
+        "explanation": "The algorithm uses a greedy replacement strategy based on local total rewards of conflicting jobs. Accepting a middle job with a slightly higher reward can remove a previously chosen non-conflicting job and prevent a subsequent non-conflicting job from being selected, leading to a suboptimal total sum.",
+        "evidence": {
+          "kind": "counterexample",
+          "input": {
+            "jobs": [
+              [0, 5, 10],
+              [4, 10, 11],
+              [9, 15, 10]
+            ]
+          },
+          "expected": 20,
+          "predicted_actual": 11
+        }
+      },
+      "validation": {
+        "status": "confirmed",
+        "confirmed": true,
+        "expected": 20,
+        "actual": 11,
+        "fullyValidated": true,
+        "executionSeconds": 0.059824709000000004
+      },
+      "validationMs": 133.29966599999898
+    },
+    {
+      "language": "cpp",
+      "request": {
+        "model": "gemini-3.6-flash",
+        "provider": "google",
+        "temperature": 0.7,
+        "maxTokens": 8192,
+        "systemPrompt": "You are a programming assistant. Follow the current request. No tools or external resources are available.",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Assess correctness by seeking a falsifiable violation. Identify a necessary condition implied by the problem and inspect a code decision that could violate it. Challenge state merging, pruning, local choices, and the optimized objective where relevant. Try to construct a small valid counterexample or a valid input transformation whose outputs must obey a relation. Check the proposed evidence against the actual code before reporting it. A different implementation or an unfamiliar pattern is not evidence of a bug. Accept correct code and use uncertain if you cannot justify a conclusion.\n\nReturn JSON only:\n{\n  \"verdict\": \"correct\" | \"incorrect\" | \"uncertain\",\n  \"relevant_requirement\": \"requirement supporting the assessment\",\n  \"code_lines\": [one-based source line numbers],\n  \"explanation\": \"concise explanation grounded in the code\",\n  \"evidence\": null OR {\n    \"kind\": \"counterexample\",\n    \"input\": {function parameter names: JSON values},\n    \"expected\": integer,\n    \"predicted_actual\": integer or null if an exception is predicted\n  } OR {\n    \"kind\": \"metamorphic\",\n    \"relation\": \"edge_addition\" | \"budget_relaxation\" | \"input_permutation\",\n    \"input\": {function parameter names: JSON values},\n    \"followup_input\": {function parameter names: JSON values}\n  }\n}\nIf you supply evidence, construct it yourself. No example, expected answer, or test result is provided. A metamorphic test must satisfy its transformation's preconditions and demonstrate an output-relation violation. If no evidence is available, use null. Do not write replacement code. Do not assume that every implementation contains a defect.\n\nProblem:\nImplement solve(jobs). Each job is [start, end, reward], with integer times, 0 <= start < end <= 20, and a positive integer reward between 1 and 30. Choose a subset of jobs with no overlaps to maximize the sum of rewards, and return that sum. Jobs occupy half-open intervals [start, end), so one job may start exactly when another ends. The input contains between 0 and 12 jobs. Each job may be selected at most once. Selecting no jobs is allowed. The implementation is in cpp. The driver reads a case count, then for each case a job count followed by that many start/end/reward triples. Review solve and its use by the driver. Inputs satisfy the stated constraints.\n\nCode:\n```cpp\n#include <algorithm>\n#include <array>\n#include <iostream>\n#include <vector>\nusing Job = std::array<int, 3>;\n\nint solve(std::vector<Job> jobs) {\n    std::sort(jobs.begin(), jobs.end(), [](const Job& a, const Job& b) {\n        return a[1] != b[1] ? a[1] < b[1] : a[0] < b[0];\n    });\n    std::vector<Job> chosen;\n    for (const auto& job : jobs) {\n        int conflicts = 0;\n        for (const auto& old : chosen)\n            if (old[0] < job[1] && job[0] < old[1]) conflicts += old[2];\n        if (job[2] > conflicts) {\n            chosen.erase(std::remove_if(chosen.begin(), chosen.end(), [&](const Job& old) {\n                return old[0] < job[1] && job[0] < old[1];\n            }), chosen.end());\n            chosen.push_back(job);\n        }\n    }\n    int result = 0;\n    for (const auto& job : chosen) result += job[2];\n    return result;\n}\n\nint main() {\n    int cases;\n    std::cin >> cases;\n    while (cases--) {\n        int n;\n        std::cin >> n;\n        std::vector<Job> jobs(n);\n        for (auto& job : jobs) std::cin >> job[0] >> job[1] >> job[2];\n        std::cout << solve(jobs) << '\\n';\n    }\n}\n\n```"
+          }
+        ]
+      },
+      "response": {
+        "content": "```json\n{\n  \"verdict\": \"incorrect\",\n  \"relevant_requirement\": \"Choose a subset of jobs with no overlaps to maximize the sum of rewards, and return that sum.\",\n  \"code_lines\": [13, 14, 15, 16, 17, 18, 19, 20],\n  \"explanation\": \"The algorithm uses a local greedy heuristic that replaces overlapping selected jobs with a new job whenever the new job's reward exceeds the sum of rewards of conflicting jobs currently in the selection. This heuristic is not optimal for weighted interval scheduling and can prematurely evict a job that forms part of the optimal job combination.\",\n  \"evidence\": {\n    \"kind\": \"counterexample\",\n    \"input\": {\n      \"jobs\": [\n        [0, 10, 10],\n        [0, 5, 6],\n        [5, 10, 6]\n      ]\n    },\n    \"expected\": 12,\n    \"predicted_actual\": 10\n  }\n}\n```",
+        "usage": {
+          "promptTokens": 939,
+          "completionTokens": 242,
+          "totalTokens": 2658
+        },
+        "model": "gemini-3.6-flash",
+        "finishReason": "stop"
+      },
+      "elapsedMs": 9312.277459000004,
+      "review": {
+        "verdict": "incorrect",
+        "relevant_requirement": "Choose a subset of jobs with no overlaps to maximize the sum of rewards, and return that sum.",
+        "code_lines": [13, 14, 15, 16, 17, 18, 19, 20],
+        "explanation": "The algorithm uses a local greedy heuristic that replaces overlapping selected jobs with a new job whenever the new job's reward exceeds the sum of rewards of conflicting jobs currently in the selection. This heuristic is not optimal for weighted interval scheduling and can prematurely evict a job that forms part of the optimal job combination.",
+        "evidence": {
+          "kind": "counterexample",
+          "input": {
+            "jobs": [
+              [0, 10, 10],
+              [0, 5, 6],
+              [5, 10, 6]
+            ]
+          },
+          "expected": 12,
+          "predicted_actual": 10
+        }
+      },
+      "validation": {
+        "status": "confirmed",
+        "confirmed": true,
+        "expected": 12,
+        "actual": 10,
+        "fullyValidated": true,
+        "executionSeconds": 0.0037355000000000027
+      },
+      "validationMs": 71.08766699999978
+    }
+  ],
+  "sourceHashes": {
+    "scripts/compiled-critic.py": "e98a5a2c10c51bdb4a2f0e7350669fabaecc59ad4395e63517a2bb3a6e6d3687",
+    "scripts/critic-evidence-validator.py": "bb50031da92bd8e2049ee7fac2c61c5e7a75a6222f3d0ad42be1587351b86600",
+    "docs/reports/compiled-critic-timing-plan-2026-11-21.md": "739bef8a53f66764e83cd848dd38abf36da2259f03a09f3b1ba4738ad41e8569"
+  },
+  "reviewSettings": {
+    "model": "gemini-3.6-flash",
+    "provider": "google",
+    "temperature": 0.7,
+    "maxTokens": 8192
+  },
+  "reviewSourceHashes": {
+    "scripts/benchmark-compiled-critic.ts": "0fc29b9c18382037383194e6069a6e3e7e639317edbc98b4533daf4543bb389d",
+    "packages/eval/src/experiments/critic-evidence.ts": "d5cc3454c7e077fab8bf7f42f1e9da54f9ae2fc2c1a8409ae6a9dcab9fbd37ba",
+    "packages/core/dist/llm/client.js": "e5b9c14e0e39797ca9bc3fa805d66f1a4f8ba0c507a61ba45d09928735fc1263"
+  }
+}

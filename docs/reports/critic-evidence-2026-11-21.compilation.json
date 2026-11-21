@@ -1,0 +1,78 @@
+{
+  "measuredAt": "2026-11-21T05:11:21.289Z",
+  "scope": "Supplementary local Python source-to-bytecode compilation timing, requested during the review pilot. No LLM calls. No full build, tests, concurrent scheduling, or end-to-end speedup measured.",
+  "measurements": [
+    {
+      "candidateId": "C1",
+      "repetitions": 200,
+      "medianMs": 0.055709,
+      "minMs": 0.050583,
+      "maxMs": 0.11975,
+      "workerElapsedMs": 127.61870799999997
+    },
+    {
+      "candidateId": "C2",
+      "repetitions": 200,
+      "medianMs": 0.093292,
+      "minMs": 0.091583,
+      "maxMs": 0.150291,
+      "workerElapsedMs": 88.89050000000003
+    },
+    {
+      "candidateId": "C3",
+      "repetitions": 200,
+      "medianMs": 0.06477050000000001,
+      "minMs": 0.06225,
+      "maxMs": 0.167833,
+      "workerElapsedMs": 85.85529099999997
+    },
+    {
+      "candidateId": "C4",
+      "repetitions": 200,
+      "medianMs": 0.091646,
+      "minMs": 0.089916,
+      "maxMs": 0.1755,
+      "workerElapsedMs": 90.427709
+    },
+    {
+      "candidateId": "C5",
+      "repetitions": 200,
+      "medianMs": 0.0621045,
+      "minMs": 0.060208,
+      "maxMs": 0.105083,
+      "workerElapsedMs": 80.91174999999998
+    },
+    {
+      "candidateId": "C6",
+      "repetitions": 200,
+      "medianMs": 0.07197899999999999,
+      "minMs": 0.069416,
+      "maxMs": 0.158708,
+      "workerElapsedMs": 84.02525000000003
+    },
+    {
+      "candidateId": "main_bounded_route",
+      "repetitions": 200,
+      "medianMs": 0.0391875,
+      "minMs": 0.038333,
+      "maxMs": 0.08575,
+      "workerElapsedMs": 78.64300000000003
+    },
+    {
+      "candidateId": "main_weighted_intervals",
+      "repetitions": 200,
+      "medianMs": 0.029833,
+      "minMs": 0.027583,
+      "maxMs": 0.050208,
+      "workerElapsedMs": 72.32362499999999
+    },
+    {
+      "candidateId": "main_bottleneck_route",
+      "repetitions": 200,
+      "medianMs": 0.06472900000000001,
+      "minMs": 0.063666,
+      "maxMs": 0.0985,
+      "workerElapsedMs": 80.58041600000001
+    }
+  ]
+}
