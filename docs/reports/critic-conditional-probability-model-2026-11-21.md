@@ -1,5 +1,7 @@
 # Conditional Critic Success Model from Static Features
 
+The [agreed workflow](critic-ast-bayesian-workflow-2026-11-21.md) connects feature and outcome collection, Bayesian learning, review admission, compilation overlap, and verified feedback.
+
 The intended model maps AST-derived feature values directly to the probability that a fixed Critic produces an independently verified counterexample under a fixed budget. Manually grouping code into a few buckets is not the target architecture. The previous Beta-Bernoulli walkthrough was an illustrative frequency baseline and does not establish that its grouping rules are useful.
 
 ## Prediction target

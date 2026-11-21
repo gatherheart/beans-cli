@@ -1,5 +1,7 @@
 # Concurrent Counterexample Search During Compiled Language Builds
 
+The [agreed AST and Bayesian Critic workflow](critic-ast-bayesian-workflow-2026-11-21.md) summarizes the current design and its research status for subsequent SOP work. This plan retains the detailed timing and evaluation considerations.
+
 The target workload is Rust, Java, Kotlin, or C++ compilation and builds. Python bytecode compilation from the preliminary review pilot is not representative evidence for or against this proposal.
 
 The objective is to obtain useful, verified feedback while avoiding Critic calls whose expected benefit does not justify their resource cost. For admitted reviews, a second decision determines whether build time can hide some review latency. Similarity retrieval is not part of this design. Context isolation and counterexample guidance remain design choices whose independent benefit must be measured.
